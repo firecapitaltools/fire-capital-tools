@@ -112,9 +112,16 @@ def create_app(config_class: type = Config) -> Flask:
     # which fixes the erasure itself; this narrows the window in which a
     # stale render is offered to the user at all.
     #
-    #   site_dd.area_detail    -> save_area
-    #   site_dd.room_detail    -> save_room
-    #   underwriting.detail    -> save_expenses / save_capex / save_loans
+    #   site_dd.area_detail        -> save_area
+    #   site_dd.room_detail        -> save_room
+    #   site_dd.detail             -> save (the property-scope findings)
+    #   underwriting.detail        -> save_expenses / save_capex / save_loans
+    #   investor_report.detail     -> save_gp_partners
+    #
+    # The last two were missed when this was first scoped, because the list
+    # was built from the routes that were in hand rather than from a sweep
+    # of every page rendering a whole-set form. Part 51 swept properly and
+    # found eleven collection-writing routes where four were assumed.
     #
     # `no-store` specifically, not `no-cache`: `no-cache` still permits the
     # browser's back/forward cache to restore the page, which is the path
@@ -132,7 +139,9 @@ def create_app(config_class: type = Config) -> Flask:
     STALE_FORM_ENDPOINTS = frozenset({
         "site_dd.area_detail",
         "site_dd.room_detail",
+        "site_dd.detail",
         "underwriting.detail",
+        "investor_report.detail",
     })
 
     @app.after_request

@@ -218,19 +218,34 @@ class TheStaleFormHeaderIsScopedTests(unittest.TestCase):
         self.app = app
         self.src = (ROOT / "app.py").read_text(encoding="utf-8")
 
+    # Every page that renders a form POSTing to a collection-rewrite
+    # handler. The first three were the list in hand; site_dd.detail and
+    # investor_report.detail were added in Part 52 after a proper sweep
+    # found eleven such routes where four had been assumed.
+    COVERED = ("site_dd.area_detail", "site_dd.room_detail", "site_dd.detail",
+               "underwriting.detail", "investor_report.detail")
+
     def test_the_listed_endpoints_are_the_whole_set_form_pages(self):
         block = self.src[self.src.index("STALE_FORM_ENDPOINTS"):]
         block = block[:block.index("@app.after_request")]
-        for endpoint in ("site_dd.area_detail", "site_dd.room_detail",
-                         "underwriting.detail"):
+        for endpoint in self.COVERED:
             self.assertIn(endpoint, block)
 
     def test_every_listed_endpoint_actually_exists(self):
         """A stale entry would silently protect nothing."""
         known = {r.endpoint for r in self.app.url_map.iter_rules()}
-        for endpoint in ("site_dd.area_detail", "site_dd.room_detail",
-                         "underwriting.detail"):
+        for endpoint in self.COVERED:
             self.assertIn(endpoint, known)
+
+    def test_every_covered_endpoint_gets_the_header(self):
+        from flask import Response, request
+        for endpoint in self.COVERED:
+            with self.subTest(endpoint=endpoint):
+                with self.app.test_request_context("/"):
+                    request.url_rule = type("R", (), {"endpoint": endpoint})()
+                    got = self.app.process_response(
+                        Response("x")).headers.get("Cache-Control")
+                self.assertEqual(got, "no-store, max-age=0")
 
     def test_it_is_no_store_not_no_cache(self):
         """no-cache still permits the back/forward cache to restore it."""
