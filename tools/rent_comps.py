@@ -48,6 +48,9 @@ from tools import rent_comps_db as db
 rent_comps_bp = Blueprint("rent_comps", __name__)
 
 MAX_COMP_ADDRESS_LEN = 255
+# A real building's floorplans; anything past this is a typo, and a
+# typo must not buy a RentCast call.
+MAX_OVERRIDE_BEDS = 10
 
 # RentCast returns 15 comparables by default, already sorted by correlation
 # descending. Showing all 15 up front is a wall of rows, so both tables
@@ -121,6 +124,7 @@ def _context_from_request():
                 "city": deal["city"],
                 "state": deal["state"],
                 "zip": deal.get("zip"),
+                "override_beds": _override_beds(),
             }
         flash("That deal could not be found — showing a standalone search instead.", "warning")
 
@@ -131,14 +135,42 @@ def _context_from_request():
         "city": (request.args.get("city") or request.form.get("city") or "").strip(),
         "state": (request.args.get("state") or request.form.get("state") or "").strip().upper(),
         "zip": (request.args.get("zip") or request.form.get("zip") or "").strip() or None,
+        "override_beds": _override_beds(),
     }
+
+
+def _override_beds():
+    """The subject size Michelle corrected to, or None.
+
+    A CORRECTION IS A NUMBER SHE TYPED, SO IT IS VALIDATED LIKE ONE
+
+    Anything unparseable, negative, or implausibly large is dropped rather
+    than sent to RentCast: an override is the one path here that spends a
+    paid call on caller-supplied input, so a typo must fall back to the
+    automatic answer instead of buying a lookup for a 400-bedroom unit.
+    Zero is kept -- a studio is a real answer and the falsy-zero trap in
+    this codebase started with exactly this field.
+    """
+    raw = (request.args.get("override_beds")
+           or request.form.get("override_beds") or "").strip()
+    if not raw:
+        return None
+    try:
+        beds = float(raw)
+    except ValueError:
+        return None
+    if beds < 0 or beds > MAX_OVERRIDE_BEDS or beds != int(beds):
+        return None
+    return int(beds)
 
 
 def _redirect_to_view(ctx):
     """Back to the search page in whichever mode we're in, preserving the
     address so a standalone search survives the POST-redirect-GET."""
+    beds = ctx.get("override_beds")
     if ctx["deal_id"] is not None:
-        return redirect(url_for("rent_comps.index", deal_id=ctx["deal_id"]))
+        return redirect(url_for("rent_comps.index", deal_id=ctx["deal_id"],
+                                override_beds=beds if beds is not None else None))
     return redirect(
         url_for(
             "rent_comps.index",
@@ -146,6 +178,7 @@ def _redirect_to_view(ctx):
             city=ctx["city"] or None,
             state=ctx["state"] or None,
             zip=ctx["zip"] or None,
+            override_beds=beds if beds is not None else None,
         )
     )
 
@@ -155,11 +188,13 @@ def _scope_query(ctx) -> dict:
     the same address/deal the page is showing. Same rule as
     _redirect_to_view: deal_id alone when scoped to a deal, otherwise the
     address parts."""
+    beds = ctx.get("override_beds")
+    extra = {} if beds is None else {"override_beds": beds}
     if ctx["deal_id"] is not None:
-        return {"deal_id": ctx["deal_id"]}
-    return {k: v for k, v in (
+        return {"deal_id": ctx["deal_id"], **extra}
+    return {**{k: v for k, v in (
         ("address", ctx["address"]), ("city", ctx["city"]),
-        ("state", ctx["state"]), ("zip", ctx["zip"])) if v}
+        ("state", ctx["state"]), ("zip", ctx["zip"])) if v}, **extra}
 
 
 def _has_address(ctx) -> bool:
@@ -175,12 +210,21 @@ def index():
     ctx = _context_from_request()
 
     cached = None
+    auto_cached = None
     if _has_address(ctx):
-        address_key = market_data_cache.normalize_address_key(
+        base_key = market_data_cache.normalize_address_key(
             ctx["address"], ctx["city"], ctx["state"], ctx["zip"]
         )
+        address_key = market_data_cache.override_address_key(
+            base_key, ctx.get("override_beds"))
         with market_data_cache.get_connection() as conn:
             cached = market_data_cache.get_cached(conn, address_key)
+            # The automatic answer is read alongside, never instead. The
+            # page states what RentCast resolved on its own AND what the
+            # override produced, so a corrected estimate is visibly a
+            # correction rather than simply a different number.
+            if ctx.get("override_beds") is not None:
+                auto_cached = market_data_cache.get_cached(conn, base_key)
 
     with db.get_connection() as conn:
         saved = db.list_comps(conn, ctx["deal_id"])
@@ -221,6 +265,14 @@ def index():
         rentcast_quota=market_data_service.rentcast_quota(),
         standalone_count=standalone_count,
         ctx_query=_scope_query(ctx),
+        override_beds=ctx.get("override_beds"),
+        # The same scope with the override dropped, so "Clear override"
+        # is a plain link back to RentCast's own answer -- which is
+        # already cached, so returning to it never spends.
+        clear_override_query=_scope_query({**ctx, "override_beds": None}),
+        auto_subject=((auto_cached.get("rentcast") or {}).get("property")
+                      if auto_cached else None),
+        max_override_beds=MAX_OVERRIDE_BEDS,
     )
 
 
@@ -365,6 +417,79 @@ def pull():
         flash(f"Pulled fresh rent data — {count} comparable{'' if count == 1 else 's'} found.", "success")
     else:
         flash(rentcast.get("message") or "RentCast returned no data for this address.", "warning")
+    return _redirect_to_view(ctx)
+
+
+@rent_comps_bp.route("/override", methods=["POST"])
+@login_required
+def override_subject():
+    """Re-ask RentCast with a subject size Michelle supplies.
+
+    WHY THIS SPENDS, AND WHY IT ASKS FIRST
+
+    RentCast resolves a multi-unit address to one unit and matches
+    comparables to that unit's size, so an estimate for a studio is what
+    comes back for a building whose 2-beds she is underwriting. The size is
+    a real query parameter -- propertyType, bedrooms, bathrooms and
+    squareFootage all override the automatic lookup -- so correcting it
+    means asking RentCast again, and asking again costs one call against
+    the 50/month cap.
+
+    It is therefore a POST behind a confirmation, never a dropdown that
+    re-requests on change. Michelle is choosing to spend and should know
+    she is spending, which is the same rule Force Refresh follows.
+
+    The result is cached under its own key, so this is a once-per-override
+    cost rather than a per-view one.
+    """
+    ctx = _context_from_request()
+    if not _has_address(ctx):
+        flash("Enter an address, city, and state before overriding the size.", "danger")
+        return _redirect_to_view(ctx)
+
+    beds = ctx.get("override_beds")
+    if beds is None:
+        flash(
+            f"Enter a whole number of bedrooms between 0 and {MAX_OVERRIDE_BEDS} "
+            f"to override the size.",
+            "danger",
+        )
+        return _redirect_to_view({**ctx, "override_beds": None})
+
+    # Cached already? Then this override has been run and costs nothing.
+    base_key = market_data_cache.normalize_address_key(
+        ctx["address"], ctx["city"], ctx["state"], ctx["zip"])
+    with market_data_cache.get_connection() as conn:
+        if market_data_cache.get_cached(
+                conn, market_data_cache.override_address_key(base_key, beds)):
+            flash("Showing the estimate already on file for that size — no API call used.",
+                  "success")
+            return _redirect_to_view(ctx)
+
+    if market_data_service.rentcast_quota()["at_cap"]:
+        flash(
+            "Monthly RentCast lookup limit reached — the size override needs a "
+            "fresh lookup and is unavailable until the counter resets.",
+            "warning",
+        )
+        return _redirect_to_view({**ctx, "override_beds": None})
+
+    result = market_data_service.get_market_data(
+        ctx["address"], ctx["city"], ctx["state"], ctx["zip"],
+        bedrooms_override=beds,
+    )
+    rentcast = result.get("rentcast") or {}
+    if rentcast.get("available"):
+        count = len(rentcast.get("comparables") or [])
+        label = "studio" if beds == 0 else f"{beds}-bedroom"
+        flash(
+            f"Re-ran the estimate as a {label} — {count} comparable"
+            f"{'' if count == 1 else 's'} found.",
+            "success",
+        )
+    else:
+        flash(rentcast.get("message") or "RentCast returned no data for that size.",
+              "warning")
     return _redirect_to_view(ctx)
 
 

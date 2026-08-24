@@ -57,7 +57,12 @@ REAL_SHAPES = {
 
 def render(subject_beds, comp_beds, sqft=433, ptype="Apartment"):
     src = TPL.read_text(encoding="utf-8")
-    start = src.index("{% if rentcast.property and rentcast.property.bedrooms is not none %}")
+    # Part 45 put a `{% if override_beds is not none %}` arm in front of
+    # this block, so the automatic-resolution disclosure became the
+    # `elif`. Render from the top of the composed block with no override,
+    # which is the state every case here describes.
+    start = src.index("{% if override_beds is not none %}",
+                      src.index("she asked for."))
     end = src.index("{% endif %}", src.index("no size for this address")) + len("{% endif %}")
     env = Environment(autoescape=select_autoescape(["html"]))
     # The real "no size" shape is a subjectProperty that EXISTS with
@@ -66,6 +71,8 @@ def render(subject_beds, comp_beds, sqft=433, ptype="Apartment"):
             "property_type": ptype}
     return " ".join(env.from_string(src[start:end]).render(
         rentcast={"property": prop},
+        override_beds=None,
+        auto_subject=None,
         candidates=[{"bedrooms": b} for b in comp_beds],
     ).split())
 

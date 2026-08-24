@@ -126,6 +126,46 @@
             {% if cached %}Force Refresh{% else %}Pull Rent Data{% endif %}
           </button>
         </form>
+        {#
+          THE SIZE OVERRIDE ALWAYS CONFIRMS, WHERE THE FIRST PULL DOES NOT.
+
+          The rule above is that the confirmation exists for the wasteful
+          case: re-spending on an address that already has data. An
+          override is always that case -- it only makes sense once
+          RentCast has already answered and answered about the wrong
+          floorplan -- so unlike "Pull Rent Data" there is no first-time
+          path where the spend is the obvious intent. It is a POST, not a
+          dropdown that re-requests on change, for the same reason.
+
+          A size already on file costs nothing, and the route says so
+          instead of spending again.
+        #}
+        {% if rentcast and rentcast.available %}
+          <form method="POST" action="{{ url_for('rent_comps.override_subject') }}"
+                style="display:flex; gap:6px; align-items:center;"
+                onsubmit="return confirm('Re-running the estimate for a different unit size uses 1 RentCast API call ({{ rentcast_quota.used }} of {{ rentcast_quota.threshold }} used this month), unless that size is already on file. Continue?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            {{ scope_fields() }}
+            <label for="override-beds" class="stat-box-sub" style="margin:0;">Estimate as</label>
+            <select id="override-beds" name="override_beds" class="form-control" style="width:auto;">
+              {% for n in range(0, max_override_beds + 1) %}
+                <option value="{{ n }}" {% if override_beds is not none and override_beds == n %}selected{% endif %}>
+                  {% if n == 0 %}Studio{% elif n == 1 %}1 bed{% else %}{{ n }} beds{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-ghost"
+                    {% if rentcast_quota.at_cap %}disabled title="Monthly RentCast limit reached"{% endif %}>
+              Re-run for this size
+            </button>
+          </form>
+          {% if override_beds is not none %}
+            <a class="btn btn-ghost"
+               href="{{ url_for('rent_comps.index', **clear_override_query) }}">
+              Clear override
+            </a>
+          {% endif %}
+        {% endif %}
       </div>
     {% endif %}
   </div>
@@ -272,13 +312,42 @@
             picked a smaller unit than the one being underwritten, the
             number is correct about the wrong apartment.
 
-        Stated rather than corrected, deliberately. Correcting it means
-        either re-requesting against a chosen size or fetching the
-        building's real floorplans, and both spend RentCast quota against
-        a 50/month cap. Those are Michelle's calls, queued. This is the
-        honest minimum: the assumption stops being silent.
+        It USED to stop there, because correcting it spends quota and that
+        was Michelle's call to make. She made it: override the size and
+        re-run. So the block below now has two forms, and which one shows
+        depends on whether this estimate is RentCast's own answer or one
+        she asked for.
       #}
-      {% if rentcast.property and rentcast.property.bedrooms is not none %}
+      {% if override_beds is not none %}
+        {#
+          PROVENANCE, BECAUSE THIS IS A DIFFERENT ARTIFACT
+
+          An estimate built from a size we supplied is not a better version
+          of RentCast's answer -- it answers a different question. The
+          original resolution is still true and is still shown, but as
+          history rather than as a description of what is on screen. Saying
+          "RentCast matched this address to a studio" above a corrected
+          2-bedroom estimate would describe the wrong thing.
+        #}
+        <div class="stat-box-sub"
+             style="margin:-4px 0 12px; padding:8px 10px; border-left:3px solid #1a2744;
+                    background:#eef2ff; line-height:1.5;">
+          <strong>You asked for this estimate as
+            {% if override_beds == 0 %}a studio{% elif override_beds == 1 %}a 1-bedroom{% else %}a {{ override_beds }}-bedroom{% endif %}
+            unit.</strong>
+          RentCast re-ran it with that size and matched the comparables below to it,
+          so this is <strong>an answer to your correction, not RentCast's own reading
+          of the address</strong>.
+          {% if auto_subject and auto_subject.bedrooms is not none %}
+            Left to itself it resolved this address to
+            {% if auto_subject.bedrooms == 0 %}a studio{% elif auto_subject.bedrooms == 1 %}a 1-bedroom{% else %}a {{ auto_subject.bedrooms }}-bedroom{% endif %}
+            unit{% if auto_subject.square_footage %}, {{ auto_subject.square_footage }} sqft{% endif %}.
+            That estimate is still on file and is what you see with the override cleared.
+          {% elif auto_subject %}
+            Left to itself it could not determine a size here.
+          {% endif %}
+        </div>
+      {% elif rentcast.property and rentcast.property.bedrooms is not none %}
         {% set _b = rentcast.property.bedrooms %}
         {% set _same = candidates | selectattr('bedrooms', 'equalto', _b) | list | length %}
         {% set _n = candidates | length %}
