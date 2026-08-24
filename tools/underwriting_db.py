@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS underwriting_scenarios (
     name TEXT NOT NULL DEFAULT 'Base case',
     property_label TEXT NOT NULL,
     purchase_price REAL, closing_costs_pct REAL, acquisition_fee_pct REAL,
+    loan_fee_pct REAL,
     capital_transaction_fee_pct REAL, management_fee_pct REAL,
     ltv_pct REAL,
     interest_rate_pct REAL, amort_years INTEGER,
@@ -145,6 +146,7 @@ CREATE INDEX IF NOT EXISTS idx_uw_capex ON underwriting_capex_lines (scenario_id
 
 SCENARIO_NUMERIC = (
     "purchase_price", "closing_costs_pct", "acquisition_fee_pct",
+    "loan_fee_pct",
     "capital_transaction_fee_pct", "management_fee_pct",
     "ltv_pct", "interest_rate_pct",
     "hold_years", "exit_cap_pct", "selling_costs_pct", "vacancy_pct",
@@ -187,6 +189,13 @@ def get_db_path() -> Path:
 # the upgrade would raise "no such column" on read.
 _SCENARIO_ADDED_COLUMNS = (
     ("acquisition_fee_pct", "REAL"),
+    # The lender's origination fee, split out of the itemized
+    # acquisition costs so the two sides of the model agree. NULL on
+    # every pre-existing row, which reads as no fee rather than as a
+    # missing one -- production had zero acquisition-cost lines when
+    # this landed, so nothing was orphaned by the category dropping
+    # from nine to eight.
+    ("loan_fee_pct", "REAL"),
     ("capital_transaction_fee_pct", "REAL"),
     ("management_fee_pct", "REAL"),
     # Property info. The two *_override columns are deliberately nullable

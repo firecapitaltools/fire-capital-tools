@@ -220,13 +220,22 @@ def refinance(loan: float, annual_rate: float, amort_years: int,
     places that must move together: here, the payout order above, and the
     form label with its help text.
 
-    NOTE FOR WHOEVER TOUCHES THE ACQUISITION SIDE NEXT: it still folds
-    origination in. DEFAULT_ACQUISITION_COST_CATEGORIES carries
-    origination_fee as one of nine line items inside acquisition costs,
-    which is now the opposite convention from the refinance side. That is
-    a different tool, Michelle was not asked about it, and it has not been
-    changed -- but the inconsistency is real and is flagged rather than
-    left to be discovered.
+    THE ACQUISITION SIDE NOW AGREES, AND THAT WAS AN OPEN QUESTION
+
+    This paragraph used to record an inconsistency: acquisition folded
+    origination into DEFAULT_ACQUISITION_COST_CATEGORIES as one of nine
+    line items, the opposite convention from here, flagged rather than
+    fixed because Michelle had been asked about the refinance and not
+    about acquisition.
+
+    She was then asked: "Yes, please split the lender's origination fee
+    out of the acquisition costs for consistency." So the categories are
+    eight third-party items, and the lender's point is `loan_fee_pct` --
+    the acquisition-side twin of `refi_bank_fee_pct`, charged on the loan
+    rather than the price, because that is what a point is.
+
+    Both sides of the model now mean the same thing by "costs": third
+    party only, with the lender's fee visible on its own line.
 
     THE FEE BASE IS SETTLED, AND IT IS THE GROSS NEW LOAN
 

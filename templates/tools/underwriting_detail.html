@@ -675,6 +675,7 @@
       {% for key, label in [
           ('purchase_price','Purchase Price ($)'), ('closing_costs_pct','Closing Costs (%)'),
           ('acquisition_fee_pct','Acquisition Fee (%)'),
+          ('loan_fee_pct','Acquisition: Bank Loan Fee (% of loan)'),
           ('management_fee_pct','Management Fee (% of rental income/yr)'),
           ('capital_transaction_fee_pct','Capital Transaction Fee (% of sale)'),
           ('ltv_pct','LTV (%)'), ('interest_rate_pct','Interest Rate (%)'),
@@ -1296,6 +1297,25 @@
         <div class="stat-box-sub">
           {% if acq.has_acquisition_fee %}
             {{ '{:,.2f}%'.format(acq.acquisition_fee_pct) }} of price &mdash; added, not an override
+          {% else %}
+            not set
+          {% endif %}
+        </div>
+      </div>
+      {# The lender's origination fee. It used to be the ninth itemized
+         category, which made this side the opposite convention from the
+         refinance -- where the bank's point has had its own line since
+         Michelle split it out. She asked for the two to agree, so it is
+         here on its own line, charged on the LOAN because that is what a
+         point is. Like the acquisition fee it ADDS rather than
+         participating in the itemized-versus-flat override. #}
+      <div class="stat-box" style="{% if acq.has_loan_fee %}border-left:3px solid #b45309;{% endif %}">
+        <div class="stat-box-label">Bank loan fee</div>
+        <div class="stat-box-value">{{ money(acq.loan_fee_total) }}</div>
+        <div class="stat-box-sub">
+          {% if acq.has_loan_fee %}
+            {{ '{:,.2f}%'.format(acq.loan_fee_pct) }} of the {{ money(acq.loan_fee_base) }} loan
+            &mdash; the lender's origination, <strong>not</strong> a third-party cost
           {% else %}
             not set
           {% endif %}
