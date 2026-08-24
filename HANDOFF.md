@@ -859,6 +859,46 @@ reported-as-property-specific problem that was not.
 
 ---
 
+## Two claims that nothing visible could have contradicted
+
+These belong together. One is ours, one came from a prompt, and both would
+have shipped because the world offered no symptom either way.
+
+**1. "Every other number is unaffected" — accidentally true.** Recorded
+above. Asserted without being checked, and for Jackson it happened to
+land, because 4000 was present. A false claim that fails loudly is cheap;
+a claim that is right for the wrong reason teaches nothing and gets reused.
+
+**2. "Where ours cannot be computed, as with Jackson, hers is the only
+figure available" — false for Jackson specifically.** From the Part 43
+brief. Michelle's T12 KPIs sheet covers **5/24 – 12/24**; Jackson's P&L
+covers **Aug 2025 – Jul 2026**. **Zero months in common.** Hers was not
+the only figure available; it was not a figure about those months at all.
+
+Built as briefed, it would have put a plausible number from the wrong year
+under a Jackson heading, next to a Jackson P&L, labelled as Jackson's
+occupancy. Around 50-60% either way — nothing about it would have looked
+wrong, and the person best placed to catch it is the one whose workbook it
+came from, who would have had every reason to trust it.
+
+**The shared shape: an availability claim about two datasets, made without
+checking that they describe the same thing.** "We have a figure for X" and
+"we have a figure that applies to X" are different statements, and the gap
+between them is invisible until someone lines the periods up. Neither claim
+had a symptom: no error, no blank, no contradiction on the page.
+
+**The check is the same one both times, and it is mechanical: before
+pairing two sources, confirm they cover the same keys.** Not that both
+exist, not that both are about the same property — that the specific rows
+you are about to put side by side describe the same period. It cost one
+comparison of two header lists.
+
+`align_stated_occupancy()` now enforces exactly this, and the card says
+"No months in common" rather than showing anything, which is the form the
+brief should have taken.
+
+---
+
 ## Michelle's occupancy figures are not a substitute for ours
 
 Both Scorecard workbooks carry a **T12 KPIs** sheet stating *Physical
