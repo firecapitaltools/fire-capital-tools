@@ -61,6 +61,24 @@ DEFAULT_EXPENSE_CATEGORIES = (
 # genuinely "included", just in a different total.
 ACQUISITION_COST_KIND = "acquisition_cost"
 
+# THIRD-PARTY COSTS ONLY. The lender's origination fee is NOT here.
+#
+# It used to be the ninth entry, which made acquisition the opposite
+# convention from refinance: refi_costs_pct means third-party closing with
+# the bank's point on its own line as refi_bank_fee_pct, while acquisition
+# folded origination in with Legal and Appraisal. That inconsistency was
+# flagged in deal_analyzer_math.refinance() and pinned by a test rather
+# than fixed, because Michelle had been asked about the refinance side and
+# not this one.
+#
+# She was then asked: "Yes, please split the lender's origination fee out
+# of the acquisition costs for consistency." So the two sides now agree,
+# and `loan_fee_pct` is the acquisition-side twin of `refi_bank_fee_pct`
+# -- a percentage of the LOAN, not of the price, because that is what a
+# point is.
+#
+# Every one of these eight is a third-party cost of closing. Nothing here
+# is paid to the lender for making the loan.
 DEFAULT_ACQUISITION_COST_CATEGORIES = (
     ("legal", "Legal"),
     ("property_inspection", "Property Inspection"),
@@ -70,7 +88,6 @@ DEFAULT_ACQUISITION_COST_CATEGORIES = (
     ("structural_inspection", "Structural Inspection"),
     ("lender_legal", "Lender Legal"),
     ("doc_prep", "Doc Prep"),
-    ("origination_fee", "Origination Fee"),
 )
 
 # When an itemized total falls this far below the flat-percentage estimate
@@ -310,10 +327,37 @@ def total_operating_expenses(expense_lines: list[dict[str, Any]]) -> float:
                for l in operating_expense_lines(expense_lines))
 
 
+def acquisition_loan_basis(scenario: dict[str, Any],
+                           loans: list[dict[str, Any]] | None) -> float:
+    """What the lender's point is charged on.
+
+    A point is a percentage of the LOAN, so this has to be the loan and
+    not the price. Two shapes exist and both are available before the
+    debt stack is summarized, which is why this is a small function rather
+    than a reordering of analyze_scenario():
+
+      loans present   the stack IS the financing, so the basis is the sum
+                      of its amounts -- the same figure implied_ltv_pct is
+                      computed from
+      loans absent    the engine sizes one loan from ltv_pct, so the basis
+                      is price x ltv
+
+    Returns 0.0 when neither is available. A scenario with no financing
+    sized yet has no point to pay, which is not an error.
+    """
+    if loans:
+        return sum(_f(l.get("amount")) for l in loans)
+    price = _f(scenario.get("purchase_price"))
+    ltv = _f(scenario.get("ltv_pct"))
+    return price * (ltv / 100.0)
+
+
 def acquisition_costs(expense_lines: list[dict[str, Any]],
                       purchase_price: Any,
                       closing_costs_pct: Any,
-                      acquisition_fee_pct: Any = None) -> dict[str, Any]:
+                      acquisition_fee_pct: Any = None,
+                      loan_fee_pct: Any = None,
+                      loan_amount: Any = None) -> dict[str, Any]:
     """Reconcile the itemized acquisition lines against the flat percentage.
 
     Itemizing OVERRIDES the percentage rather than adding to it: the two
@@ -329,10 +373,26 @@ def acquisition_costs(expense_lines: list[dict[str, Any]],
     The acquisition fee is different in kind and therefore ALWAYS ADDS,
     whichever of the two above is in use. It is the GP's fee for sourcing
     and closing the deal, not a third-party cost of closing -- none of the
-    nine itemized categories covers it, and the flat percentage does not
+    eight itemized categories covers it, and the flat percentage does not
     stand in for it either. Overriding it away when costs are itemized
     would silently drop a real six-figure use of funds; the override rule
     applies only between the two descriptions of the *same* money.
+
+    THE LENDER'S ORIGINATION FEE IS A THIRD ADDITION, AND A POINT IS A
+    PERCENTAGE OF THE LOAN
+
+    `origination_fee` used to be the ninth itemized category, which made
+    this side the opposite convention from `refinance()`. Michelle asked
+    for them to agree, so it is now `loan_fee_pct` on its own line.
+
+    It is charged on `loan_amount`, not on the purchase price, because
+    that is what a point is -- the same base `refi_bank_fee_pct` uses. It
+    ALWAYS ADDS for the same reason the acquisition fee does: neither the
+    itemized categories nor the flat percentage stands in for it any more,
+    so overriding it away would drop it silently.
+
+    Zero, None and a missing loan all produce no fee rather than an error;
+    a scenario with no loan sized yet simply has no point to pay.
     """
     lines = [l for l in (expense_lines or [])
              if is_acquisition_line(l) and l.get("is_included")]
@@ -343,8 +403,13 @@ def acquisition_costs(expense_lines: list[dict[str, Any]],
     fee_pct = _f(acquisition_fee_pct)
     fee_total = price * (fee_pct / 100.0)
 
+    loan = _f(loan_amount)
+    loan_pct = _f(loan_fee_pct)
+    loan_fee_total = loan * (loan_pct / 100.0)
+
     is_itemized = bool(lines)
-    effective = (itemized_total if is_itemized else flat_total) + fee_total
+    effective = ((itemized_total if is_itemized else flat_total)
+                 + fee_total + loan_fee_total)
 
     # Compares itemized against flat only. The fee is excluded deliberately:
     # it is present in neither, so folding it in would make a complete
@@ -362,6 +427,12 @@ def acquisition_costs(expense_lines: list[dict[str, Any]],
         "acquisition_fee_pct": fee_pct,
         "acquisition_fee_total": fee_total,
         "has_acquisition_fee": fee_total > 0,
+        # The lender's point, on its own line so it is visible rather than
+        # buried among the third-party costs.
+        "loan_fee_pct": loan_pct,
+        "loan_fee_total": loan_fee_total,
+        "loan_fee_base": loan,
+        "has_loan_fee": loan_fee_total > 0,
         # Closing costs alone, before the fee -- so the page can show the
         # substitution and the addition as two separate statements.
         "costs_before_fee": itemized_total if is_itemized else flat_total,
@@ -533,7 +604,9 @@ def analyze_scenario(scenario: dict[str, Any], unit_lines: list[dict[str, Any]],
     )
     acq = acquisition_costs(expense_lines, scenario.get("purchase_price"),
                             scenario.get("closing_costs_pct"),
-                            scenario.get("acquisition_fee_pct"))
+                            scenario.get("acquisition_fee_pct"),
+                            loan_fee_pct=scenario.get("loan_fee_pct"),
+                            loan_amount=acquisition_loan_basis(scenario, loans))
     # The shared engine takes a percentage, not a dollar amount, and is
     # deliberately not modified: itemized costs are handed over as the
     # equivalent percentage instead. Deal Analyzer therefore keeps

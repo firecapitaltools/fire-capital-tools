@@ -209,13 +209,29 @@ class TheThreeDeductionsAreDisjointTests(unittest.TestCase):
         self.assertIn("Third-Party Costs", tpl)
         self.assertIn("Not</strong> the lender", tpl)
 
-    def test_the_acquisition_inconsistency_is_flagged_not_hidden(self):
-        """The acquisition side still folds origination in. Different tool,
-        not changed, but recorded where someone will find it."""
+    def test_both_sides_now_mean_third_party_only(self):
+        """This test used to pin the inconsistency as deliberate.
+
+        It asserted that the acquisition side still folded origination in
+        and that the disagreement was flagged. Michelle then asked for the
+        two to agree, so the assertion inverts: the categories carry no
+        origination fee, and the lender's point has its own field on both
+        sides.
+        """
         from pathlib import Path
+        from tools import underwriting_math as um
         root = Path(__file__).resolve().parent.parent
         engine = (root / "tools" / "deal_analyzer_math.py").read_text(encoding="utf-8")
-        self.assertIn("ACQUISITION SIDE", engine.upper())
+        self.assertIn("ACQUISITION SIDE NOW AGREES", engine.upper())
+
+        keys = [k for k, _ in um.DEFAULT_ACQUISITION_COST_CATEGORIES]
+        self.assertNotIn("origination_fee", keys)
+        self.assertEqual(len(keys), 8)
+
+        # Each side names the lender's fee in its own field, and neither
+        # buries it in "costs".
+        self.assertIn("loan_fee_pct", um.acquisition_costs.__code__.co_varnames)
+        self.assertIn("refi_bank_fee_pct", engine)
 
 
 class RefusalTests(unittest.TestCase):
