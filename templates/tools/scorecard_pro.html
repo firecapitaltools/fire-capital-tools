@@ -428,13 +428,44 @@
     // what they meant.
     if (missing.length) {
       const n = missing.length;
+      const nriFound = !(analysis.summary && analysis.summary.nri_found === false);
+      // TWO CLAIMS WERE WRONG HERE, AND BOTH ARE THE SAME KIND OF WRONG
+      //
+      // 1. "This file does not state Gross Potential Rent" is a claim about
+      //    the FILE. What the code knows is that no line in it matched
+      //    account 4110 or any GPR label the parser carries -- and the
+      //    parser holds several chart-of-accounts dialects, so those are
+      //    genuinely different claims. Verified on the real files: Jackson's
+      //    Beam export is cash-basis and has no GPR because a cash statement
+      //    records rent received, while Eagle Rock's accrual export states
+      //    4110 explicitly. The card cannot tell those two situations apart,
+      //    so it now reports the match, which is what it did establish.
+      //
+      // 2. "every other number is unaffected" was asserted unconditionally
+      //    and is only true when rental income was captured. It is, for both
+      //    real files, and then income, expenses and NOI are genuinely
+      //    untouched -- NRI is read straight from 4000 and no reconstruction
+      //    is attempted. When 4000 is absent too, income is understated, and
+      //    that now gets its own sentence rather than the reassuring one.
+      //
+      // The blank-is-not-zero sentence is the point of the whole note.
+      // A missing occupancy renders empty, and an empty cell beside a column
+      // of percentages reads as 0%. The separate "Occupancy really is 0%"
+      // note exists for the genuine case, so the two must not be confusable.
       addExpandableNote(
         list,
-        `Occupancy could not be worked out for ${n} month${n === 1 ? "" : "s"}. ` +
-        "This file does not state Gross Potential Rent (what the rent would be " +
-        `if every unit were occupied), and occupancy is measured against it. ` +
-        `${n === 1 ? "That month is" : "Those months are"} left out of the average ` +
-        "occupancy figure; every other number is unaffected.",
+        `No occupancy figure for ${n} month${n === 1 ? "" : "s"}. ` +
+        "Nothing in this file matched Gross Potential Rent (what the rent " +
+        "would be if every unit were occupied), and both physical and " +
+        "economic occupancy are measured against it. " +
+        `${n === 1 ? "That month has" : "Those months have"} no occupancy ` +
+        `figure at all — this is not 0%, and ${n === 1 ? "it is" : "they are"} ` +
+        "left out of the average rather than counted as empty. " +
+        (nriFound
+          ? "Income, expenses and NOI are read from the file's own rental " +
+            "income line and are unaffected."
+          : "This file also has no net rental income line, so income and NOI " +
+            "are understated for those months as well — not only occupancy."),
         n === 1 ? "Show the month" : `Show the ${n} months`,
         missing.join(", "),
       );
