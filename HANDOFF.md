@@ -1445,22 +1445,33 @@ on 2026-08-18. Fetch and re-check before every merge; do not trust a
 local head.
 
 
-**The acquisition and refinance sides now disagree about origination, on
-purpose.** `refi_costs_pct` means third-party closing costs ONLY -- title,
-appraisal, legal, recording -- because Michelle chose to split the
-lender's point into its own visible line
-(`refi_bank_fee_pct`). `DEFAULT_ACQUISITION_COST_CATEGORIES` still folds
-`origination_fee` in as one of nine line items inside acquisition costs.
+**The acquisition and refinance sides AGREE about origination. RESOLVED in
+Part 46.** Both mean third-party costs only, with the lender's fee on its
+own visible line: `refi_bank_fee_pct` on the refinance, `loan_fee_pct` on
+acquisition. Each is a percentage of its own loan, because that is what a
+point is.
 
-So the same word means different things in two tools. That is recorded in
-`deal_analyzer_math.refinance()`'s docstring and pinned by a test, and it
-is deliberate: **Michelle was asked about the refinance side and was not
-asked about the acquisition side**, so changing acquisition would have
-been inventing an answer.
+*This section previously read "now disagree about origination, on
+purpose", and that was correct at the time.* The disagreement was
+deliberate for one reason only -- **Michelle had been asked about the
+refinance side and not about the acquisition side**, so changing
+acquisition would have been inventing an answer. It was flagged in the
+engine docstring and pinned by a test rather than quietly fixed.
 
-Someone will find this and think it is a bug. It is not. It is an
-unasked question. The fix, if she wants one, is to split acquisition the
-same way -- but that is her call and it touches a tool she did not raise.
+She was then asked, and answered: *"Yes, please split the lender's
+origination fee out of the acquisition costs for consistency."*
+
+**The unasked question was the whole of it.** Nothing about the code
+argued for keeping the two conventions apart; the only thing holding the
+inconsistency in place was that nobody had put the question to her. That
+is worth noticing as a pattern — an "unasked question" recorded in a
+handoff is a task with a one-sentence cost, not a permanent state, and
+this one sat for several runs because it was written down as a
+disagreement rather than as a thing to ask.
+
+`DEFAULT_ACQUISITION_COST_CATEGORIES` now carries eight third-party
+entries. Production had **zero** acquisition-cost lines when the ninth was
+removed, so nothing was orphaned.
 
 
 **The route sweep cannot see a self-referential cluster.** Pages that
