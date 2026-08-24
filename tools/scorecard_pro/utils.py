@@ -23,6 +23,7 @@ def summarize_dataframe(df, kpis):
             "avg_expense_ratio": None,
             "missing_gpr_months": [],
             "zero_occupancy_months": [],
+            "nri_found": kpis.get("nri_found", True),
             "expense_fallback_codes": kpis.get("expense_fallback_codes", []),
             "override_mismatches": kpis.get("override_mismatches", []),
         }
@@ -36,6 +37,7 @@ def summarize_dataframe(df, kpis):
         "avg_expense_ratio": float(ratio_values.mean()) if not ratio_values.empty else None,
         "missing_gpr_months": df.loc[df["OccupancyStatus"] == "missing_gpr", "Month"].tolist(),
         "zero_occupancy_months": df.loc[df["OccupancyStatus"] == "zero", "Month"].tolist(),
+        "nri_found": kpis.get("nri_found", True),
         "expense_fallback_codes": kpis.get("expense_fallback_codes", []),
         "override_mismatches": kpis.get("override_mismatches", []),
     }

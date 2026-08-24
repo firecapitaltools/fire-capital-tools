@@ -262,6 +262,19 @@ class KPICalculator:
             "expense_ratio": {},
             "noi_margin": {},
             "occupancy_status": {},
+            # WHETHER RENTAL INCOME WAS FOUND AT ALL, WHICH DECIDES THE
+            # BLAST RADIUS OF A MISSING GPR
+            #
+            # A missing 4110 costs occupancy and nothing else *provided*
+            # 4000 was captured, because income is then read straight from
+            # it. If BOTH are absent, nri falls back to 0 and total income
+            # is understated -- a much larger failure that the warnings
+            # card must not describe with the same sentence.
+            #
+            # The card used to assert "every other number is unaffected"
+            # unconditionally. This is the fact that makes that claim
+            # checkable instead of hopeful.
+            "nri_found": "4000" in self.accounts,
             "expense_fallback_codes": self.expense_fallback_codes,
             "income_fallback_codes": self.income_fallback_codes,
             "override_mismatches": self.override_mismatches,
