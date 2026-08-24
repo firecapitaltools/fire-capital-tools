@@ -141,7 +141,8 @@ def rentcast_quota() -> dict[str, Any]:
     }
 
 
-def get_rentcast_data(address: str, city: str, state: str, zip_code: str | None = None) -> dict[str, Any]:
+def get_rentcast_data(address: str, city: str, state: str, zip_code: str | None = None,
+                      bedrooms: float | None = None) -> dict[str, Any]:
     """Rent estimate + rental comparables + basic property details for one
     address. Returns {"available": False, "message": ...} rather than
     raising if the key is missing, the monthly safety cap is hit, or either
@@ -170,10 +171,29 @@ def get_rentcast_data(address: str, city: str, state: str, zip_code: str | None 
     headers = {"X-Api-Key": api_key, "Accept": "application/json"}
 
     try:
+        # THE SUBJECT SIZE IS AN ACCEPTED PARAMETER, WHICH WE HAD ON RECORD
+        # AS FALSE
+        #
+        # A Part 21 note held that /avm/rent/long-term takes no bedrooms
+        # parameter, and that was restated as settled. It is wrong.
+        # RentCast documents propertyType, bedrooms, bathrooms and
+        # squareFootage as query parameters, and is explicit about what
+        # they do: "if provided, these values will override any attributes
+        # that are looked up automatically."
+        #
+        # lookupSubjectAttributes defaults to true, which is why an address
+        # resolves to one unit of a multi-unit building in the first place.
+        # It is deliberately LEFT ON here: Michelle is correcting the size,
+        # not replacing the whole subject, so everything she does not state
+        # should still be looked up. Passing bedrooms alone overrides
+        # exactly the attribute she corrected.
+        params = {"address": full_address}
+        if bedrooms is not None:
+            params["bedrooms"] = bedrooms
         rent_resp = requests.get(
             f"{RENTCAST_BASE_URL}/avm/rent/long-term",
             headers=headers,
-            params={"address": full_address},
+            params=params,
             timeout=REQUEST_TIMEOUT,
         )
     except requests.RequestException as exc:
@@ -253,6 +273,15 @@ def get_rentcast_data(address: str, city: str, state: str, zip_code: str | None 
         "rent_range_high": rent_payload.get("rentRangeHigh"),
         "comparables": comparables,
         "property": property_details,
+        # PROVENANCE TRAVELS WITH THE PAYLOAD, NOT BESIDE IT
+        #
+        # An estimate built from a size we supplied is a different artifact
+        # from one RentCast resolved on its own, and the difference has to
+        # survive the cache -- a caller reading a cached row months later
+        # has no other way to tell which it is holding. None means RentCast
+        # resolved the subject itself.
+        "subject_override": ({"bedrooms": bedrooms}
+                             if bedrooms is not None else None),
     }
 
 
@@ -414,12 +443,23 @@ def get_market_data(
     state: str,
     zip_code: str | None = None,
     force_refresh: bool = False,
+    bedrooms_override: float | None = None,
 ) -> dict[str, Any]:
     """The function callers (Deal Dive, and later Rent Comps) should
     actually use. Checks the cache first; only calls RentCast/Google Places
     for real on a miss or a stale (>30 day) entry, or when force_refresh is
-    explicitly requested."""
-    address_key = cache.normalize_address_key(address, city, state, zip_code)
+    explicitly requested.
+
+    `bedrooms_override` re-asks RentCast with a subject size the caller
+    supplies, for a multi-unit address it resolved to the wrong floorplan.
+    The result is cached under its OWN key, so it neither overwrites the
+    automatic answer nor is served in its place, and re-opening the page
+    with the same override costs nothing.
+    """
+    address_key = cache.override_address_key(
+        cache.normalize_address_key(address, city, state, zip_code),
+        bedrooms_override,
+    )
 
     with cache.get_connection() as conn:
         if not force_refresh:
@@ -432,7 +472,8 @@ def get_market_data(
                     "google_places": cached["google_places"],
                 }
 
-        rentcast_data = get_rentcast_data(address, city, state, zip_code)
+        rentcast_data = get_rentcast_data(address, city, state, zip_code,
+                                          bedrooms=bedrooms_override)
         google_data = get_google_place_rating(address, city, state)
         cache.save_cache(conn, address_key, address, city, state, zip_code, rentcast_data, google_data)
 

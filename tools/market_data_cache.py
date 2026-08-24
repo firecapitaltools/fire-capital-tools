@@ -303,3 +303,44 @@ def increment_google_places_usage(conn: sqlite3.Connection, year_month: str | No
     )
     conn.commit()
     return get_google_places_usage(conn, year_month)
+
+
+# An overridden estimate is a DIFFERENT ARTIFACT, so it gets its own row
+#
+# When Michelle corrects the subject size, RentCast returns a different
+# estimate built from different comparables. That is not a fresher version
+# of the automatic answer -- it answers a different question -- so it must
+# not overwrite the automatic one, and the automatic one must not be
+# served in its place.
+#
+# Separate rows also make the caching requirement fall out for free:
+# re-opening the page with the same override hits its own row and spends
+# nothing, while the un-overridden view still has its original answer
+# sitting untouched beside it.
+#
+# The marker is appended by THIS function, not by normalize_address_key,
+# which is left exactly as it is. A key carrying the marker can only have
+# been built here: normalize_address_key lowercases and collapses
+# whitespace, and `_OVERRIDE_MARKER` contains a vertical bar, which no
+# postal address supplies. That is asserted in the tests rather than
+# assumed.
+_OVERRIDE_MARKER = " |subject-beds="
+
+
+def override_address_key(address_key: str, bedrooms: float | int | None) -> str:
+    """The cache key for an estimate built from a caller-supplied size.
+
+    Returns the key unchanged when there is no override, so callers can
+    pass through unconditionally.
+    """
+    if bedrooms is None:
+        return address_key
+    count = float(bedrooms)
+    # Whole bed counts read as counts: 2, not 2.0, so the key is stable
+    # whether the override arrived as "2" or 2.0 from a form post.
+    text = f"{count:g}"
+    return f"{address_key}{_OVERRIDE_MARKER}{text}"
+
+
+def is_override_key(address_key: str) -> bool:
+    return _OVERRIDE_MARKER in (address_key or "")

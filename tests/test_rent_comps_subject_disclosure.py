@@ -50,14 +50,27 @@ TPL = ROOT / "templates" / "tools" / "rent_comps.html"
 from jinja2 import Environment, FileSystemLoader, select_autoescape  # noqa: E402
 
 
-def render_block(prop, comps=None):
-    """Render just the disclosure, with the surrounding page stubbed out."""
+def render_block(prop, comps=None, override_beds=None, auto_subject=None):
+    """Render just the disclosure, with the surrounding page stubbed out.
+
+    The block gained a leading `{% if override_beds is not none %}` arm in
+    Part 45, so the automatic-resolution disclosure it originally covered
+    is now the `elif`. Rendering from the top with override_beds=None
+    exercises the real composition rather than a branch lifted out of it.
+    """
     src = TPL.read_text(encoding="utf-8")
-    start = src.index("{% if rentcast.property and rentcast.property.bedrooms is not none %}")
+    # `{% if override_beds is not none %}` appears twice -- once on the
+    # Clear-override link up in the controls, once here. Anchoring on the
+    # bare condition found the controls and dragged in half the page, so
+    # the search starts from the comment that introduces this block.
+    start = src.index("{% if override_beds is not none %}",
+                      src.index("or one\n        she asked for."))
     end = src.index("{% endif %}", src.index("no size for this address")) + len("{% endif %}")
     env = Environment(autoescape=select_autoescape(["html"]))
     return env.from_string(src[start:end]).render(
         rentcast={"property": prop},
+        override_beds=override_beds,
+        auto_subject=auto_subject,
         candidates=[{"bedrooms": b} for b in (comps or [])])
 
 
@@ -144,13 +157,32 @@ class NoQuotaWasSpentTests(unittest.TestCase):
             with self.subTest(forbidden):
                 self.assertNotIn(forbidden, block)
 
-    def test_the_service_still_sends_only_the_address(self):
-        """Fix 2 and 3 would add parameters here. Neither was built."""
+    def test_the_service_sends_bedrooms_only_when_overridden(self):
+        """This test used to assert that neither fix was built.
+
+        It read "Fix 2 and 3 would add parameters here. Neither was
+        built." Michelle then chose fix 2 -- override the size and re-run
+        -- so the assertion inverted rather than survived. Fix 3, fetching
+        the building's real floorplans, is still not built and still
+        doubles quota per search.
+
+        The contract now: the address is always sent, and bedrooms is sent
+        only when a caller supplied one, so an ordinary lookup is
+        byte-for-byte the request it always was.
+        """
         src = (ROOT / "tools" / "market_data_service.py").read_text(encoding="utf-8")
-        call = src[src.index("avm/rent/long-term"):]
+        call = src[src.index("params = {\"address\": full_address}"):]
         call = call[:call.index("timeout=")]
-        self.assertIn('"address": full_address', call)
-        self.assertNotIn("bedrooms", call)
+        self.assertIn('params = {"address": full_address}', call)
+        self.assertIn("if bedrooms is not None:", call)
+        self.assertIn('params["bedrooms"] = bedrooms', call)
+
+    def test_an_ordinary_lookup_is_unchanged(self):
+        """No override must mean no extra parameter, not a None sent."""
+        import inspect
+        from tools import market_data_service as svc
+        sig = inspect.signature(svc.get_rentcast_data)
+        self.assertIsNone(sig.parameters["bedrooms"].default)
 
 
 if __name__ == "__main__":
