@@ -267,3 +267,110 @@ class TheStaleFormHeaderIsScopedTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ThePropertyScopeGetsTheSameRuleTests(unittest.TestCase):
+    """site_dd.save is the route the Part 49 fix missed.
+
+    It has its own inline collection loop rather than calling _collect(),
+    so scoping that fix to the function left this one with the collapsing
+    read. Part 51 demonstrated it still blanking `condition`, `note` and
+    `overall_notes`.
+
+    The two loops now share `_kept_field()` and its wrappers. They do NOT
+    share the loop, deliberately: the property scope has no detail, no
+    quantity and no bank item, and bending one loop around fields it does
+    not have is how a shared helper becomes worse than two that agree.
+    What is shared is the semantics, which is the part that diverged.
+    """
+
+    def setUp(self):
+        from tools import site_dd_checklist as cl
+        self.tmp = Path(tempfile.mkdtemp()) / "sitedd.db"
+        self.patch = mock.patch.object(db, "get_db_path", lambda: self.tmp)
+        self.patch.start()
+        self.addCleanup(self.patch.stop)
+        with db.get_connection() as conn:
+            self.aid = db.create_assessment(conn, {
+                "property_label": "P", "assessed_on": "2026-08-24",
+                "inspector": "MJ", "checklist_version": 2, "deal_id": None})
+        self.key = cl.ITEM_KEYS[0]
+        from app import app
+        app.config["LOGIN_DISABLED"] = True
+        app.config["WTF_CSRF_ENABLED"] = False
+        self.client = app.test_client()
+        self.url = f"/tools/site-dd/assessment/{self.aid}/save"
+
+    def post(self, **extra):
+        data = {"property_label": "P", "assessed_on": "2026-08-24",
+                "inspector": "MJ", "status": "draft"}
+        data.update(extra)
+        return self.client.post(self.url, data=data)
+
+    def state(self):
+        with db.get_connection() as conn:
+            rows = db.get_findings(conn, self.aid, None, None).get(self.key) or [{}]
+            assessment = db.get_assessment(conn, self.aid)
+        return rows[0], assessment
+
+    def answer(self):
+        self.post(**{f"condition_{self.key}": "repair",
+                     f"note_{self.key}": "ponding at the drain",
+                     "overall_notes": "walked the roof"})
+
+    def test_the_answer_lands(self):
+        self.answer()
+        row, assessment = self.state()
+        self.assertEqual(row["condition"], "repair")
+        self.assertEqual(row["note"], "ponding at the drain")
+        self.assertEqual(assessment["overall_notes"], "walked the roof")
+
+    def test_a_stale_render_preserves_all_three(self):
+        self.answer()
+        self.post()          # says nothing about the item or the notes
+        row, assessment = self.state()
+        self.assertEqual(row["condition"], "repair")
+        self.assertEqual(row["note"], "ponding at the drain")
+        self.assertEqual(assessment["overall_notes"], "walked the roof",
+                         "the summary of the whole walk must survive")
+
+    def test_an_explicit_clear_still_clears_all_three(self):
+        self.answer()
+        self.post(**{f"condition_{self.key}": "", f"note_{self.key}": "",
+                     "overall_notes": ""})
+        row, assessment = self.state()
+        self.assertIsNone(row["condition"])
+        self.assertIsNone(row["note"])
+        self.assertIsNone(assessment["overall_notes"])
+
+    def test_the_property_label_is_not_reset_to_untitled(self):
+        """A missing label used to become 'Untitled', renaming the walk."""
+        self.answer()
+        self.client.post(self.url, data={"status": "draft"})
+        _, assessment = self.state()
+        self.assertEqual(assessment["property_label"], "P")
+
+
+class TheTwoCollectorsShareTheirSemanticsTests(unittest.TestCase):
+    """The class-level guarantee, not the route-level one.
+
+    Part 49 fixed the function it found. This asserts both callers go
+    through one implementation, so a third collector inherits the rule
+    instead of having to remember it.
+    """
+
+    def setUp(self):
+        self.src = (ROOT / "tools" / "site_dd.py").read_text(encoding="utf-8")
+
+    def test_the_shared_helper_exists(self):
+        self.assertIn("def _kept_field(", self.src)
+
+    def test_neither_loop_reads_a_condition_directly(self):
+        """`(form.get(...) or "").strip()` on a condition is the bug."""
+        self.assertNotIn('(request.form.get(f"condition_', self.src)
+        self.assertNotIn('(form.get(f"condition_', self.src)
+
+    def test_both_loops_call_the_shared_wrapper(self):
+        self.assertEqual(self.src.count("_kept_condition("), 3,
+                         "one definition plus two call sites")
+        self.assertEqual(self.src.count("_kept_note("), 3)
