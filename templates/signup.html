@@ -18,6 +18,19 @@
     <h1 class="login-title">Create an account</h1>
     <p class="login-sub">Add a username and password for tool access.</p>
 
+    {#
+      THE UNSET STATE IS VISIBLE, NOT SILENT.
+
+      Standing rule 1 requires a new persistent path to demonstrate BOTH
+      failure states, and names the unset one: a visible banner naming the
+      variable. Without this the page would offer a signup form that
+      cannot durably create an account.
+    #}
+    {% if user_store_warning %}
+      <div class="login-error" style="border-left:4px solid #b91c1c; text-align:left;">
+        <strong>Signup is unavailable.</strong><br>{{ user_store_warning }}
+      </div>
+    {% endif %}
     {% if error %}
       <div class="login-error">{{ error }}</div>
     {% endif %}

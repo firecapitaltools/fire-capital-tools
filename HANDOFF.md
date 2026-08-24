@@ -234,83 +234,129 @@ JSON, so existing updates keep old headings regardless.
 
 ---
 
-## Per-account data: what it is, and why it is a question not a task
+## Rule 2 audited at its real scope, and the dropped clause was right
 
-**Investigated Part 50. Nothing scoped, nothing estimated, nothing built.**
+Part 47 checked the four routes the rule names. **The rule's next sentence
+— lost to a quotation and restored in Part 50 — says "assume it applies to
+any route not yet audited."** Audited properly in Part 51: there are
+**eleven** collection-writing routes, and the four named ones are not the
+worst of them.
 
-The backlog calls it *"still unbuilt, still un-scoped, still the largest
-item"*, and it appears **nowhere in this file and in no prompt this
-session**. That assessment holds.
+Every verdict below was produced by running the route against a temporary
+database, never by reading it.
 
-### Michelle's words, quoted rather than interpreted
+| route | rewrites | an omitted field or row | stale render? |
+|---|---|---|---|
+| `site_dd.save` **(property scope)** | findings, via upsert | **BLANKS condition, note, and `overall_notes`** | **YES — `site_dd.detail` has no `no-store`** |
+| `site_dd.save_area` | findings, via upsert | preserved *(fixed Part 49)* | mitigated |
+| `site_dd.save_room` | findings, via upsert | preserved *(fixed Part 49)* | mitigated |
+| `underwriting.save_loans` | whole loan stack | **DELETES the row** | two-tab only |
+| `underwriting.save_capex` | whole capex budget | **DELETES the row** | two-tab only |
+| `investor_report.save_gp_partners` | whole partner list | **DELETES the row** | **YES — `investor_report.detail` has no `no-store`** |
+| `underwriting.save_expenses` | expense set | rows kept; **amount → None, growth → None, `is_included` → False** | two-tab only |
+| `underwriting.save_acquisition_costs` | acquisition lines | **DELETES the line**; operating lines carried through | two-tab only |
+| `underwriting.save_assumption_years` | per-year overrides | override reverts to "follow the flat rate" | two-tab only |
+| `underwriting.upload_t12` | expense set | n/a — a file, not a form | no |
+| `underwriting.upload_rentroll` | unit lines | n/a — a file, not a form | no |
+
+### The finding that matters most: the Part 49 fix missed a route
+
+`site_dd.save` is the **property-scope** form, and it does not use
+`_collect()`. It has its own inline collection loop with the same
+collapsing read the fix removed elsewhere:
+
+```
+raw = (request.form.get(f"condition_{key}{suffix}") or "").strip()
+```
+
+Demonstrated live against a temp database:
+
+```
+complete save : condition='repair'  note='ponding at the drain'  overall_notes='walked the roof'
+STALE save    : condition=None      note=None                    overall_notes=None
+```
+
+**The Part 49 fix was scoped to the function it found, not to the
+pattern.** That is exactly the failure the dropped clause names, and it
+happened in the same session that recovered the clause. `_kept_cost`,
+`_kept_label` and `_kept_measure` are all used here, so the cost, label
+and measure survive — only the judgement and the notes are lost, the same
+asymmetry as before.
+
+### Three routes delete rather than blank, which is worse
+
+`save_loans`, `save_capex` and `save_gp_partners` build their list purely
+from what the form posts. An empty POST removes the collection entirely,
+and a stale render removes whatever it did not know about:
+
+```
+loans in storage: 3   ->   stale page posts the 2 it knew   ->   ['Senior', 'Mezz']
+the third loan WAS DELETED
+```
+
+There is no row left carrying a null. The loan is gone.
+
+### The route everyone points at as the defence is only half defended
+
+`save_expenses` is cited — correctly — for carrying acquisition lines
+through, and it also does absent-means-unchanged for `growth_schedule`.
+But its **value** fields are read straight from the form:
+
+```
+before: amount=60000.0  growth=3.0  included=True
+after : amount=None     growth=None included=False
+```
+
+The row survives, so nothing looks deleted; the line simply stops
+contributing to NOI and reads as deliberately excluded. **A partial
+defence is more dangerous than none, because it is the one people cite.**
+
+### Not fixed yet, deliberately
+
+Nothing above is repaired in this run. Fixing them one at a time is how
+the fifth one gets missed — which is precisely what happened to
+`site_dd.save`. The whole picture first, then one change that addresses
+the pattern.
+
+Two cheap mitigations are already identified: `no-store` is missing on
+`site_dd.detail` and `investor_report.detail`, both of which render
+forms that write collections.
+
+---
+
+## Per-account data — a question for Michelle, not a task
+
+Her words, and the whole of it:
 
 > *"Data should be per-account, not site-wide, with a way to link accounts
 > and share specific deals."*
 
-That is the whole of it. One sentence, from meeting notes, recorded in
-`docs/original-meeting-notes-backlog.md`. The backlog's own reading, also
-worth quoting because it was written when the notes were fresh:
+**Genuinely untouched, checked rather than assumed.** No `user_id`,
+`owner_id`, `account_id`, `tenant_id` or `created_by` on any table in any
+of the twelve databases. `current_user` appears in exactly two places,
+both admin gates in `admin.py`. Every logged-in user sees every deal,
+scenario, assessment and report.
 
-> *"This should not be scoped via a bullet point. Recommend a dedicated
-> conversation with Michelle: who are 'accounts' — other people at her
-> company, outside partners, both? Does sharing mean full deal access or
-> read-only?"*
+**Nothing later superseded it.** The properties foundation, `deal_id`
+linking and the Investor Notes registry all answer *"what does this record
+belong to"*. This asks *"who may see it"*. Different axis; no part of one
+is a part of the other.
 
-### Is any of it already built? No — and this was checked, not assumed
-
-Several things in that backlog turned out to be built already. This one is
-not. Verified against the code and against production:
-
-* **No ownership column exists anywhere.** No `user_id`, `owner_id`,
-  `account_id`, `tenant_id` or `created_by` on any table, in any of the
-  twelve databases on the volume.
-* **No route filters by user.** `current_user` appears in exactly two
-  places, both in `admin.py`, both an admin gate. Every logged-in user
-  sees every deal, scenario, assessment and report.
-* **Nothing later superseded it.** The properties foundation, `deal_id`
-  linking and the Investor Notes registry all organise data **by property
-  or deal** — a different axis entirely. They answer "what does this
-  record belong to", not "who may see it". No part of one is a part of the
-  other.
-
-### The finding that changes the shape of the question
-
-**The account layer underneath it does not persist.**
-
-`User.user_store_path()` reads `USER_STORE_PATH` and falls back to
-`/app/users.json`. **`USER_STORE_PATH` is not set in Railway** — twelve
-`*_DB_PATH` variables are, and all point at `/data`; this one is missing —
-so the store falls back to the **ephemeral container filesystem**, which
-is replaced on every deploy.
-
-Today it costs nothing: the file does not exist and there are **zero
-signup users**. Every login is the single env-configured admin account, so
-"every user sees everything" is currently a statement about one user.
-
-But it is exactly the hazard **standing rule 1** describes — a persistent
-path with an env-var-and-fallback shape whose fallback is not persistent,
-and whose unset state was never demonstrated. The first person who signs
-up loses their account at the next deploy, silently. **Flagged, not
-fixed**: it is a one-line Railway variable plus a migration decision about
-where the store should live, and it is Michelle's environment.
-
-### Why this is a question rather than a task
-
-Three things are undecided, and none can be settled from here:
+**The three open questions, recorded as questions:**
 
 1. **Who is an account?** People at her company, outside partners, or
-   both. The answer changes whether this is user-scoping or real
+   both. The answer decides whether this is user-scoping or real
    organisation-level multi-tenancy.
-2. **What does sharing mean?** Full access to a shared deal, or read-only.
-   The backlog raises this and it was never answered.
-3. **What happens to everything that exists?** Ten scenarios, four
+2. **Does sharing mean full access or read-only?** The backlog raised this
+   and it was never answered.
+3. **What happens to what already exists?** Ten scenarios, four
    assessments, two deals, twelve cached lookups and three properties of
-   history all currently belong to nobody. They have to become somebody's,
-   and only she can say whose.
+   history currently belong to nobody. They have to become somebody's, and
+   only she can say whose.
 
-**It is too vague to act on without asking her, so it goes to her as a
-question.** The one thing that can be said without her: it touches every
-table and every route, and there is nothing partial to build on.
+Not scoped and not estimated. The one thing sayable without her: it
+touches every table and every route, and there is nothing partial to build
+on.
 
 ---
 
@@ -626,7 +672,17 @@ dropped by the rewrite that created this file — see the audit above.**
 
 **Every persistent DB path: env-var-with-fallback, and BOTH failure states
 demonstrated.** *Recovered in Part 47; it was rule 1 of the original
-handoff and had been missing since.* Verify via live in-process code,
+handoff and had been missing since. **Applied in Part 51 to the one store
+that was violating it.***
+
+`USER_STORE_PATH` was unset while twelve `*_DB_PATH` variables were set
+and pointing at `/data`, so the user store fell back to `users.json`
+beside the source file — the container filesystem, replaced on every
+deploy. Signup would have accepted an account, logged the user straight
+in, and lost it at the next push, surfacing days later as "my password
+stopped working". Fixed while there were zero signup users and therefore
+nothing to migrate. Unset now produces a **named refusal and a visible
+banner**; it no longer writes anywhere. Verify via live in-process code,
 never from the Railway dashboard. A new `*_DB_PATH` must be shown failing
 (unset → a visible banner naming the variable) as well as working — the
 good path alone proves nothing, because **a misspelled or unset env var

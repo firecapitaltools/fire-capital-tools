@@ -17,7 +17,15 @@ def login():
 
     error: str | None = None
 
+    store_warning = User.user_store_warning(current_app.config)
+
     if request.method == "POST":
+        # Checked before validation, not after: the form is not the problem
+        # and telling the user their password is too short would be a
+        # misleading answer to a configuration failure.
+        if store_warning:
+            return render_template("signup.html", error=store_warning,
+                                   user_store_warning=store_warning)
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
@@ -76,7 +84,8 @@ def signup():
                 flash("Account created. You are logged in.", "success")
                 return redirect(url_for("dashboard"))
 
-    return render_template("signup.html", error=error)
+    return render_template("signup.html", error=error,
+                           user_store_warning=User.user_store_warning(current_app.config))
 
 
 @auth_bp.route("/logout")

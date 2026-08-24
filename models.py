@@ -50,6 +50,15 @@ class User(UserMixin):
         normalized = User.normalize_username(clean_username)
         if not clean_username or not normalized:
             raise ValueError("Username is required.")
+        # REFUSED RATHER THAN WRITTEN SOMEWHERE TEMPORARY.
+        #
+        # Creating the account would appear to succeed and would log the
+        # user straight in, so the loss would surface days later as "my
+        # password stopped working" rather than as an error anyone could
+        # connect to a deploy. A named refusal now is cheaper than that.
+        warning = User.user_store_warning(app_config)
+        if warning:
+            raise ValueError(warning)
         if User.get_by_id(clean_username, app_config):
             raise ValueError("Username already exists.")
 
@@ -117,10 +126,53 @@ class User(UserMixin):
 
     @staticmethod
     def user_store_path(app_config: dict) -> str:
+        """Where signup accounts live.
+
+        THE FALLBACK IS NOT A SAFE DEFAULT AND MUST NOT BE USED SILENTLY
+
+        Twelve `*_DB_PATH` variables are set in production and every one
+        points at the `/data` volume. `USER_STORE_PATH` was not among them,
+        so this fell back to `users.json` beside the source file — on
+        Railway that is the **container filesystem**, which is replaced on
+        every deploy. The first person to sign up would have lost their
+        account at the next push, with no error and nothing in the logs.
+
+        It cost nothing only because there are zero signup users: every
+        login is the env-configured admin, which does not touch this file.
+
+        The path itself still resolves, because login and lookup must keep
+        working either way. What changed is that WRITING is refused when
+        the variable is unset -- see `user_store_is_configured()` -- so the
+        unset state produces a named failure rather than a silent write to
+        somewhere temporary. Standing rule 1: demonstrate both failure
+        states, not just the good one.
+        """
         configured_path = User.clean_config_value(app_config.get("USER_STORE_PATH", ""))
         if configured_path:
             return os.path.abspath(configured_path)
         return os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.json")
+
+    @staticmethod
+    def user_store_is_configured(app_config: dict) -> bool:
+        """True when USER_STORE_PATH names a location on purpose.
+
+        The app cannot tell whether an unconfigured fallback persists --
+        in a checkout it does, in a container it does not -- so it does not
+        guess. Unset means unknown, and unknown is not good enough to
+        write an account to.
+        """
+        return bool(User.clean_config_value(app_config.get("USER_STORE_PATH", "")))
+
+    @staticmethod
+    def user_store_warning(app_config: dict) -> str | None:
+        """The banner text when the store has nowhere durable to live."""
+        if User.user_store_is_configured(app_config):
+            return None
+        return ("USER_STORE_PATH is not set. New accounts cannot be created, "
+                "because there is nowhere durable to store them — on Railway "
+                "the default path is the container filesystem and is erased "
+                "on every deploy. Set USER_STORE_PATH to a file on the /data "
+                "volume, for example /data/users.json.")
 
     @staticmethod
     def _check_password(password: str, stored_hash: str) -> bool:
