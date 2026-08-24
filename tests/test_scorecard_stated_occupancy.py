@@ -20,12 +20,15 @@ THREE THINGS THAT COULD HAVE GONE WRONG SILENTLY, EACH PINNED HERE
    Rock overlaps on four months. Pairing by position would have lined one
    period up against another and looked entirely plausible.
 
-2. THE EXISTING MONTH NORMALISER IS WRONG FOR THESE HEADERS.
-   PnLParser.normalize_month finds the month and then takes the month's
-   own digits as the year: '10/24' -> 'Oct 2010', '11/24' -> 'Nov 2011',
-   '12/24' -> 'Dec 2012', '06/25' -> 'Jun 2006'. Eagle Rock's sheet begins
-   at '10/24'. Reusing it would have misfiled three months by a decade and
-   then reported no overlap, which looks exactly like the Jackson case.
+2. THE EXISTING MONTH NORMALISER WAS WRONG FOR THESE HEADERS.
+   PnLParser.normalize_month took the month's own digits as the year:
+   '10/24' -> 'Oct 2010', '11/24' -> 'Nov 2011', '12/24' -> 'Dec 2012',
+   '06/25' -> 'Jun 2006'. Eagle Rock's sheet begins at '10/24'. Reusing it
+   would have misfiled three months by a decade and then reported no
+   overlap, which looks exactly like the Jackson case. FIXED in Part 44 --
+   found from here, and fixed on its own once the blast radius was known.
+   The dedicated parser stays because it is strict where the shared one is
+   permissive, not because the shared one is broken.
 
 3. ROWS FOUND BY LABEL, NOT POSITION. Both workbooks happen to put
    'Physical occupancy' at A2 and 'Economic Occupancy' at A3. That holds
@@ -66,27 +69,47 @@ def workbook(tmpdir, rows, headers=("5/24", "6/24", "7/24"), sheet="T12 KPIs"):
 
 
 class MonthHeadersParseCorrectlyTests(unittest.TestCase):
-    """The dedicated normaliser exists because the shared one is wrong."""
+    """The dedicated normaliser is strict, which the shared one is not.
+
+    It was written because the shared one was wrong for these headers.
+    That was fixed in Part 44; strictness is why the two stay separate.
+    """
 
     def test_single_digit_months(self):
         self.assertEqual(kpi_month_key("5/24"), "May 2024")
         self.assertEqual(kpi_month_key("1/25"), "Jan 2025")
 
-    def test_the_cases_the_shared_normaliser_gets_wrong(self):
+    def test_two_digit_and_padded_months(self):
         for raw, expected in (("10/24", "Oct 2024"), ("11/24", "Nov 2024"),
                               ("12/24", "Dec 2024"), ("06/25", "Jun 2025")):
             with self.subTest(raw=raw):
                 self.assertEqual(kpi_month_key(raw), expected)
 
-    def test_the_shared_normaliser_really_is_wrong_here(self):
-        """Pinned so the claim above is checked, not asserted.
+    def test_the_shared_normaliser_has_since_been_fixed(self):
+        """The pin fired, and this is what it was for.
 
-        If this ever starts passing, PnLParser.normalize_month has been
-        fixed and the dedicated one may be reconsidered.
+        This test previously asserted the bug -- that
+        PnLParser.normalize_month returned 'Oct 2010' for '10/24' -- so
+        that fixing it could not pass unnoticed. It was fixed in Part 44
+        and this now asserts the corrected behaviour instead.
         """
         shared = PnLParser.__new__(PnLParser)
-        self.assertEqual(shared.normalize_month("10/24"), "Oct 2010")
-        self.assertNotEqual(shared.normalize_month("10/24"), "Oct 2024")
+        self.assertEqual(shared.normalize_month("10/24"), "Oct 2024")
+
+    def test_the_dedicated_parser_is_still_the_right_one_here(self):
+        """Fixed is not the same as interchangeable.
+
+        normalize_month is deliberately permissive: it accepts a bare
+        month name and will return 'Aug' with no year at all. On this
+        sheet a header that is not m/yy must be REFUSED, because a month
+        without a year cannot be aligned and a guessed one would pair one
+        period's occupancy against another's figures. Strictness is the
+        feature, so the two stay separate.
+        """
+        shared = PnLParser.__new__(PnLParser)
+        self.assertEqual(shared.normalize_month("Aug"), "Aug")
+        self.assertIsNone(kpi_month_key("Aug"))
+        self.assertIsNone(kpi_month_key("Aug 2025"))
 
     def test_four_digit_years_and_junk(self):
         self.assertEqual(kpi_month_key("1/2025"), "Jan 2025")

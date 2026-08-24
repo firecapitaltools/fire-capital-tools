@@ -859,6 +859,102 @@ reported-as-property-specific problem that was not.
 
 ---
 
+## A month's own digits were being read as its year
+
+**Fixed in Part 44. Latent, never fired, production clean — verified, not
+assumed.**
+
+`PnLParser.normalize_month` found the month and then ran a *fresh* search
+for the year across the whole string. `(20\d{2}|\d{2})` matched the
+month's own digits whenever the month was two-digit or zero-padded:
+
+```
+'5/24'    -> May 2024   correct, by luck: '5' is one digit
+'10/24'   -> Oct 2010   the '10' was taken as the year
+'11/24'   -> Nov 2011
+'12/24'   -> Dec 2012
+'06/25'   -> Jun 2006
+'10/2024' -> Oct 2010   even with the year spelled out in full
+```
+
+October, November, December and every zero-padded month, misfiled by up to
+a decade.
+
+**Where it sits is why it mattered.** This is the P&L path.
+`scorecard_history` is keyed `PRIMARY KEY (property_key, month)` and
+`month_start` drives the trend's chronological order, so a misfiled month
+writes a *different row* and sorts to a different place. It cannot collide
+with the correct one, so it would never announce itself.
+
+**BLAST RADIUS, ESTABLISHED BEFORE FIXING**
+
+* **THE NUMERIC BRANCH WAS UNREACHABLE ACROSS ALL TWENTY REAL FILES.**
+  Every P&L export in hand writes a month NAME with a four-digit year —
+  `'Aug 2025'`, `'Jun 2025\nActual'`, `'Jan 2025'` — across Jackson
+  (Beam), Eagle Rock and OXPT (Ince) and Canyon, in both `.xlsx` and
+  converted `.csv`. All twenty parse through the month-name path; not one
+  reaches the numeric branch.
+
+  **This was a LATENT bug, not a live one, and that should decide how
+  hard anyone guards it.** Nothing was ever wrong on screen, no history
+  row was ever misfiled, no user ever saw a bad month. It was worth
+  fixing because the cost of being wrong is high and silent, not because
+  it was costing anything. So: do not build an elaborate defence around
+  it, and do not go hunting for corrupted data — there is none. If an
+  export family ever does arrive with `m/yy` headers,
+  `tests/test_pnl_month_normalisation.py` already covers it.
+* **Production history is clean.** Read read-only: 36 rows, three
+  properties, every month between Aug 2025 and Jul 2026, nothing outside
+  2020–2030. **So this was a code fix with no data correction behind it**,
+  and no month keys were rewritten under the live history table.
+* **Regression evidence:** all 20 real P&L files produce a byte-identical
+  parse fingerprint before and after (`2ff8958f95c76dda`), and that
+  comparator was positive-controlled — shifting every resolved year by one
+  moves it.
+
+**The fix works in tokens.** The month token is consumed, then the year is
+sought in what remains, which makes digit-stealing impossible rather than
+unlikely. A four-digit token can never be read as a month.
+
+**And where a file states its own period, that now beats inference.** The
+default-year fallback was *today's calendar year*, which is a guess about
+the clock rather than about the document — a 2025 T12 opened in 2026 would
+file every yearless column under 2026. It now prefers the range the file
+declares (`'Period Range: Aug 2025 to Jul 2026'`,
+`'June 2025 - May 2026 - Accrual - ...'`). This only affects files whose
+columns carry no year at all, so it changes nothing for any current format.
+
+**Still approximate, deliberately — and the condition is what decides
+whether anyone should care.**
+
+A T12 crosses a year boundary, so a *single* default year is necessarily
+wrong for part of any twelve-month range: a file running Aug 2025 to Jul
+2026 has five months in 2026 that a default of 2025 would misfile.
+
+**It matters ONLY for a file whose columns carry no year at all, and no
+current format does that.** All four export families — Beam, Ince, Canyon
+and the converted CSVs — write the year into every column header, so the
+default-year branch is never reached and the approximation never bites.
+That condition is the whole point; without it this reads as a live defect
+rather than a dormant one.
+
+**The real answer, when a file finally needs it:** assign years by walking
+the sequence forward from the period's start month, incrementing the year
+each time the month number wraps past December — not by resolving each
+column independently against one default. The period range is already
+parsed into `self.period`, so the start month is available.
+
+It is a larger change to the column-mapping path, where six call sites
+share `default_year`, and it should be made against a real file that
+requires it rather than speculatively.
+
+**How it was found is the part worth keeping.** Not from a symptom —
+there was none. It surfaced while building something *else* that needed to
+parse `m/yy` headers, and the question "can I reuse the existing one?"
+was answered by running it rather than reading it.
+
+---
+
 ## Two claims that nothing visible could have contradicted
 
 These belong together. One is ours, one came from a prompt, and both would
@@ -1414,6 +1510,17 @@ regression of this one. Do not spend further time reconciling it.
   parser already returned all 152 units correctly. The exit criterion is a
   sample file, and nothing else. Full statement in *Revised cost
   estimates* below; **the two must say the same thing — see
+  [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
+- **Do not rework P&L column-year assignment until a file arrives whose
+  columns carry no year.** The fix is to walk the period forward from its
+  start month rather than resolve each column against one default. A T12
+  crosses a year boundary,
+  so the single `default_year` is wrong for part of any range. **No
+  current format reaches that branch**: Beam, Ince, Canyon and the
+  converted CSVs all write the year into every column header, so this is
+  dormant, not broken. The exit criterion is an export family that omits
+  the year. Full statement under *A month's own digits were being read as
+  its year* above; **the two must say the same thing — see
   [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
 
 
