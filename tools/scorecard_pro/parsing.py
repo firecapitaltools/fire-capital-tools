@@ -9,6 +9,7 @@ import openpyxl
 import pandas as pd
 
 from tools.scorecard_pro.constants import MONTHS
+from tools.scorecard_pro.utils import month_sort_key
 
 
 class PnLParser:
@@ -804,3 +805,201 @@ class ScorecardTargetParser:
 
     def get_diagnostics(self):
         return self.diagnostics
+
+
+# ── Michelle's own occupancy, read but never substituted ─────────────────
+
+# HER MONTH HEADERS NEED THEIR OWN NORMALISER, AND THAT IS NOT A PREFERENCE
+#
+# PnLParser.normalize_month() is wrong for exactly the headers these sheets
+# use. It finds the month, then scans for a year and picks up the month's
+# own digits:
+#
+#     '5/24'  -> 'May 2024'   correct
+#     '10/24' -> 'Oct 2010'   WRONG
+#     '11/24' -> 'Nov 2011'   WRONG
+#     '12/24' -> 'Dec 2012'   WRONG
+#     '06/25' -> 'Jun 2006'   WRONG
+#
+# Single-digit months survive; two-digit and zero-padded ones do not. Eagle
+# Rock's T12 KPIs sheet begins '10/24', '11/24', '12/24', so reusing it
+# would misfile three months by more than a decade and then silently find
+# no overlap. That bug is NOT fixed here -- it lives in the P&L path, where
+# month keys decide history rows, so it is its own change with its own
+# verification. It is recorded in HANDOFF and avoided here.
+_KPI_MONTH = re.compile(r"^\s*(\d{1,2})\s*[/\-]\s*(\d{2}|\d{4})\s*$")
+
+
+def kpi_month_key(raw):
+    """'10/24' -> 'Oct 2024'. Returns None for anything not m/yy or m/yyyy.
+
+    Deliberately strict: these headers are stored as TEXT (number format
+    '@'), so they never coerce to dates and there is no second
+    interpretation to fall back on. Anything unrecognised is dropped rather
+    than guessed at, because a mis-parsed month here would line one
+    property's occupancy up against another month's figures.
+    """
+    if raw is None:
+        return None
+    m = _KPI_MONTH.match(str(raw))
+    if not m:
+        return None
+    month, year = int(m.group(1)), int(m.group(2))
+    if not 1 <= month <= 12:
+        return None
+    if year < 100:
+        year += 2000
+    return f"{MONTHS[month - 1]} {year}"
+
+
+class ScorecardKpiParser:
+    """Reads the occupancy Michelle's own template states, per month.
+
+    WHY THIS IS READ AND NEVER SUBSTITUTED
+
+    Scorecard Pro computes occupancy from the P&L: physical as
+    1 - |vacancy loss| / GPR, economic as NRI / GPR. Both are
+    dollar-weighted. Michelle's figures are almost certainly unit-based
+    (occupied units / total units), which is the textbook definition and a
+    different quantity -- they disagree on the one month where an Eagle
+    Rock sheet and its P&L overlap: hers 0.6044 / 0.5419, ours 0.5687 /
+    0.4429.
+
+    Neither is wrong. They are not the same measurement, so replacing ours
+    with hers would swap one number for another that answers a different
+    question, and averaging them would be meaningless. The page shows both
+    with provenance and computes no variance: the disagreement is the
+    information.
+
+    ROWS ARE FOUND BY LABEL, NEVER BY POSITION
+
+    Both real workbooks put 'Physical occupancy' at A2 and 'Economic
+    Occupancy' at A3, exact-match across the two files. That is precisely
+    the coincidence that holds until somebody inserts a row, so the label
+    is the key and the position is not used at all.
+
+    THE VALUES MAY BE A STALE CACHE, AND THE PAGE HAS TO SAY SO
+
+    Jackson's Economic Occupancy cells are Google Sheets IMPORTRANGE
+    formulas wrapped in IFERROR(..., <cached value>). Excel cannot evaluate
+    IMPORTRANGE, so what openpyxl returns with data_only=True is provably
+    the IFERROR fallback -- checked to full precision on three cells. That
+    is a snapshot from whenever the sheet last refreshed in Google Sheets,
+    and nothing in the file records when. `stale_source` carries that to
+    the page rather than presenting a cached number as current.
+    """
+
+    SHEET = "T12 KPIs"
+    ROWS = {"physical": "physical occupancy", "economic": "economic occupancy"}
+
+    def __init__(self, filepath):
+        self.filepath = filepath
+        self.data = {"physical": {}, "economic": {}}
+        self.diagnostics = {
+            "sheet_found": False,
+            "rows_found": [],
+            "rows_missing": [],
+            "months": [],
+            "unparsed_headers": [],
+            "stale_source": False,
+            "warnings": [],
+        }
+
+    def parse(self):
+        try:
+            wb = openpyxl.load_workbook(self.filepath, data_only=True)
+        except Exception as exc:
+            self.diagnostics["warnings"].append(f"Could not open workbook: {exc}")
+            return
+        if self.SHEET not in wb.sheetnames:
+            self.diagnostics["warnings"].append(
+                f"'{self.SHEET}' sheet not found; no stated occupancy read.")
+            return
+        self.diagnostics["sheet_found"] = True
+        ws = wb[self.SHEET]
+
+        columns = {}
+        for col in range(2, ws.max_column + 1):
+            raw = ws.cell(1, col).value
+            if raw is None:
+                continue
+            key = kpi_month_key(raw)
+            if key:
+                columns[col] = key
+            else:
+                self.diagnostics["unparsed_headers"].append(str(raw))
+        self.diagnostics["months"] = sorted(set(columns.values()),
+                                            key=month_sort_key)
+
+        label_rows = {}
+        for row in range(1, ws.max_row + 1):
+            label = ws.cell(row, 1).value
+            if label is None:
+                continue
+            text = str(label).strip().lower()
+            for name, wanted in self.ROWS.items():
+                if text == wanted and name not in label_rows:
+                    label_rows[name] = row
+
+        for name in self.ROWS:
+            if name not in label_rows:
+                self.diagnostics["rows_missing"].append(name)
+                continue
+            self.diagnostics["rows_found"].append(name)
+            row = label_rows[name]
+            for col, month in columns.items():
+                value = ws.cell(row, col).value
+                if isinstance(value, (int, float)):
+                    self.data[name][month] = float(value)
+
+        self._detect_stale(label_rows)
+
+    def _detect_stale(self, label_rows):
+        """Flag values that are a cached copy of an external formula."""
+        if not label_rows:
+            return
+        try:
+            raw_wb = openpyxl.load_workbook(self.filepath, data_only=False)
+        except Exception:
+            return
+        if self.SHEET not in raw_wb.sheetnames:
+            return
+        raw = raw_wb[self.SHEET]
+        for row in label_rows.values():
+            for col in range(2, raw.max_column + 1):
+                value = raw.cell(row, col).value
+                if isinstance(value, str) and "IMPORTRANGE" in value.upper():
+                    self.diagnostics["stale_source"] = True
+                    return
+
+    def get_data(self):
+        return self.data
+
+    def get_diagnostics(self):
+        return self.diagnostics
+
+
+def align_stated_occupancy(stated, our_months):
+    """Pair her figures with ours BY MONTH, or not at all.
+
+    THE PERIODS DO NOT MATCH, AND THAT IS NOT AN EDGE CASE
+
+    The T12 KPIs sheet is a snapshot rather than something regenerated per
+    upload. Measured on the real files:
+
+        Jackson     sheet 5/24-12/24   P&L Aug 2025 - Jul 2026   ZERO overlap
+        Eagle Rock  sheet 10/24-9/25   P&L Jun 2025 - May 2026   4 months
+
+    So for the very property that raised the question there is nothing to
+    show, and showing her numbers anyway -- beside a Jackson P&L, under a
+    Jackson heading -- would read as Jackson's occupancy for months it does
+    not describe. Alignment is by month key and nothing else.
+    """
+    months = [m for m in our_months
+              if m in stated.get("physical", {}) or m in stated.get("economic", {})]
+    return {
+        "months": months,
+        "physical": {m: stated.get("physical", {}).get(m) for m in months},
+        "economic": {m: stated.get("economic", {}).get(m) for m in months},
+        "overlap_count": len(months),
+    }
