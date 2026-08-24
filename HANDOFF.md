@@ -888,11 +888,21 @@ with the correct one, so it would never announce itself.
 
 **BLAST RADIUS, ESTABLISHED BEFORE FIXING**
 
-* **No file in hand ever hit it.** Every P&L export writes a month NAME
-  with a four-digit year — `'Aug 2025'`, `'Jun 2025\nActual'`,
-  `'Jan 2025'` — across Jackson (Beam), Eagle Rock and OXPT (Ince) and
-  Canyon, in both `.xlsx` and converted `.csv`. The numeric branch was
-  unreachable in practice.
+* **THE NUMERIC BRANCH WAS UNREACHABLE ACROSS ALL TWENTY REAL FILES.**
+  Every P&L export in hand writes a month NAME with a four-digit year —
+  `'Aug 2025'`, `'Jun 2025\nActual'`, `'Jan 2025'` — across Jackson
+  (Beam), Eagle Rock and OXPT (Ince) and Canyon, in both `.xlsx` and
+  converted `.csv`. All twenty parse through the month-name path; not one
+  reaches the numeric branch.
+
+  **This was a LATENT bug, not a live one, and that should decide how
+  hard anyone guards it.** Nothing was ever wrong on screen, no history
+  row was ever misfiled, no user ever saw a bad month. It was worth
+  fixing because the cost of being wrong is high and silent, not because
+  it was costing anything. So: do not build an elaborate defence around
+  it, and do not go hunting for corrupted data — there is none. If an
+  export family ever does arrive with `m/yy` headers,
+  `tests/test_pnl_month_normalisation.py` already covers it.
 * **Production history is clean.** Read read-only: 36 rows, three
   properties, every month between Aug 2025 and Jul 2026, nothing outside
   2020–2030. **So this was a code fix with no data correction behind it**,
@@ -914,10 +924,29 @@ declares (`'Period Range: Aug 2025 to Jul 2026'`,
 `'June 2025 - May 2026 - Accrual - ...'`). This only affects files whose
 columns carry no year at all, so it changes nothing for any current format.
 
-**Still approximate, deliberately.** A T12 crosses a year boundary, so a
-single default year is wrong for part of any twelve-month range. Assigning
-years by walking the sequence from the period's start is the real answer;
-it is a larger change to the column-mapping path and was not made.
+**Still approximate, deliberately — and the condition is what decides
+whether anyone should care.**
+
+A T12 crosses a year boundary, so a *single* default year is necessarily
+wrong for part of any twelve-month range: a file running Aug 2025 to Jul
+2026 has five months in 2026 that a default of 2025 would misfile.
+
+**It matters ONLY for a file whose columns carry no year at all, and no
+current format does that.** All four export families — Beam, Ince, Canyon
+and the converted CSVs — write the year into every column header, so the
+default-year branch is never reached and the approximation never bites.
+That condition is the whole point; without it this reads as a live defect
+rather than a dormant one.
+
+**The real answer, when a file finally needs it:** assign years by walking
+the sequence forward from the period's start month, incrementing the year
+each time the month number wraps past December — not by resolving each
+column independently against one default. The period range is already
+parsed into `self.period`, so the start month is available.
+
+It is a larger change to the column-mapping path, where six call sites
+share `default_year`, and it should be made against a real file that
+requires it rather than speculatively.
 
 **How it was found is the part worth keeping.** Not from a symptom —
 there was none. It surfaced while building something *else* that needed to
@@ -1481,6 +1510,17 @@ regression of this one. Do not spend further time reconciling it.
   parser already returned all 152 units correctly. The exit criterion is a
   sample file, and nothing else. Full statement in *Revised cost
   estimates* below; **the two must say the same thing — see
+  [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
+- **Do not rework P&L column-year assignment until a file arrives whose
+  columns carry no year.** The fix is to walk the period forward from its
+  start month rather than resolve each column against one default. A T12
+  crosses a year boundary,
+  so the single `default_year` is wrong for part of any range. **No
+  current format reaches that branch**: Beam, Ince, Canyon and the
+  converted CSVs all write the year into every column header, so this is
+  dormant, not broken. The exit criterion is an export family that omits
+  the year. Full statement under *A month's own digits were being read as
+  its year* above; **the two must say the same thing — see
   [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
 
 

@@ -121,6 +121,18 @@ REGISTERED_RULES = {
                  "criterion, while the long form carried all three. "
                  "Narrowed in Part 41."),
     },
+    "column-year": {
+        "qualifier": lambda body: bool(CONDITION.search(body)
+                                       or CROSSREF.search(body)),
+        "needs": "a condition or a cross-reference to the full statement",
+        "note": ("Stated in 'Open operational items' and under 'A month's "
+                 "own digits were being read as its year'. Registered in "
+                 "Part 45 at the moment the second statement was written, "
+                 "rather than after it drifted -- the compression rule "
+                 "predicts the short form will lose 'until a file arrives "
+                 "whose columns carry no year', which is the clause that "
+                 "makes it dormant rather than broken."),
+    },
 }
 
 
