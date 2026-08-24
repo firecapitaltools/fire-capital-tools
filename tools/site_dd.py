@@ -253,7 +253,7 @@ def save(assessment_id):
     for key in cl.ITEM_KEYS:
         for n in _posted_instances(request.form, key, existing.get(key, [])):
             suffix = "" if n == 1 else f"__{n}"
-            raw = (request.form.get(f"condition_{key}{suffix}") or "").strip()
+            prior = _prior_row(existing.get(key), n)
             est_cost, est_source = _kept_cost(request.form, key, suffix,
                                               existing.get(key), n)
             responses.append({
@@ -265,21 +265,39 @@ def save(assessment_id):
                 "instance_no": n,
                 "instance_label": _kept_label(request.form, key, suffix,
                                               existing.get(key), n),
-                "condition": raw if cond.is_valid(raw) else None,
+                "condition": _kept_condition(
+                    request.form, f"condition_{key}{suffix}", prior),
                 "est_unit_cost": est_cost,
                 "est_cost_source": est_source,
                 "measure": _kept_measure(request.form, key, suffix,
                                          existing.get(key), n),
-                "note": (request.form.get(f"note_{key}{suffix}") or "").strip() or None,
+                "note": _kept_note(request.form, f"note_{key}{suffix}", prior),
             })
 
-    status = (request.form.get("status") or "").strip()
+    # THE HEADER FIELDS GET THE SAME RULE AS THE FINDINGS.
+    #
+    # update_assessment() writes all five columns unconditionally, so a
+    # save from a page that did not render them wrote NULL over each --
+    # Part 51 demonstrated `overall_notes` going from "walked the roof" to
+    # None. The inspector's summary of the whole walk is the single most
+    # expensive free-text field in the tool.
+    #
+    # `prior` is the assessment as it stands, so absent means unchanged
+    # here exactly as it does for a finding.
+    prior_assessment = _load(assessment_id) or {}
+
+    def header(field, column, default=None):
+        if field not in request.form:
+            return prior_assessment.get(column, default)
+        return (request.form.get(field) or "").strip() or default
+
+    status = header("status", "status", db.STATUS_DRAFT)
     with db.get_connection() as conn:
         db.update_assessment(conn, assessment_id, {
-            "property_label": (request.form.get("property_label") or "").strip() or "Untitled",
-            "assessed_on": (request.form.get("assessed_on") or "").strip() or None,
-            "inspector": (request.form.get("inspector") or "").strip() or None,
-            "overall_notes": (request.form.get("overall_notes") or "").strip() or None,
+            "property_label": header("property_label", "property_label", "Untitled"),
+            "assessed_on": header("assessed_on", "assessed_on"),
+            "inspector": header("inspector", "inspector"),
+            "overall_notes": header("overall_notes", "overall_notes"),
             "status": status if status in db.STATUSES else db.STATUS_DRAFT,
         })
         db.upsert_findings(conn, assessment_id, responses)
@@ -898,31 +916,17 @@ def _collect(form, items, *, scope, area_id, room_id, existing=None):
             # not silently downgrade a table figure to nothing" -- and the
             # one `save_expenses` uses for acquisition lines. It is the
             # third member of a family, not a new idea.
-            cond_field = f"condition_{key}{suffix}"
-            if cond_field in form:
-                raw_condition = (form.get(cond_field) or "").strip()
-                condition = raw_condition if cond.is_valid(raw_condition) else None
-            else:
-                condition = (prior or {}).get("condition")
+            condition = _kept_condition(form, f"condition_{key}{suffix}", prior)
+            note = _kept_note(form, f"note_{key}{suffix}", prior)
 
-            detail_field = f"detail_{key}{suffix}"
-            if detail_field in form:
-                raw_detail = (form.get(detail_field) or "").strip()
-                detail = raw_detail if uc.is_valid_option(item, raw_detail) else None
-            else:
-                detail = (prior or {}).get("detail")
+            def _detail(raw, _item=item):
+                value = (raw or "").strip()
+                return value if uc.is_valid_option(_item, value) else None
 
-            note_field = f"note_{key}{suffix}"
-            if note_field in form:
-                note = (form.get(note_field) or "").strip() or None
-            else:
-                note = (prior or {}).get("note")
-
-            qty_field = f"quantity_{key}{suffix}"
-            if qty_field in form:
-                quantity = to_float(form.get(qty_field))
-            else:
-                quantity = (prior or {}).get("quantity")
+            detail = _kept_field(form, f"detail_{key}{suffix}", prior,
+                                 "detail", _detail)
+            quantity = _kept_field(form, f"quantity_{key}{suffix}", prior,
+                                   "quantity", to_float)
 
             est_cost, est_source = _kept_cost(form, key, suffix,
                                               existing.get(key), n)
@@ -956,6 +960,48 @@ def _collect(form, items, *, scope, area_id, room_id, existing=None):
                 "note": note,
             })
     return out
+
+
+def _kept_field(form, field, prior, column, parse):
+    """One field after this save. ABSENT MEANS UNCHANGED.
+
+    THE SHARED PIECE IS THE SEMANTICS, NOT THE LOOP
+
+    Two routes collect findings and they do NOT have the same shape: the
+    property scope has no detail, no quantity and no bank item, while the
+    unit and room scopes do. Sharing the whole loop would mean bending one
+    around fields it does not have.
+
+    What they DO share, exactly, is how a single field should be read --
+    and that is the part that diverged. Part 49 fixed the unit/room loop
+    and left the property loop with the collapsing read, because the fix
+    was scoped to the function rather than to the pattern; Part 51 found it
+    still blanking `condition`, `note` and `overall_notes`.
+
+    So the semantics live here, once, and both loops call it. A third
+    collector gets the behaviour by using the helper rather than by
+    remembering the rule.
+
+    Absent means the page never rendered the field, which is never an
+    instruction to erase. Present-and-empty is a deliberate clear, and the
+    two are cleanly distinguishable because a rendered item always submits
+    its field -- the condition group carries an explicit blank option.
+    """
+    if field not in form:
+        return (prior or {}).get(column)
+    return parse(form.get(field))
+
+
+def _kept_condition(form, field, prior):
+    def parse(raw):
+        value = (raw or "").strip()
+        return value if cond.is_valid(value) else None
+    return _kept_field(form, field, prior, "condition", parse)
+
+
+def _kept_note(form, field, prior):
+    return _kept_field(form, field, prior, "note",
+                       lambda raw: (raw or "").strip() or None)
 
 
 def _prior_row(existing_rows, n):
