@@ -427,6 +427,43 @@ Only the old one can tell you what is missing.
 
 Corollaries earned here:
 
+### Why nobody was wrong, which is the part that generalises
+
+Two statements stood in direct contradiction and both were true:
+
+> *"Standing rule 1 already demands both failure states be demonstrated."*
+> *"No such rule exists in the repo, and the phrase appears nowhere in it."*
+
+**The original handoff was never a repo file.** It was a document pasted
+into the conversation that opened this project. One party was reading it
+from that context; the other was reading the repository. Neither could see
+what the other was looking at, and neither was mistaken.
+
+**THE HAZARD: knowledge that lives only in a chat context disappears when
+the chat does.** It is not merely undocumented — it is invisible to every
+instrument, because every instrument this project has reads the repo. A
+grep cannot find it, a test cannot pin it, a diff has nothing to compare.
+It survives exactly as long as someone remembers to carry it forward, and
+it looks identical to settled knowledge right up until the window closes.
+
+**This project has already paid this cost once.** A conversation was lost
+to size, and the project carried itself forward on a document that then
+lived only in the *next* conversation. Each hand-off looked safe because
+the document was right there — in a context that was itself temporary.
+Thirty-six runs later four standing rules were gone and the only reason
+they came back is that one person still had the original.
+
+**THE RULE: a predecessor must be COMMITTED, not quoted.** If a document
+is load-bearing enough to hand forward, it is load-bearing enough to be a
+file. Pasting it into a prompt hands it forward exactly once; committing
+it hands it forward permanently and makes it diffable, greppable and
+testable. The cost is a few kilobytes against a failure mode with no
+symptom.
+
+The corollary for anything else living in a conversation: **if it matters
+and it is not in the repo, it does not exist.** Not "is poorly
+documented" — does not exist, because nothing here can see it.
+
 * **Keep the predecessor.** The original was never committed, so there was
   nothing to diff against and no way to notice for thirty-six runs. A
   superseded document costs a few kilobytes and is the only instrument
