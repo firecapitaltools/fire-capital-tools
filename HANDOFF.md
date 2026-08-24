@@ -309,6 +309,71 @@ completely", and nobody had measured which.
 
 ---
 
+## The three deleting routes: a DECISION not to build, with its condition
+
+`save_loans`, `save_capex` and `save_gp_partners` delete omitted rows
+rather than blanking them. **Investigated in Part 52 and deliberately left
+alone.** Recorded as a decision because "not built" and "not noticed" look
+identical six months later, and this file has been wrong about which was
+which twice.
+
+### Absent-means-unchanged is the WRONG fix here
+
+Every one of these forms removes a row with
+`onclick="this.closest('tr').remove()"`. **Omission is the removal
+signal.** Applying the Site DD fix would make it impossible to delete a
+loan, a capex line or a GP partner. This is not the same bug wearing a
+different hat.
+
+### A rendered-items manifest is impossible, and that corrects Part 49
+
+Part 49 deferred "a hidden field listing rendered row ids" as the answer
+if a real conflict appeared. The conflict appeared and **the answer does
+not work**, for two reasons found by looking rather than assuming:
+
+* **The forms carry no row identity at all.** Loans and partners post
+  positional `getlist` arrays; capex posts a loop index `{{ i }}`. There
+  is no id in the form to list.
+* **The ids churn.** All three tables are `DELETE`-then-`INSERT` on every
+  save, so ids are reassigned each time. A manifest of ids would be stale
+  the moment anything was written.
+
+### The correct shape is a rendered-state token
+
+Hash the collection at render, embed it in the form, recompute at save.
+Unchanged, proceed normally **including deletions**; changed, refuse with
+"this page is out of date — reload and reapply". It needs no row identity,
+handles deliberate removal correctly, and fails loudly instead of
+guessing. One helper, three call sites.
+
+### Why it is not built, and what would change that
+
+The back-button path — the one that actually mattered for Site DD — **is
+already closed** on all three pages by `no-store`. What remains is two
+tabs open by one person. And:
+
+* there is **one login**, the env-configured admin, with **zero signup
+  users**, so two *people* is currently impossible;
+* Site DD had a described two-person workflow (*"Michelle reviewing while
+  MJ walks"*). Underwriting and the GP split are analyst-side, single-user
+  tools with no such workflow described.
+
+**THE CONDITION, and it is the whole reason this is a decision rather
+than a shrug: build the token if ANY of these becomes true.**
+
+1. **Per-account data ships** — that is the feature whose entire purpose
+   is more than one person's data.
+2. **More than one person can log in** — the moment `USER_STORE_PATH` is
+   set and a second account exists.
+3. **Any of those three pages becomes part of a two-person workflow** —
+   the Site DD shape, arriving in a different tool.
+
+Any one of the three, not all three. Until then the exposure is one person
+with two tabs on their own analysis, and the cost of being wrong is a
+reload.
+
+---
+
 ## Rule 2 audited at its real scope, and the dropped clause was right
 
 Part 47 checked the four routes the rule names. **The rule's next sentence
@@ -2224,6 +2289,16 @@ regression of this one. Do not spend further time reconciling it.
   parser already returned all 152 units correctly. The exit criterion is a
   sample file, and nothing else. Full statement in *Revised cost
   estimates* below; **the two must say the same thing — see
+  [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
+- **Do not build the rendered-state token for `save_loans`, `save_capex`
+  and `save_gp_partners` until one of three things is true.** Those routes
+  delete omitted rows, and absent-means-unchanged is the WRONG fix because
+  omission is how those forms express removal. **The exit criterion is any
+  ONE of: per-account data ships; a second person can log in; or one of
+  those pages joins a two-person workflow.** Until then the back-button
+  path is closed by `no-store` and the exposure is one user with two tabs.
+  Full statement under *The three deleting routes* above; **the two must
+  say the same thing — see
   [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
 - **Do not rework P&L column-year assignment until a file arrives whose
   columns carry no year.** The fix is to walk the period forward from its

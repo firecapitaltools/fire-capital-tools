@@ -121,6 +121,17 @@ REGISTERED_RULES = {
                  "criterion, while the long form carried all three. "
                  "Narrowed in Part 41."),
     },
+    "rendered-state token": {
+        "qualifier": lambda body: bool(CONDITION.search(body)
+                                       or CROSSREF.search(body)),
+        "needs": "a condition or a cross-reference to the full statement",
+        "note": ("Stated in 'Open operational items' and under 'The three "
+                 "deleting routes'. Registered in Part 53 as the statement "
+                 "was written. The clause at risk is the exit criterion -- "
+                 "'until per-account data ships, a second person can log "
+                 "in, or one of those pages joins a two-person workflow' -- "
+                 "which is what turns a shrug into a decision."),
+    },
     "column-year": {
         "qualifier": lambda body: bool(CONDITION.search(body)
                                        or CROSSREF.search(body)),
