@@ -143,7 +143,25 @@ class TheParameterIsSentOnlyWhenSuppliedTests(unittest.TestCase):
 
 
 class ReopeningThePageDoesNotRespendTests(unittest.TestCase):
-    """The caching requirement, checked by counting real calls."""
+    """The caching requirement, checked by counting real calls.
+
+    THE CACHE IS REDIRECTED BY PATCHING get_db_path, NOT THE ENV VAR
+
+    The first version of these tests set MARKET_CACHE_DB_PATH, which is
+    not the name of anything -- the real variable is MARKET_DATA_DB_PATH.
+    The redirect silently did nothing and the test wrote two rows into the
+    developer's own cache database. Nothing was spent, because the network
+    layer was mocked, but a misspelled environment variable fails OPEN:
+    it does not error, it just uses the default.
+
+    Patching the function is closed by construction. A typo there is an
+    AttributeError, not a silent write to the real file.
+    """
+
+    def redirect_cache(self):
+        import tempfile
+        db = Path(tempfile.mkdtemp()) / "cache.db"
+        return mock.patch.object(cache, "get_db_path", lambda: db)
 
     def test_a_cached_override_costs_nothing(self):
         calls = []
@@ -154,20 +172,14 @@ class ReopeningThePageDoesNotRespendTests(unittest.TestCase):
                     "subject_override": ({"bedrooms": bedrooms}
                                          if bedrooms is not None else None)}
 
-        import tempfile
-        import os
-        db = Path(tempfile.mkdtemp()) / "cache.db"
-        os.environ["MARKET_DATA_DB_PATH"] = str(db)
-        try:
-            with mock.patch.object(svc, "get_rentcast_data", fake_rentcast), \
-                 mock.patch.object(svc, "get_google_place_rating",
-                                   return_value={"available": False}):
-                first = svc.get_market_data("24 Steiner", "San Francisco", "CA",
-                                            "94117", bedrooms_override=2)
-                second = svc.get_market_data("24 Steiner", "San Francisco", "CA",
-                                             "94117", bedrooms_override=2)
-        finally:
-            os.environ.pop("MARKET_DATA_DB_PATH", None)
+        with self.redirect_cache(), \
+             mock.patch.object(svc, "get_rentcast_data", fake_rentcast), \
+             mock.patch.object(svc, "get_google_place_rating",
+                               return_value={"available": False}):
+            first = svc.get_market_data("24 Steiner", "San Francisco", "CA",
+                                        "94117", bedrooms_override=2)
+            second = svc.get_market_data("24 Steiner", "San Francisco", "CA",
+                                         "94117", bedrooms_override=2)
 
         self.assertEqual(calls, [2], "the second view must not spend")
         self.assertFalse(first["from_cache"])
@@ -183,21 +195,15 @@ class ReopeningThePageDoesNotRespendTests(unittest.TestCase):
                     "subject_override": ({"bedrooms": bedrooms}
                                          if bedrooms is not None else None)}
 
-        import tempfile
-        import os
-        db = Path(tempfile.mkdtemp()) / "cache.db"
-        os.environ["MARKET_DATA_DB_PATH"] = str(db)
-        try:
-            with mock.patch.object(svc, "get_rentcast_data", fake_rentcast), \
-                 mock.patch.object(svc, "get_google_place_rating",
-                                   return_value={"available": False}):
-                auto = svc.get_market_data("24 Steiner", "San Francisco", "CA", "94117")
-                svc.get_market_data("24 Steiner", "San Francisco", "CA", "94117",
-                                    bedrooms_override=2)
-                auto_again = svc.get_market_data("24 Steiner", "San Francisco",
-                                                 "CA", "94117")
-        finally:
-            os.environ.pop("MARKET_DATA_DB_PATH", None)
+        with self.redirect_cache(), \
+             mock.patch.object(svc, "get_rentcast_data", fake_rentcast), \
+             mock.patch.object(svc, "get_google_place_rating",
+                               return_value={"available": False}):
+            auto = svc.get_market_data("24 Steiner", "San Francisco", "CA", "94117")
+            svc.get_market_data("24 Steiner", "San Francisco", "CA", "94117",
+                                bedrooms_override=2)
+            auto_again = svc.get_market_data("24 Steiner", "San Francisco",
+                                             "CA", "94117")
 
         self.assertEqual(calls, [None, 2], "each artifact is fetched once")
         self.assertTrue(auto_again["from_cache"])
