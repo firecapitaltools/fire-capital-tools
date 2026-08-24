@@ -1388,7 +1388,25 @@
           <tbody>
             {% for l in operating_lines %}
               <tr{% if not l.is_included %} style="opacity:0.55;"{% endif %}>
-                <td><input type="checkbox" name="included_{{ l.id }}" value="1" {% if l.is_included %}checked{% endif %}></td>
+                {#
+                  THE ROW MARKER, WHICH IS WHAT MAKES THE CHECKBOX READABLE.
+
+                  An unchecked checkbox posts NOTHING, so `included_{id}`
+                  absent is genuinely ambiguous: it means either "rendered
+                  and unticked" or "this page never showed the row". A text
+                  input has no such problem -- rendered means posted, even
+                  if empty -- but the checkbox does, so presence has to be
+                  carried by something that is always sent.
+
+                  This hidden field is always sent for a rendered row, so
+                  the route can tell the two apart: marker present means
+                  the form is speaking about this row and its silence on
+                  the checkbox is a real "no"; marker absent means the row
+                  was never on the page and everything about it stays as
+                  stored.
+                #}
+                <td><input type="hidden" name="row_{{ l.id }}" value="1">
+                    <input type="checkbox" name="included_{{ l.id }}" value="1" {% if l.is_included %}checked{% endif %}></td>
                 <td>{{ l.category_name or '—' }}</td>
                 <td>{{ l.label }}{% if l.gl_code %} <span class="stat-box-sub">{{ l.gl_code }}</span>{% endif %}</td>
                 <td><input class="form-input" type="text" name="amount_{{ l.id }}" style="padding:4px 8px; font-size:12px;"

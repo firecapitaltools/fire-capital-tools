@@ -625,12 +625,36 @@ def save_expenses(scenario_id):
                     "growth_schedule": l.get("growth_schedule"),
                 })
                 continue
+            # ABSENT MEANS UNCHANGED, FOR THE VALUES TOO.
+            #
+            # This route already carried the ROWS through -- it iterates
+            # storage, so nothing is deleted by omission -- and already did
+            # absent-means-unchanged for `growth_schedule`. It was cited as
+            # the precedent for the whole pattern while defending three of
+            # its six fields: amount, growth and is_included were read
+            # straight from the request, so a save from a page that did not
+            # render a row left it at amount=None, growth=None,
+            # is_included=False. The row survived, stopped contributing to
+            # NOI, and read as deliberately excluded rather than damaged.
+            #
+            # `row_{id}` is the marker the template always sends for a
+            # rendered row. It exists because an unchecked checkbox posts
+            # nothing, so `included_{id}` absent cannot distinguish "this
+            # page unticked it" from "this page never showed it". The
+            # marker can: present means the form is speaking about this
+            # row, so a missing checkbox is a real "no".
+            rendered = f"row_{lid}" in request.form
             lines.append({
                 "category_key": l["category_key"], "category_name": l["category_name"],
                 "gl_code": l["gl_code"], "label": l["label"], "line_kind": l["line_kind"],
-                "annual_amount": to_float(request.form.get(f"amount_{lid}")),
-                "growth_pct": to_float(request.form.get(f"growth_{lid}")),
-                "is_included": request.form.get(f"included_{lid}") == "1",
+                "annual_amount": (to_float(request.form.get(f"amount_{lid}"))
+                                  if f"amount_{lid}" in request.form
+                                  else l["annual_amount"]),
+                "growth_pct": (to_float(request.form.get(f"growth_{lid}"))
+                               if f"growth_{lid}" in request.form
+                               else l["growth_pct"]),
+                "is_included": (request.form.get(f"included_{lid}") == "1"
+                                if rendered else bool(l["is_included"])),
                 # Per-line schedules are edited by their own form; reading
                 # them from this request would find nothing and silently
                 # clear every override.
