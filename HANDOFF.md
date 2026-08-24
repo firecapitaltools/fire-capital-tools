@@ -234,6 +234,104 @@ JSON, so existing updates keep old headings regardless.
 
 ---
 
+## Per-account data: what it is, and why it is a question not a task
+
+**Investigated Part 50. Nothing scoped, nothing estimated, nothing built.**
+
+The backlog calls it *"still unbuilt, still un-scoped, still the largest
+item"*, and it appears **nowhere in this file and in no prompt this
+session**. That assessment holds.
+
+### Michelle's words, quoted rather than interpreted
+
+> *"Data should be per-account, not site-wide, with a way to link accounts
+> and share specific deals."*
+
+That is the whole of it. One sentence, from meeting notes, recorded in
+`docs/original-meeting-notes-backlog.md`. The backlog's own reading, also
+worth quoting because it was written when the notes were fresh:
+
+> *"This should not be scoped via a bullet point. Recommend a dedicated
+> conversation with Michelle: who are 'accounts' — other people at her
+> company, outside partners, both? Does sharing mean full deal access or
+> read-only?"*
+
+### Is any of it already built? No — and this was checked, not assumed
+
+Several things in that backlog turned out to be built already. This one is
+not. Verified against the code and against production:
+
+* **No ownership column exists anywhere.** No `user_id`, `owner_id`,
+  `account_id`, `tenant_id` or `created_by` on any table, in any of the
+  twelve databases on the volume.
+* **No route filters by user.** `current_user` appears in exactly two
+  places, both in `admin.py`, both an admin gate. Every logged-in user
+  sees every deal, scenario, assessment and report.
+* **Nothing later superseded it.** The properties foundation, `deal_id`
+  linking and the Investor Notes registry all organise data **by property
+  or deal** — a different axis entirely. They answer "what does this
+  record belong to", not "who may see it". No part of one is a part of the
+  other.
+
+### The finding that changes the shape of the question
+
+**The account layer underneath it does not persist.**
+
+`User.user_store_path()` reads `USER_STORE_PATH` and falls back to
+`/app/users.json`. **`USER_STORE_PATH` is not set in Railway** — twelve
+`*_DB_PATH` variables are, and all point at `/data`; this one is missing —
+so the store falls back to the **ephemeral container filesystem**, which
+is replaced on every deploy.
+
+Today it costs nothing: the file does not exist and there are **zero
+signup users**. Every login is the single env-configured admin account, so
+"every user sees everything" is currently a statement about one user.
+
+But it is exactly the hazard **standing rule 1** describes — a persistent
+path with an env-var-and-fallback shape whose fallback is not persistent,
+and whose unset state was never demonstrated. The first person who signs
+up loses their account at the next deploy, silently. **Flagged, not
+fixed**: it is a one-line Railway variable plus a migration decision about
+where the store should live, and it is Michelle's environment.
+
+### Why this is a question rather than a task
+
+Three things are undecided, and none can be settled from here:
+
+1. **Who is an account?** People at her company, outside partners, or
+   both. The answer changes whether this is user-scoping or real
+   organisation-level multi-tenancy.
+2. **What does sharing mean?** Full access to a shared deal, or read-only.
+   The backlog raises this and it was never answered.
+3. **What happens to everything that exists?** Ten scenarios, four
+   assessments, two deals, twelve cached lookups and three properties of
+   history all currently belong to nobody. They have to become somebody's,
+   and only she can say whose.
+
+**It is too vague to act on without asking her, so it goes to her as a
+question.** The one thing that can be said without her: it touches every
+table and every route, and there is nothing partial to build on.
+
+---
+
+## Site DD Lite: designed only, still
+
+**Confirmed twice — Part 47 and Part 50.** `status` exists on the
+assessment, is validated, and is displayed in three templates. **Nothing
+consumes it as a filter**, which is why the feature never shipped: not
+difficulty, just nothing reading the field.
+
+Michelle settled the design herself: *"the normal tool should be fine if
+we make it toggleable enough"* — vacant units and common areas only, a
+lighter output, one tool rather than two.
+
+**Small build, blocked on nothing but a decision.** It is a query filter
+plus a UI control on a field that already exists and already validates.
+The original handoff flagged its status as unconfirmed; it is confirmed
+now, and the answer is that it was designed and never built.
+
+---
+
 ## The eleven standing rules of the original handoff, audited
 
 **The document this file replaced had eleven numbered standing rules. This
@@ -242,10 +340,43 @@ for thirty-six runs.**
 
 The original was **never in the repo** — `ae22394` created `HANDOFF.md`
 fresh rather than editing a predecessor, and `git log --diff-filter=D`
-finds no deleted handoff-shaped file in any branch. So there is no
+finds no deleted handoff-shaped file in any branch. So there was no
 recoverable copy here, and no in-repo check could ever have found the
-gap. The eleven below survive only because the person who wrote them
-still had them.
+gap.
+
+**It is committed now, in Part 50, at
+`docs/original-handoff-2026-08-16.md`** — verbatim, 21,116 bytes, marked
+superseded. It took three attempts: the paste failed twice, and only
+moving the file onto disk worked, which is the chat-context lesson
+demonstrating itself.
+
+**AND THE RECOVERY HAD INHERITED SEVEN TRANSCRIPTION LOSSES.** Part 47
+wrote the eleven from a quotation rather than from the document, and
+diffing the two in Part 50 found the quotation had dropped material from
+seven of them. Four were clauses; three changed what a rule says:
+
+| rule | what the quotation lost |
+|---|---|
+| 2 | *"assume it applies to **any route not yet audited**"* — so the Part 47 audit checked exactly the four named routes as though they were the scope. **They are examples of a pattern, not an enumeration of it.** |
+| 5 | the entire mechanism. The original is *"any number not confirmed ships with a **test-enforced** 'not confirmed' disclaimer"*, with `deal_readiness_defaults.py` named. Part 47 recovered a different rule — "never assert what you have not read" — which forbids where the original permits-with-a-disclaimer. |
+| 7 | `openai_usage.py` named by file, "must be used by any new AI feature, tagged correctly". |
+| 8 | *"**Never combine build-and-merge into one silent action**"* — an operative clause we follow but had stopped recording. |
+| 1, 3, 9 | wording and tails, including rule 3's "rebase + byte-hash-verify if it has" and rule 9's "this is the expected, correct behavior, not a deviation to avoid". |
+
+All eleven are now verbatim in
+`docs/original-handoff-standing-rules.md`, verified by a normalising diff
+against the source rather than by reading.
+
+**A rule recovered wrong is worse than one recovered late**, because the
+error inherits the authority of the recovery. Rule 5 is the clear case: it
+was restored confidently, it read well, and it was not the rule. Rule 2 is
+the expensive one: the missing clause is precisely the one that would have
+told the Part 47 audit its four-route check was not exhaustive.
+
+**The lesson is narrower than "keep the predecessor" and worth stating
+separately: recover from the artifact, not from a memory of it — including
+your own.** Both parties here had a faithful memory of a document neither
+was reading, and it still lost seven clauses.
 
 | # | rule | status |
 |---|---|---|
@@ -507,12 +638,27 @@ is the member of this family that fails CLOSED, which is why it has never
 caused an incident.
 
 **No fabricated authority.** *Recovered in Part 47; rule 5 of the
-original.* Never present a number, a source, a quota, a limit or an API
-behaviour as established unless it was read from the thing itself. The
-RentCast `bedrooms` parameter, the `to_capex_lines` glob, the Jinja
-`Undefined` claim and `normalize_month`'s behaviour were each asserted
-confidently and each was wrong. This is the parent rule of "check the
-premise against the code".
+original. **Corrected in Part 50** — the Part 47 recovery was written from
+a quotation and restored a DIFFERENT rule than the one the original
+carries.*
+
+The original, verbatim: *"Any number/threshold not confirmed by Michelle
+or a real cited source ships with an explicit, **test-enforced** 'not
+confirmed' disclaimer (established pattern: `deal_readiness_defaults.py`,
+reused in Quick Deal Analyzer's grading and Site DD's cost table)."*
+
+That is a **mechanism**, not a principle, and it is live:
+`deal_readiness_defaults.py` carries
+`REQUIRED_DISCLAIMER_PHRASE = "not confirmed"` and
+`tests/test_deal_readiness.py` enforces it. The Part 47 version — "never
+present a number as established unless it was read from the thing itself"
+— is a reasonable rule that this session repeatedly earned, but it is not
+this one. It forbids asserting; the original permits shipping an
+unconfirmed number **provided the page says so and a test makes it say
+so**. Both are kept: the original because it is the rule and has an
+implementation, the paraphrase because the RentCast `bedrooms` parameter,
+the `to_capex_lines` glob, the Jinja `Undefined` claim and
+`normalize_month` were each asserted confidently and each was wrong.
 
 **When the instruction is wrong or stale, say so and propose the right
 thing rather than building what was asked.** *Recovered in Part 47; rule 9
@@ -529,6 +675,9 @@ are the enforcement; this is the sentence that says why they exist.
 **Merge discipline.** Investigate → report → build → report before
 merging → merge only on explicit go-ahead → deploy → verify on production
 → report. One merge at a time; never chain. Report each part separately.
+**Never combine build-and-merge into one silent action** — *restored in
+Part 50; rule 8 of the original carried this clause and the Part 47
+recovery dropped it.*
 
 **Verification is by behaviour, not by file hash.** *This replaced the
 old rule.* `deal_analyzer_math.py` used to be checked by byte-hash — but
@@ -595,6 +744,13 @@ Somebody hit this there and fixed it there.
 
 **Do not read "no incident lately" as "hazard gone".** We have barely
 written to production.
+
+**AND THE LIST OF FOUR IS NOT THE SCOPE.** *Restored in Part 50 — the
+Part 47 recovery dropped this clause, and the Part 47 audit then checked
+exactly the four named routes as though they were the rule.* The original
+ends: *"assume it applies to **any route not yet audited**."* The four are
+examples of a pattern, not an enumeration of it. Any route that rebuilds a
+collection from a form is in scope until someone has looked at it.
 
 **Money — for every metered third-party call, not just OpenAI.** *Rule 7
 of the original, which named OpenAI only; the shape has since generalised
