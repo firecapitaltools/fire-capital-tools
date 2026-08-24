@@ -217,10 +217,39 @@ class PnLParser:
         return df
 
     def _infer_default_year(self, labels):
+        """The year to assume for a column that does not state one.
+
+        WHEN A FILE STATES ITS OWN PERIOD, THAT BEATS INFERENCE
+
+        The order is: a year in the column labels, then the period the file
+        declares in its own header, then today. The last of those is a
+        guess about the calendar rather than about the document, and it is
+        wrong for any file uploaded outside the year it covers -- a T12 for
+        2025 opened in 2026 would have every yearless column filed under
+        2026.
+
+        Both real export families state a range and both name the year:
+
+            Beam   'Period Range: Aug 2025 to Jul 2026'
+            Ince   'June 2025 - May 2026 - Accrual - ...'
+
+        Only files whose columns carry no year at all reach past the first
+        branch, so this changes nothing for any format currently in hand
+        and improves the fallback for one that is not.
+
+        STILL APPROXIMATE, AND DELIBERATELY LEFT SO. A T12 crosses a year
+        boundary, so a single default year is wrong for part of any twelve
+        month range. Assigning years by walking the sequence from the
+        period's start month is the real answer; it is a larger change to
+        the column-mapping path and is not made here.
+        """
         for label in labels:
             match = re.search(r"(20\d{2})", str(label))
             if match:
                 return int(match.group(1))
+        stated = re.search(r"(20\d{2})", str(getattr(self, "period", "") or ""))
+        if stated:
+            return int(stated.group(1))
         return datetime.date.today().year
 
     def normalize_month(self, raw_month, default_year=None):
@@ -259,27 +288,70 @@ class PnLParser:
             "december": ("Dec", 12),
         }
 
-        raw_lower = raw.lower()
+        # THE MONTH TOKEN IS CONSUMED BEFORE THE YEAR IS LOOKED FOR
+        #
+        # This used to find the month, then run a fresh search for the year
+        # across the WHOLE string -- and `(20\d{2}|\d{2})` matched the
+        # month's own digits whenever the month was two-digit or padded:
+        #
+        #     '5/24'    -> May 2024   correct, by luck: '5' is one digit
+        #     '10/24'   -> Oct 2010   the '10' was taken as the year
+        #     '11/24'   -> Nov 2011
+        #     '12/24'   -> Dec 2012
+        #     '06/25'   -> Jun 2006
+        #     '10/2024' -> Oct 2010   even with the year spelled in full
+        #
+        # October, November, December and every zero-padded month, misfiled
+        # by up to a decade. Month keys are the primary key of
+        # `scorecard_history` and `month_start` drives chronological order,
+        # so a misfiled month is not cosmetic: it writes a different row and
+        # sorts to a different place in the trend.
+        #
+        # IT NEVER FIRED, and that was checked rather than hoped. Every P&L
+        # format in hand writes a month NAME with a four-digit year --
+        # 'Aug 2025', 'Jun 2025\nActual', 'Jan 2025' -- across Jackson,
+        # Eagle Rock, Canyon and OXPT, so the numeric branch was unreachable
+        # in practice. Production history is clean: 36 rows over three
+        # properties, every month between Aug 2025 and Jul 2026, read
+        # read-only. Latent, not active -- a code fix with no data
+        # correction behind it.
+        #
+        # Working in tokens rather than running two independent regexes over
+        # one string is what makes the digit-stealing impossible rather than
+        # merely unlikely.
+        tokens = [t for t in raw.lower().split() if t]
         month_abbr = None
+        month_token = None
 
-        for key, (abbr, _) in month_map.items():
-            if re.search(rf"\b{key}\b", raw_lower):
-                month_abbr = abbr
+        for index, token in enumerate(tokens):
+            for key, (abbr, _) in month_map.items():
+                if re.fullmatch(rf"{key}\.?", token):
+                    month_abbr, month_token = abbr, index
+                    break
+            if month_abbr:
                 break
 
-        if not month_abbr:
-            num_match = re.search(r"\b([01]?\d)\b", raw_lower)
-            if num_match:
-                num = int(num_match.group(1))
-                if 1 <= num <= 12:
-                    month_abbr = MONTHS[num - 1]
+        if month_abbr is None:
+            # A bare number is a month only if it could be one, and a
+            # four-digit token is a year that must never be read as a month.
+            for index, token in enumerate(tokens):
+                if re.fullmatch(r"\d{1,2}", token) and 1 <= int(token) <= 12:
+                    month_abbr, month_token = MONTHS[int(token) - 1], index
+                    break
 
-        yr_match = re.search(r"(20\d{2}|\d{2})", raw_lower)
         year = None
-        if yr_match:
-            yr = yr_match.group(1)
-            year = int("20" + yr) if len(yr) == 2 else int(yr)
-        elif default_year:
+        for index, token in enumerate(tokens):
+            if index == month_token:
+                continue
+            if re.fullmatch(r"20\d{2}", token):
+                year = int(token)
+                break
+            if year is None and re.fullmatch(r"\d{2}", token):
+                # Provisional: an explicit four-digit year later in the
+                # string is better evidence, so keep scanning rather than
+                # taking the first two-digit token and stopping.
+                year = 2000 + int(token)
+        if year is None and default_year:
             year = int(default_year)
 
         if month_abbr and year:
@@ -809,24 +881,25 @@ class ScorecardTargetParser:
 
 # ── Michelle's own occupancy, read but never substituted ─────────────────
 
-# HER MONTH HEADERS NEED THEIR OWN NORMALISER, AND THAT IS NOT A PREFERENCE
+# HER MONTH HEADERS GET THEIR OWN NORMALISER, AND STILL DO AFTER THE FIX
 #
-# PnLParser.normalize_month() is wrong for exactly the headers these sheets
-# use. It finds the month, then scans for a year and picks up the month's
-# own digits:
+# This was written because PnLParser.normalize_month() was wrong for
+# exactly these headers -- it took the month's own digits as the year, so
+# '10/24' became 'Oct 2010'. Eagle Rock's sheet begins '10/24', '11/24',
+# '12/24', which would have been misfiled by a decade and then silently
+# reported no overlap. **That bug was fixed in Part 44.**
 #
-#     '5/24'  -> 'May 2024'   correct
-#     '10/24' -> 'Oct 2010'   WRONG
-#     '11/24' -> 'Nov 2011'   WRONG
-#     '12/24' -> 'Dec 2012'   WRONG
-#     '06/25' -> 'Jun 2006'   WRONG
+# The two are still separate, for a different reason: normalize_month is
+# deliberately PERMISSIVE. It accepts a bare month name and returns 'Aug'
+# with no year, and it will apply a default year to a column that states
+# none -- both correct in the P&L path, where a twelve-column T12 has a
+# known range to lean on.
 #
-# Single-digit months survive; two-digit and zero-padded ones do not. Eagle
-# Rock's T12 KPIs sheet begins '10/24', '11/24', '12/24', so reusing it
-# would misfile three months by more than a decade and then silently find
-# no overlap. That bug is NOT fixed here -- it lives in the P&L path, where
-# month keys decide history rows, so it is its own change with its own
-# verification. It is recorded in HANDOFF and avoided here.
+# Neither is safe here. This sheet is a snapshot whose period need not
+# match the upload's, so a header that is not m/yy must be REFUSED rather
+# than guessed at: a month with no year cannot be aligned, and a guessed
+# one would pair one period's occupancy against another period's figures.
+# Strictness is the feature.
 _KPI_MONTH = re.compile(r"^\s*(\d{1,2})\s*[/\-]\s*(\d{2}|\d{4})\s*$")
 
 

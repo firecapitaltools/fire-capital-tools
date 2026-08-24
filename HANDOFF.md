@@ -859,6 +859,74 @@ reported-as-property-specific problem that was not.
 
 ---
 
+## A month's own digits were being read as its year
+
+**Fixed in Part 44. Latent, never fired, production clean — verified, not
+assumed.**
+
+`PnLParser.normalize_month` found the month and then ran a *fresh* search
+for the year across the whole string. `(20\d{2}|\d{2})` matched the
+month's own digits whenever the month was two-digit or zero-padded:
+
+```
+'5/24'    -> May 2024   correct, by luck: '5' is one digit
+'10/24'   -> Oct 2010   the '10' was taken as the year
+'11/24'   -> Nov 2011
+'12/24'   -> Dec 2012
+'06/25'   -> Jun 2006
+'10/2024' -> Oct 2010   even with the year spelled out in full
+```
+
+October, November, December and every zero-padded month, misfiled by up to
+a decade.
+
+**Where it sits is why it mattered.** This is the P&L path.
+`scorecard_history` is keyed `PRIMARY KEY (property_key, month)` and
+`month_start` drives the trend's chronological order, so a misfiled month
+writes a *different row* and sorts to a different place. It cannot collide
+with the correct one, so it would never announce itself.
+
+**BLAST RADIUS, ESTABLISHED BEFORE FIXING**
+
+* **No file in hand ever hit it.** Every P&L export writes a month NAME
+  with a four-digit year — `'Aug 2025'`, `'Jun 2025
+Actual'`,
+  `'Jan 2025'` — across Jackson (Beam), Eagle Rock and OXPT (Ince) and
+  Canyon, in both `.xlsx` and converted `.csv`. The numeric branch was
+  unreachable in practice.
+* **Production history is clean.** Read read-only: 36 rows, three
+  properties, every month between Aug 2025 and Jul 2026, nothing outside
+  2020–2030. **So this was a code fix with no data correction behind it**,
+  and no month keys were rewritten under the live history table.
+* **Regression evidence:** all 20 real P&L files produce a byte-identical
+  parse fingerprint before and after (`2ff8958f95c76dda`), and that
+  comparator was positive-controlled — shifting every resolved year by one
+  moves it.
+
+**The fix works in tokens.** The month token is consumed, then the year is
+sought in what remains, which makes digit-stealing impossible rather than
+unlikely. A four-digit token can never be read as a month.
+
+**And where a file states its own period, that now beats inference.** The
+default-year fallback was *today's calendar year*, which is a guess about
+the clock rather than about the document — a 2025 T12 opened in 2026 would
+file every yearless column under 2026. It now prefers the range the file
+declares (`'Period Range: Aug 2025 to Jul 2026'`,
+`'June 2025 - May 2026 - Accrual - ...'`). This only affects files whose
+columns carry no year at all, so it changes nothing for any current format.
+
+**Still approximate, deliberately.** A T12 crosses a year boundary, so a
+single default year is wrong for part of any twelve-month range. Assigning
+years by walking the sequence from the period's start is the real answer;
+it is a larger change to the column-mapping path and was not made.
+
+**How it was found is the part worth keeping.** Not from a symptom —
+there was none. It surfaced while building something *else* that needed to
+parse `m/yy` headers, and the question "can I reuse the existing one?"
+was answered by running it rather than reading it.
+
+---
+
 ## Two claims that nothing visible could have contradicted
 
 These belong together. One is ours, one came from a prompt, and both would
