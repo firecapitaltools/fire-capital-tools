@@ -781,50 +781,167 @@ runs. A rule recorded at the level of *the function* rather than *the
 transformation* forbids more than its argument supports. Write down what
 the reasoning actually covers.
 
-### Jackson's GPR does not parse, and the blast radius is not the chart
+### Jackson's GPR: SETTLED 2026-08-24 with the real files
 
-`kpis.py:271` reads Gross Potential Rent from **one hardcoded account
-code**:
+**This section previously said Jackson's dialect was probably unmapped and
+that the fix needed the actual upload. The upload arrived. The diagnosis
+was wrong, and so was the blast radius.**
+
+`kpis.py` reads Gross Potential Rent from one account code:
 
     gpr = self.get_val("4110", month)
 
-The parser already carries multiple chart-of-accounts dialects --
-`parsing.py` maps `"Gross potential rent"`, `"Gross Potential Rent"`,
-`"Gross Potential Rent (Scheduled)"`, a Paresh code map (`40210 -> 4110`),
-and `detected_format` values including `Canyon`, `Paresh` and `Cash Flow
-(Generic)`. **A GPR code that varies by source is a known shape here, not
-a surprise.** So the likely cause is that Jackson's dialect is unmapped,
-not that its data is missing.
+**Jackson has no GPR and cannot have one.** Its T12 is a **Beam
+Properties, Inc.** export, **cash basis**, "Income Statement - 12 Month",
+carrying **no account codes anywhere** — the Account Name column holds
+names like "Rent Income" under a "RENTS" header. Every one of its 609
+non-empty cells was searched for *gross*, *potential*, *scheduled*,
+*market*, *vacancy*, *4110* and *4000*: no hits. The single "4000" match
+is the float `87384.54000000001`.
 
-**When GPR parses as zero, the consequence is not cosmetic:**
+A cash-basis statement records **rent received**. GPR is an **accrual**
+concept. This is not an unmapped dialect; it is a different kind of
+document.
 
-  * `phys_occ` and `econ_occ` are set to `None` -- that property shows **no
-    physical occupancy and no economic occupancy**
-  * NRI reconstruction is skipped -- `if "4000" not in self.accounts and
-    gpr != 0` -- so if code 4000 is also absent, **NRI is not rebuilt either**
-  * it previously blanked every dollar label on the trend chart (fixed)
+Eagle Rock's is the contrast: an **Ince Property Management "Accounting
+Tree Report"**, accrual, with the full hierarchy — 4110 Gross Potential
+Rent, 4100 Gross Possible Rent, 4120 Loss/Gain to Old Lease, 4200
+Deductions (4210/4220/4250/4260/4265), 4000 Net Rental Income. Note its
+hierarchy is expressed by **which column holds the label**, not by
+indentation within one column.
 
-**Any upload whose GPR parses as zero behaves identically.** Jackson is the
-one that was tried.
+**THE TRAP: do not map Rent Income to 4110.** Collected rent is not gross
+potential rent. Equating them makes physical occupancy compute as **100%
+every month** — confidently, silently, and wrong in the direction that
+flatters the asset. Same shape as the $5.75-per-sqft capex total and the
+RentCast right-number-wrong-unit problem.
 
-**Not fixed. It needs Jackson's actual upload** to see which account codes
-and `detected_format` it produces. That single fact picks the fix.
+#### CORRECTION: "NRI reconstruction is skipped" was wrong, and was wrong when written
 
-**On the honest-incompleteness question: the state already exists, and it
-is confidently wrong about the cause.** `scorecard_pro.html` already
-renders a warning listing the affected months:
+The old bullet read: *"NRI reconstruction is skipped — `if "4000" not in
+self.accounts and gpr != 0` — so if code 4000 is also absent, NRI is not
+rebuilt either."* Read the condition again: reconstruction only runs when
+**4000 is absent**. **Jackson has 4000**, mapped from its "Rent Income"
+line, so there is nothing to reconstruct and nothing was skipped.
 
-> "Occupancy could not be worked out for N months. **This file does not
-> state Gross Potential Rent** ... Those months are left out of the average
-> occupancy figure; **every other number is unaffected**."
+Verified by running the real file through the real parser:
 
-Two problems with that wording, both worth fixing when the dialect fix is
-written. It asserts *the file does not state GPR*, which the code cannot
-know -- what it knows is that **no line matched code 4110**. And "every
-other number is unaffected" is false: NRI reconstruction is skipped, and
-until recently the chart labels were affected too. The pattern is right;
-the claim is stronger than the evidence.
+```
+Jackson    4110 absent, 4000 PRESENT, 4220 absent
+           income/expenses/NOI/expense_ratio/noi_margin  all correct
+           phys_occ, econ_occ                            None
+Eagle Rock 4110/4000/4220 present -> phys_occ 0.5687, econ_occ 0.4429, status ok
+```
 
+**So Jackson's income, expenses, NOI and ratios were correct the whole
+time. Physical and economic occupancy are the only casualties.** The
+warning card's "every other number is unaffected" was, for Jackson,
+accidentally true — which is worse than being wrong, because it was
+asserted without being checked.
+
+**What the mis-scoped claim obscured is the genuinely dangerous case: a
+file missing BOTH 4110 and 4000.** Then `nri` stays 0 and total income is
+**understated rather than absent** — a wrong number that sums, not a blank
+that is visibly missing. Confirmed on deployed code: a synthetic file with
+only other income returns `total_income = 200.0` and `nri_found = False`,
+where the rental income is simply gone.
+
+**Nothing in the portfolio does that today**, which is exactly why nobody
+noticed the claim was mis-scoped: it named a real hazard, attached it to
+the wrong file, and no file in hand could contradict either half.
+`nri_found` now carries this fact to the warnings card so the reassurance
+is conditional instead of hopeful.
+
+**Any upload whose GPR parses as zero still behaves identically.** Jackson
+is the one that was tried — the fourth instance of a
+reported-as-property-specific problem that was not.
+
+
+---
+
+## Michelle's occupancy figures are not a substitute for ours
+
+Both Scorecard workbooks carry a **T12 KPIs** sheet stating *Physical
+occupancy* and *Economic Occupancy* per month, computed by Michelle's own
+template. Scorecard Pro has never read them: the scorecard upload feeds
+only `ScorecardTargetParser` (which extracts Income, Expenses and NOI —
+the word "occupancy" appears nowhere in `parsing.py`) and
+`ScorecardUpdater`, which writes P&L data *into* the workbook. Occupancy
+is recomputed from a GPR that, for Jackson, does not exist.
+
+**Somebody will find her numbers sitting unread and "fix" it by reading
+them. Four reasons that is not a drop-in substitute, all verified.**
+
+**1. Neither workbook actually computes physical occupancy.** Eagle Rock's
+values are static numbers. Jackson's *Economic* Occupancy cells are Google
+Sheets `IMPORTRANGE` formulas pointing at an external spreadsheet, wrapped
+in `IFERROR(..., <cached value>)`. The definition lives outside the file
+in both cases, so nothing in the workbook says what "physical occupancy"
+means here.
+
+**2. We can only ever read a stale cache.** Excel cannot evaluate
+`IMPORTRANGE`, so the cached value openpyxl returns *is* the `IFERROR`
+fallback — checked to full precision on three cells, identical every time
+(`0.818502203898756`, `0.775209985453521`, `0.705534337730499`). A number
+read this way is a snapshot of whenever the sheet last refreshed in Google
+Sheets, and nothing in the file says when that was.
+
+**3. They disagree with ours, and are probably a different metric.** On
+the one month where Eagle Rock's sheet and its P&L overlap (6/25): hers
+**0.6044 / 0.5419**, ours **0.5687 / 0.4429**. Ours is dollar-weighted —
+`1 - |vacancy loss| / GPR` and `NRI / GPR`. Hers is most likely unit-based
+(occupied units / total units), which is the textbook definition and a
+genuinely different quantity. Neither is wrong; they are not the same
+measurement.
+
+**4. THE PERIODS DO NOT MATCH, and this is the one that bites.** The T12
+KPIs sheet is a snapshot, not something regenerated per upload. Its month
+headers are **plain text** (`'5/24'`, number format `@`), so they are not
+dates and will not coerce:
+
+| | T12 KPIs sheet covers | the P&L it shipped with |
+|---|---|---|
+| **Jackson** | 5/24 – 12/24 (8 months) | Aug 2025 – Jul 2026 |
+| **Eagle Rock** | 10/24 – 9/25 (12 months) | Jun 2025 – May 2026 |
+
+**Jackson overlaps by zero months.** So "where ours cannot be computed,
+hers is the only figure available" is false for the very property that
+raised the question — hers is for a different year entirely, and showing
+it beside a Jackson P&L would read as Jackson's occupancy for months it
+does not describe. Eagle Rock overlaps on four.
+
+**The rule: align by month or show nothing.** Never by position, never by
+"the workbook is for this property so the numbers are for this period".
+
+## A test that greps source must strip comments first
+
+Second instance, same root cause, and now cheap enough to state as a rule.
+
+The first: the original dead-reader sweep matched `name(` as text and was
+**satisfied by a prose comment** mentioning `list_updates()` — a checker
+reporting safety it never established. It now walks the AST.
+
+The second, Part 42: `test_scorecard_missing_gpr_warning` asserts the card
+no longer says *"This file does not state Gross Potential Rent"*. It
+failed on a template where that string appears **only inside the comment
+explaining why the wording was changed**. Part 41 hit the same shape from
+the other direction, where the HANDOFF rule-scope check flagged a section
+that quoted stripped rules as examples.
+
+**The mechanism is not coincidence, which is why it recurs: the person
+documenting a change quotes the thing being changed.** A careful comment
+about a removed string is the single most likely place for that string to
+survive, so "assert the old wording is gone" and "explain why the old
+wording went" collide by construction — and the better the comment, the
+more certainly they collide.
+
+**The rule: strip comments before grepping source, and prefer a syntactic
+strip to a clever pattern.** A `//` or `#` line is a syntactic category
+and removing it is exact; deciding whether prose *discusses* a string
+rather than *states* it is a judgment, and Part 41 measured that judgment
+at 100% false positives when attempted with a regex. Where the language
+allows, walk the AST instead — that is what the dead-reader sweep does now
+and why it stopped being fooled.
 
 ---
 
