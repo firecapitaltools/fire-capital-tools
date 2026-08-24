@@ -101,6 +101,46 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(feedback_bp, url_prefix="/feedback")
 
+    # ── Stale-form defence ─────────────────────────────────────────────────
+    #
+    # THREE PAGES, NAMED ONE BY ONE, BECAUSE THE BLAST RADIUS IS SPECIFIC
+    #
+    # These render forms that POST to a FULL-COLLECTION-REWRITE handler:
+    # the form carries the whole set and the handler replaces the whole
+    # set, so submitting a render that predates an item can erase it.
+    # Site DD's `_collect()` now treats an absent field as "unchanged",
+    # which fixes the erasure itself; this narrows the window in which a
+    # stale render is offered to the user at all.
+    #
+    #   site_dd.area_detail    -> save_area
+    #   site_dd.room_detail    -> save_room
+    #   underwriting.detail    -> save_expenses / save_capex / save_loans
+    #
+    # `no-store` specifically, not `no-cache`: `no-cache` still permits the
+    # browser's back/forward cache to restore the page, which is the path
+    # that produces a stale render in the first place.
+    #
+    # DELIBERATELY NOT APPLIED BROADLY. Static assets keep their caching or
+    # the PWA stops being installable, and the service worker shell is
+    # untouched -- it already bypasses /tools/ and caches no authenticated
+    # route. Read-only tool pages are not listed either: re-reading a stale
+    # report costs nothing, and blanket no-store would make every page a
+    # fresh round trip for a fleet that works on bad connections.
+    #
+    # A mitigation, not the fix. It does nothing about two tabs or two
+    # devices, which is why the _collect() change is the real defence.
+    STALE_FORM_ENDPOINTS = frozenset({
+        "site_dd.area_detail",
+        "site_dd.room_detail",
+        "underwriting.detail",
+    })
+
+    @app.after_request
+    def no_store_on_editable_forms(response):
+        if request.endpoint in STALE_FORM_ENDPOINTS:
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+        return response
+
     # ── Security headers ───────────────────────────────────────────────────
     @app.after_request
     def add_security_headers(response):

@@ -872,9 +872,58 @@ def _collect(form, items, *, scope, area_id, room_id, existing=None):
         # 1 keeps the unsuffixed names an older form would have sent.
         for n in _posted_instances(form, key, existing.get(key, [])):
             suffix = "" if n == 1 else f"__{n}"
-            raw_condition = (form.get(f"condition_{key}{suffix}") or "").strip()
-            raw_detail = (form.get(f"detail_{key}{suffix}") or "").strip()
-            quantity = to_float(form.get(f"quantity_{key}{suffix}"))
+            prior = _prior_row(existing.get(key), n)
+
+            # ABSENT MEANS UNCHANGED. EMPTY MEANS CLEARED. THEY ARE
+            # DIFFERENT AND THIS USED TO COLLAPSE THEM.
+            #
+            # `(form.get(field) or "").strip()` reads a field the page
+            # never rendered exactly like one the inspector deliberately
+            # blanked, so a save posted from a stale render wrote None
+            # over a real answer. Demonstrated before this change:
+            # 'repair' and the inspector's own note became None, while the
+            # $450 estimate survived -- and a finding with no condition
+            # fails needs_work(), so the line then dropped out of the
+            # capital budget while keeping its cost.
+            #
+            # The distinction is safe to rely on because the condition
+            # group renders an explicit blank option (`value=""`, checked
+            # when there is no current answer), so a RENDERED item always
+            # submits its field. Absent therefore means the page did not
+            # render the item at all, which is never an instruction to
+            # erase it.
+            #
+            # This is the shape `_kept_cost()` already uses -- "Absent
+            # means unchanged … a save from a page that predates them must
+            # not silently downgrade a table figure to nothing" -- and the
+            # one `save_expenses` uses for acquisition lines. It is the
+            # third member of a family, not a new idea.
+            cond_field = f"condition_{key}{suffix}"
+            if cond_field in form:
+                raw_condition = (form.get(cond_field) or "").strip()
+                condition = raw_condition if cond.is_valid(raw_condition) else None
+            else:
+                condition = (prior or {}).get("condition")
+
+            detail_field = f"detail_{key}{suffix}"
+            if detail_field in form:
+                raw_detail = (form.get(detail_field) or "").strip()
+                detail = raw_detail if uc.is_valid_option(item, raw_detail) else None
+            else:
+                detail = (prior or {}).get("detail")
+
+            note_field = f"note_{key}{suffix}"
+            if note_field in form:
+                note = (form.get(note_field) or "").strip() or None
+            else:
+                note = (prior or {}).get("note")
+
+            qty_field = f"quantity_{key}{suffix}"
+            if qty_field in form:
+                quantity = to_float(form.get(qty_field))
+            else:
+                quantity = (prior or {}).get("quantity")
+
             est_cost, est_source = _kept_cost(form, key, suffix,
                                               existing.get(key), n)
             out.append({
@@ -893,8 +942,8 @@ def _collect(form, items, *, scope, area_id, room_id, existing=None):
                 "bank_item_key": item.get("bank_item_key"),
                 "instance_label": _kept_label(form, key, suffix,
                                               existing.get(key), n),
-                "condition": raw_condition if cond.is_valid(raw_condition) else None,
-                "detail": raw_detail if uc.is_valid_option(item, raw_detail) else None,
+                "condition": condition,
+                "detail": detail,
                 "quantity": quantity if item["kind"] == uc.KIND_NUMBER else None,
                 # A KIND_NUMBER item's measure describes the reading
                 # itself (years, gallons); everything else carries the
@@ -904,9 +953,23 @@ def _collect(form, items, *, scope, area_id, room_id, existing=None):
                                                existing.get(key), n)),
                 "est_unit_cost": est_cost,
                 "est_cost_source": est_source,
-                "note": (form.get(f"note_{key}{suffix}") or "").strip() or None,
+                "note": note,
             })
     return out
+
+
+def _prior_row(existing_rows, n):
+    """The stored row for this instance, or None.
+
+    Used by the absent-means-unchanged reads above. `_kept_cost`,
+    `_kept_label` and `_kept_measure` each re-implement this scan; they
+    are left alone rather than refactored, because changing three working
+    functions to share a helper is a larger diff than the fix itself.
+    """
+    for row in existing_rows or ():
+        if int(row.get("instance_no") or 1) == n:
+            return row
+    return None
 
 
 def _kept_label(form, key, suffix, existing_rows, n):
