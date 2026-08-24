@@ -234,6 +234,146 @@ JSON, so existing updates keep old headings regardless.
 
 ---
 
+## Verify on deployed code, not by reading it
+
+**A standing rule, earned twice, and both times reading the code would
+have concluded the opposite.**
+
+**Instance 1 — the guard that always returned True.** Part 51 added a
+check that refused to write the user store when `USER_STORE_PATH` was
+unset. It read `app.config`, asked whether the key had a value, and looked
+correct on the page. `config.py` resolves that key with
+`os.environ.get(NAME, fallback)`, so it **always** has a value — and the
+deployed app reported the store configured on a box where the variable is
+not set at all. The banner never rendered; the refusal never fired. The
+unit tests passed because they popped the key, which production never
+does. **Deploying it is the only thing that showed the guard was inert.**
+
+**Instance 2 — the deploy source after the GitHub transfer.** Recorded in
+the original handoff: transferring the repo broke Railway's deploy
+connection, and it read as "GitHub Repo not found" for roughly an hour
+before anyone noticed. Nothing in the repository could have shown that.
+The code was fine; the thing that was broken was outside it.
+
+**The shape they share: the code was correct and the environment was not,
+and only the environment can report on itself.** A local run inherits a
+different config, a different filesystem, a different set of variables and
+a different deploy path. Every one of those differences is invisible to
+reading, and each is a place a correct-looking change can do nothing at
+all.
+
+**So: after any change that depends on configuration, a path, a
+credential, or a deploy, exercise it on the container.** Not the unit
+tests — those run in the wrong environment by definition. The check that
+found instance 1 was four lines: import the app, print what the guard
+returns, hit the route.
+
+**And the corollary that makes it cheap: verifying is not merging.** Both
+instances were caught by running code on the container, and neither
+required a risky production write — a redirected cache, a scratch
+assessment removed afterwards, an in-process config override that never
+touched Railway.
+
+## A partial defence is more dangerous than none
+
+`save_expenses` carried acquisition lines through with a comment naming
+the hazard exactly: *"reading them from this request would find nothing
+and silently blank every amount."* It was the route everyone pointed at —
+**including this file, in the Part 51 audit** — as the precedent for the
+whole absent-means-unchanged pattern.
+
+It was defending **three of six fields**. Rows were safe, because it
+iterates storage. `growth_schedule` was safe, explicitly. `annual_amount`,
+`growth_pct` and `is_included` were read straight from the request, so a
+stale render left a line at `amount=None, growth=None, is_included=False`.
+
+**Why partial is worse than absent:**
+
+1. **It is cited as evidence.** A route with no defence invites scrutiny.
+   A route with a defence and a good comment about it gets held up as the
+   example, and nobody re-reads the other four fields — the comment
+   answers the question before it is asked.
+2. **The surviving row hides the damage.** A deleted row is conspicuous.
+   A row that keeps its label, keeps its position, and quietly stops
+   contributing to NOI reads as a deliberate exclusion. The defence is
+   what makes the failure look intentional.
+3. **It sets the standard for the next one.** The pattern gets copied at
+   the depth it was found, so a half-defended precedent produces
+   half-defended descendants.
+
+**The rule: when a defence is cited as precedent, check its coverage
+before repeating it.** Not whether it exists — what it covers. Both times
+this bit, the defence was real and the citation was honest; the gap was
+between "this route defends against X" and "this route defends X
+completely", and nobody had measured which.
+
+---
+
+## The three deleting routes: a DECISION not to build, with its condition
+
+`save_loans`, `save_capex` and `save_gp_partners` delete omitted rows
+rather than blanking them. **Investigated in Part 52 and deliberately left
+alone.** Recorded as a decision because "not built" and "not noticed" look
+identical six months later, and this file has been wrong about which was
+which twice.
+
+### Absent-means-unchanged is the WRONG fix here
+
+Every one of these forms removes a row with
+`onclick="this.closest('tr').remove()"`. **Omission is the removal
+signal.** Applying the Site DD fix would make it impossible to delete a
+loan, a capex line or a GP partner. This is not the same bug wearing a
+different hat.
+
+### A rendered-items manifest is impossible, and that corrects Part 49
+
+Part 49 deferred "a hidden field listing rendered row ids" as the answer
+if a real conflict appeared. The conflict appeared and **the answer does
+not work**, for two reasons found by looking rather than assuming:
+
+* **The forms carry no row identity at all.** Loans and partners post
+  positional `getlist` arrays; capex posts a loop index `{{ i }}`. There
+  is no id in the form to list.
+* **The ids churn.** All three tables are `DELETE`-then-`INSERT` on every
+  save, so ids are reassigned each time. A manifest of ids would be stale
+  the moment anything was written.
+
+### The correct shape is a rendered-state token
+
+Hash the collection at render, embed it in the form, recompute at save.
+Unchanged, proceed normally **including deletions**; changed, refuse with
+"this page is out of date — reload and reapply". It needs no row identity,
+handles deliberate removal correctly, and fails loudly instead of
+guessing. One helper, three call sites.
+
+### Why it is not built, and what would change that
+
+The back-button path — the one that actually mattered for Site DD — **is
+already closed** on all three pages by `no-store`. What remains is two
+tabs open by one person. And:
+
+* there is **one login**, the env-configured admin, with **zero signup
+  users**, so two *people* is currently impossible;
+* Site DD had a described two-person workflow (*"Michelle reviewing while
+  MJ walks"*). Underwriting and the GP split are analyst-side, single-user
+  tools with no such workflow described.
+
+**THE CONDITION, and it is the whole reason this is a decision rather
+than a shrug: build the token if ANY of these becomes true.**
+
+1. **Per-account data ships** — that is the feature whose entire purpose
+   is more than one person's data.
+2. **More than one person can log in** — the moment `USER_STORE_PATH` is
+   set and a second account exists.
+3. **Any of those three pages becomes part of a two-person workflow** —
+   the Site DD shape, arriving in a different tool.
+
+Any one of the three, not all three. Until then the exposure is one person
+with two tabs on their own analysis, and the cost of being wrong is a
+reload.
+
+---
+
 ## Rule 2 audited at its real scope, and the dropped clause was right
 
 Part 47 checked the four routes the rule names. **The rule's next sentence
@@ -2149,6 +2289,16 @@ regression of this one. Do not spend further time reconciling it.
   parser already returned all 152 units correctly. The exit criterion is a
   sample file, and nothing else. Full statement in *Revised cost
   estimates* below; **the two must say the same thing — see
+  [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
+- **Do not build the rendered-state token for `save_loans`, `save_capex`
+  and `save_gp_partners` until one of three things is true.** Those routes
+  delete omitted rows, and absent-means-unchanged is the WRONG fix because
+  omission is how those forms express removal. **The exit criterion is any
+  ONE of: per-account data ships; a second person can log in; or one of
+  those pages joins a two-person workflow.** Until then the back-button
+  path is closed by `no-store` and the exposure is one user with two tabs.
+  Full statement under *The three deleting routes* above; **the two must
+  say the same thing — see
   [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
 - **Do not rework P&L column-year assignment until a file arrives whose
   columns carry no year.** The fix is to walk the period forward from its
