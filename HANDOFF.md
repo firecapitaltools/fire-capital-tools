@@ -234,6 +234,81 @@ JSON, so existing updates keep old headings regardless.
 
 ---
 
+## Verify on deployed code, not by reading it
+
+**A standing rule, earned twice, and both times reading the code would
+have concluded the opposite.**
+
+**Instance 1 — the guard that always returned True.** Part 51 added a
+check that refused to write the user store when `USER_STORE_PATH` was
+unset. It read `app.config`, asked whether the key had a value, and looked
+correct on the page. `config.py` resolves that key with
+`os.environ.get(NAME, fallback)`, so it **always** has a value — and the
+deployed app reported the store configured on a box where the variable is
+not set at all. The banner never rendered; the refusal never fired. The
+unit tests passed because they popped the key, which production never
+does. **Deploying it is the only thing that showed the guard was inert.**
+
+**Instance 2 — the deploy source after the GitHub transfer.** Recorded in
+the original handoff: transferring the repo broke Railway's deploy
+connection, and it read as "GitHub Repo not found" for roughly an hour
+before anyone noticed. Nothing in the repository could have shown that.
+The code was fine; the thing that was broken was outside it.
+
+**The shape they share: the code was correct and the environment was not,
+and only the environment can report on itself.** A local run inherits a
+different config, a different filesystem, a different set of variables and
+a different deploy path. Every one of those differences is invisible to
+reading, and each is a place a correct-looking change can do nothing at
+all.
+
+**So: after any change that depends on configuration, a path, a
+credential, or a deploy, exercise it on the container.** Not the unit
+tests — those run in the wrong environment by definition. The check that
+found instance 1 was four lines: import the app, print what the guard
+returns, hit the route.
+
+**And the corollary that makes it cheap: verifying is not merging.** Both
+instances were caught by running code on the container, and neither
+required a risky production write — a redirected cache, a scratch
+assessment removed afterwards, an in-process config override that never
+touched Railway.
+
+## A partial defence is more dangerous than none
+
+`save_expenses` carried acquisition lines through with a comment naming
+the hazard exactly: *"reading them from this request would find nothing
+and silently blank every amount."* It was the route everyone pointed at —
+**including this file, in the Part 51 audit** — as the precedent for the
+whole absent-means-unchanged pattern.
+
+It was defending **three of six fields**. Rows were safe, because it
+iterates storage. `growth_schedule` was safe, explicitly. `annual_amount`,
+`growth_pct` and `is_included` were read straight from the request, so a
+stale render left a line at `amount=None, growth=None, is_included=False`.
+
+**Why partial is worse than absent:**
+
+1. **It is cited as evidence.** A route with no defence invites scrutiny.
+   A route with a defence and a good comment about it gets held up as the
+   example, and nobody re-reads the other four fields — the comment
+   answers the question before it is asked.
+2. **The surviving row hides the damage.** A deleted row is conspicuous.
+   A row that keeps its label, keeps its position, and quietly stops
+   contributing to NOI reads as a deliberate exclusion. The defence is
+   what makes the failure look intentional.
+3. **It sets the standard for the next one.** The pattern gets copied at
+   the depth it was found, so a half-defended precedent produces
+   half-defended descendants.
+
+**The rule: when a defence is cited as precedent, check its coverage
+before repeating it.** Not whether it exists — what it covers. Both times
+this bit, the defence was real and the citation was honest; the gap was
+between "this route defends against X" and "this route defends X
+completely", and nobody had measured which.
+
+---
+
 ## Rule 2 audited at its real scope, and the dropped clause was right
 
 Part 47 checked the four routes the rule names. **The rule's next sentence
