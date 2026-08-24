@@ -955,6 +955,105 @@ was answered by running it rather than reading it.
 
 ---
 
+## The first false premise caught by the prompt that carried it
+
+**The claim.** A Part 21 report recorded that RentCast's
+`/avm/rent/long-term` takes no bedrooms parameter. The Part 45 brief
+repeated it as settled, sourced from that report.
+
+**It is false.** RentCast documents `propertyType`, `bedrooms`,
+`bathrooms` and `squareFootage` as query parameters on that endpoint, and
+is explicit about what they do: *"if provided, these values will override
+any attributes that are looked up automatically."* `lookupSubjectAttributes`
+defaults to true, which is why an address resolves to a single unit at
+all. Corroboration that those docs describe the endpoint we actually
+call: they give `compCount` a default of **15**, and every cached row in
+production carries exactly 15 comparables.
+
+This is the same propagation path as the `to_capex_lines` glob and the
+Jinja `Undefined` claim — asserted in a report, restated in a prompt as
+settled, and about to be acted on. **Confirmed by repetition, which is not
+confirmation.**
+
+### What made this one harmless, and it is worth copying
+
+The brief that carried the false claim also said: *"Establish what the
+endpoint actually accepts for this before designing around it — if the
+override cannot be expressed as a request parameter, the feature may need
+a different shape and I would rather know that before it is built than
+after."*
+
+So the premise arrived **with an instruction to check it**, and the check
+took one documentation fetch. Nothing was built on the false claim. Every
+earlier instance in this file cost real work precisely because the claim
+arrived alone, wearing the authority of a previous report.
+
+**THE HABIT: when repeating a claim from an earlier report, attach an
+instruction to verify it.** Not a hedge, not "I think" — a specific
+instruction naming what would settle it. It costs one sentence in the
+prompt and it converts a load-bearing assumption into a task, which is
+the difference between a premise that gets checked and one that gets
+inherited.
+
+The corollary for the receiving side: **a prompt that tells you to verify
+something is telling you it is not yet known.** Treat the instruction as
+the real content, not as politeness around a fact.
+
+## A misspelled environment variable fails open
+
+**What happened.** A test redirected the market-data cache away from the
+developer's real database by setting `MARKET_CACHE_DB_PATH`. There is no
+such variable — the real one is `MARKET_DATA_DB_PATH`. The redirect did
+nothing, the test passed, and two rows were written into the working
+copy's own `market_data_cache.db`. No quota was spent, because the network
+layer was mocked, but the writes were real and had to be cleaned up.
+
+**The mechanism is the point.** `os.environ.get(NAME, "")` with a
+misspelled NAME does not raise, does not warn, and does not return
+anything anomalous. It returns the default, and the default is *the real
+production-shaped path*. So the failure is silent AND it fails toward the
+thing you were trying to avoid touching.
+
+**The shape that cannot fail this way is patching the function:**
+
+```python
+mock.patch.object(cache, "get_db_path", lambda: tmp)   # typo -> AttributeError
+os.environ["MARKET_DATA_DB_PATH"] = str(tmp)           # typo -> silently the default
+```
+
+A wrong attribute name raises immediately; a wrong string key is
+indistinguishable from an unset one.
+
+**Verified rather than reasoned:** rerunning the fixed tests leaves the
+local cache row count unchanged, where the env-var version added two rows
+per run. That is the check — *count the rows in the file you were trying
+not to write to* — and it is cheap enough to be routine.
+
+### This extends the positive-control rule, not a rule about DB paths
+
+The Part 46 brief said "Standing rule 1 already demands both failure
+states be demonstrated for production DB paths". **No such rule exists in
+this file**, and the phrase appears nowhere in the repo — the only "fails
+open" text was the line written into the test the day before. Recorded so
+the reference is not inherited as real.
+
+The rule this genuinely belongs under is the one that does exist:
+**every comparator gets a positive control before it is trusted — an
+instrument that has never returned a difference has not been tested.** A
+test-isolation redirect is an instrument in exactly that sense, and it had
+never been shown to redirect anything. Extended, it reads:
+
+> **An isolation mechanism gets the same positive control as a
+> comparator.** Before trusting that a test writes somewhere harmless,
+> demonstrate that the real target does not change — and prefer a form
+> whose misuse raises over one whose misuse silently returns the default.
+
+`mode=ro` is the production-side member of the same family and is already
+recorded under *Production data*: it fails CLOSED, raising on a write
+attempt, which is why it has never caused an incident.
+
+---
+
 ## Two claims that nothing visible could have contradicted
 
 These belong together. One is ours, one came from a prompt, and both would
