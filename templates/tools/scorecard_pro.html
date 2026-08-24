@@ -87,6 +87,11 @@
       </div>
     </div>
 
+    <div class="card" id="stated-occupancy-card" style="display:none;">
+      <div class="scorecard-section-title">Occupancy: your workbook and this P&amp;L</div>
+      <div id="stated-occupancy-body"></div>
+    </div>
+
     <div class="card scorecard-quarter" id="quarter-card" style="display:none;">
       <div class="scorecard-section-title" id="quarter-label">Latest Full Quarter</div>
       <div class="scorecard-quarter-grid">
@@ -391,6 +396,7 @@
     if (!preserveMonths) renderMonthFilters(analysis);
     renderWarnings(analysis);
     renderSummary(analysis);
+    renderStatedOccupancy(analysis);
     renderQuarter(analysis);
     renderCharts(analysis);
     renderDownloads(analysis);
@@ -538,6 +544,86 @@
     document.getElementById("sum-expenses").textContent = fmtCurrency(s.total_expenses);
     document.getElementById("sum-noi").textContent = fmtCurrency(s.total_noi);
     document.getElementById("sum-occupancy").textContent = fmtPercent(s.avg_occupancy);
+  }
+
+  function renderStatedOccupancy(analysis) {
+    // BOTH FIGURES, WITH PROVENANCE, AND NO VERDICT
+    //
+    // Michelle's template states occupancy per month; Scorecard Pro
+    // computes its own from the P&L. They are not the same measurement --
+    // ours is dollar-weighted (1 - |vacancy loss| / GPR, and NRI / GPR),
+    // hers is almost certainly unit-based -- and they disagree where they
+    // overlap. Neither is wrong, so neither is presented as the answer and
+    // no variance is computed. The disagreement is the information.
+    const card = document.getElementById("stated-occupancy-card");
+    const body = document.getElementById("stated-occupancy-body");
+    const stated = analysis.stated_occupancy;
+    const diag = analysis.stated_diagnostics;
+    body.innerHTML = "";
+    if (!stated || !diag || !diag.sheet_found) { card.style.display = "none"; return; }
+    card.style.display = "";
+
+    const rows = analysis.kpi_rows || [];
+    const ours = {};
+    rows.forEach(r => { ours[r.Month] = r; });
+
+    const note = document.createElement("p");
+    note.className = "muted";
+
+    if (!stated.overlap_count) {
+      // THE PERIODS DO NOT HAVE TO MATCH, AND FOR JACKSON THEY DO NOT.
+      // The T12 KPIs sheet is a snapshot, not something regenerated per
+      // upload. Showing its months against this P&L would read as this
+      // property's occupancy for months the sheet does not describe.
+      const hers = (diag.months || []);
+      note.innerHTML =
+        "<strong>No months in common.</strong> Your workbook's T12 KPIs sheet states " +
+        "occupancy for " + (hers.length ? hers[0] + " to " + hers[hers.length - 1] : "another period") +
+        ", and this P&amp;L covers a different period, so there is nothing to compare " +
+        "month by month. Those figures are not shown here because they do not describe " +
+        "the months in this file.";
+      body.appendChild(note);
+      return;
+    }
+
+    note.innerHTML =
+      "Two different measurements of the same thing, shown side by side. " +
+      "<strong>Your workbook</strong> states these figures; <strong>this P&amp;L</strong> " +
+      "is what Scorecard Pro computed from the accounts, where occupancy is measured " +
+      "in dollars against Gross Potential Rent. They will not usually agree, and " +
+      "neither is treated as the correct one." +
+      (diag.stale_source
+        ? " <strong>Note:</strong> some of your workbook's figures are a saved copy of " +
+          "a formula that pulls from another spreadsheet. Excel cannot refresh it, so " +
+          "what is shown is whatever was last saved — the file does not record when."
+        : "");
+    body.appendChild(note);
+
+    const table = document.createElement("table");
+    table.className = "data-table";
+    table.innerHTML =
+      "<thead><tr><th>Month</th>" +
+      "<th>Physical — your workbook</th><th>Physical — this P&amp;L</th>" +
+      "<th>Economic — your workbook</th><th>Economic — this P&amp;L</th>" +
+      "</tr></thead>";
+    const tbody = document.createElement("tbody");
+    stated.months.forEach(m => {
+      const our = ours[m] || {};
+      const tr = document.createElement("tr");
+      // "not computed" is not the same as a low number, and must never
+      // render as a blank that reads as zero.
+      const oursPhys = our.Occupancy == null ? "<span class=\"muted\">not computed</span>" : fmtPercent(our.Occupancy);
+      const oursEcon = our.EconomicOccupancy == null ? "<span class=\"muted\">not computed</span>" : fmtPercent(our.EconomicOccupancy);
+      tr.innerHTML =
+        "<td>" + m + "</td>" +
+        "<td>" + fmtPercent(stated.physical[m]) + "</td>" +
+        "<td>" + oursPhys + "</td>" +
+        "<td>" + fmtPercent(stated.economic[m]) + "</td>" +
+        "<td>" + oursEcon + "</td>";
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    body.appendChild(table);
   }
 
   function renderQuarter(analysis) {

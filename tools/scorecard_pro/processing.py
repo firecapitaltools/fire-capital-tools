@@ -17,7 +17,12 @@ from tools.scorecard_pro.kpis import (
     ReportGenerator,
     generate_advanced_insights,
 )
-from tools.scorecard_pro.parsing import PnLParser, ScorecardTargetParser
+from tools.scorecard_pro.parsing import (
+    PnLParser,
+    ScorecardKpiParser,
+    ScorecardTargetParser,
+    align_stated_occupancy,
+)
 from tools.scorecard_pro.updater import ScorecardUpdater
 from tools.scorecard_pro.utils import (
     _records_for_json,
@@ -170,11 +175,25 @@ def process_scorecard(token, pnl_path, pnl_name, scorecard_path=None, scorecard_
     update_diagnostics = None
     files = {}
 
+    stated_occupancy = None
+    stated_diagnostics = None
+
     if scorecard_path:
         target_parser = ScorecardTargetParser(scorecard_path)
         target_parser.parse()
         targets = target_parser.get_data()
         target_diagnostics = target_parser.get_diagnostics()
+
+        # Michelle's own occupancy, read and shown beside ours -- never
+        # substituted for it. The two are different measurements (hers
+        # almost certainly unit-based, ours dollar-weighted) and they
+        # disagree where they overlap, so the page carries both with
+        # provenance and computes no variance.
+        kpi_parser = ScorecardKpiParser(scorecard_path)
+        kpi_parser.parse()
+        stated_diagnostics = kpi_parser.get_diagnostics()
+        stated_occupancy = align_stated_occupancy(
+            kpi_parser.get_data(), list(kpis["physical_occupancy"].keys()))
 
         updated_ext = Path(scorecard_path).suffix.lower()
         updated_path = _upload_dir() / f"{token}_updated_scorecard{updated_ext}"
@@ -233,6 +252,8 @@ def process_scorecard(token, pnl_path, pnl_name, scorecard_path=None, scorecard_
         "targets": targets,
         "target_diagnostics": target_diagnostics,
         "update_diagnostics": update_diagnostics,
+        "stated_occupancy": stated_occupancy,
+        "stated_diagnostics": stated_diagnostics,
         "report_text": report_text,
         "files": files,
         "download_names": download_names,
@@ -274,6 +295,8 @@ def build_payload(record, selected_months=None):
         "targets": targets,
         "target_diagnostics": record.get("target_diagnostics"),
         "update_diagnostics": record.get("update_diagnostics"),
+        "stated_occupancy": record.get("stated_occupancy"),
+        "stated_diagnostics": record.get("stated_diagnostics"),
         "insights": insights,
         "report_text": record.get("report_text", ""),
         "downloads": sorted(record.get("download_names", {}).keys()),
