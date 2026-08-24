@@ -234,10 +234,297 @@ JSON, so existing updates keep old headings regardless.
 
 ---
 
-## Standing rules that survived this session
+## The eleven standing rules of the original handoff, audited
+
+**The document this file replaced had eleven numbered standing rules. This
+file inherited some of them, silently dropped others, and nothing noticed
+for thirty-six runs.**
+
+The original was **never in the repo** — `ae22394` created `HANDOFF.md`
+fresh rather than editing a predecessor, and `git log --diff-filter=D`
+finds no deleted handoff-shaped file in any branch. So there is no
+recoverable copy here, and no in-repo check could ever have found the
+gap. The eleven below survive only because the person who wrote them
+still had them.
+
+| # | rule | status |
+|---|---|---|
+| 1 | every persistent DB path: env-var-with-fallback, **both** failure states demonstrated | **absent — restored below** |
+| 2 | full-collection-rewrite routes silently blank what a POST omits | **present but weakened — corrected below** |
+| 3 | merge discipline | present, intact |
+| 4 | `deal_analyzer_math.py` is sacred | present, **correctly superseded** |
+| 5 | no fabricated authority | **absent — restored below** |
+| 6 | no scraping | present, correctly narrowed |
+| 7 | OpenAI spend discipline | present, and since generalised |
+| 8 | one prompt at a time, easiest to hardest | half present |
+| 9 | say so when the instruction is wrong or stale | **absent — restored below** |
+| 10 | reachability is not correctness | present in substance, framing lost |
+| 11 | Census and BLS have no paid tiers | absent here, **lives in better code** |
+
+### Rule 2 in detail, because it is a data-loss rule and it is still live
+
+The current text names four routes and says a partial POST "silently
+blanks fields". **Checked against the code rather than assumed, and the
+hazard is real — demonstrated by running it:**
+
+```
+save_area, complete POST  -> stored answer stays 'good'
+save_area, PARTIAL POST   -> stored answer becomes None
+```
+
+`_posted_instances()` returns `{1} ∪ existing ∪ posted`, so **instance 1
+of every catalogue item is always emitted**, whether the form mentioned it
+or not. An item absent from the POST is written back with
+`condition=None`. `replace_expense_lines` and `replace_loans` are both
+still literal `DELETE … INSERT`, so the wholesale-rewrite shape is
+unchanged.
+
+**But the shape has shifted in one place, and that is the useful part.**
+`save_expenses` has grown a specific defence since the rule was written:
+
+> *"Acquisition costs are edited by their own form and are not rendered as
+> inputs here. Reading them from this request would find nothing and
+> silently blank every amount, so they are carried through untouched
+> instead."*
+
+Somebody hit this exact hazard in that route and fixed it there. The rule
+is therefore **narrower than it was in one route and unchanged in the
+other three** — which is worth knowing, because "we haven't hit it lately"
+is not evidence the hazard is gone. We have barely written to production.
+
+Two corrections to the current wording while restoring the weight:
+
+* it lists `replace_loans` among the blanking routes but describes
+  `replace_expense_lines` only as "reassigns line IDs on every save".
+  **Both** are wholesale replacements; the ID reassignment is a second,
+  separate consequence.
+* it dropped *"multiple real incidents were recovered because of this"*.
+  That sentence is why the rule is obeyed rather than noted.
+
+**RESTORED, with its weight: always post complete forms; always snapshot
+before a real production write. This rule exists because production data
+was lost and recovered, more than once.**
+
+### Rule 1, restored and widened
+
+*"Every persistent DB path: env-var-with-fallback, verified via live
+in-process code, never trust the Railway dashboard. Any new `*_DB_PATH`
+must demonstrate **both** failure states (unset → visible red banner
+naming the var) and success, not just the good one."*
+
+Still true, still not written down anywhere until now. And Part 46 found
+the same hazard through a different door: a test redirected a cache with
+`MARKET_CACHE_DB_PATH`, which is not a real variable, so the redirect
+silently did nothing and wrote to the developer's own database. **A
+misspelled env var fails open — it does not raise, it returns the
+default.**
+
+So the rule covers both directions: the production path and the test
+redirect away from it. `mode=ro` is the member of this family that fails
+**closed**, which is why it has never caused an incident, and patching
+`get_db_path` is the test-side equivalent — a typo there raises.
+
+### Rule 5, restored: no fabricated authority
+
+Absent entirely. The only two occurrences of "fabricat" in this file are
+about Entrata estimates, not the rule.
+
+**Never present a number, a source, a quota, a limit or an API behaviour
+as established unless it was read from the thing itself.** This session
+is the argument: the RentCast `bedrooms` parameter, the `to_capex_lines`
+glob, the Jinja `Undefined` claim and the `normalize_month` behaviour were
+all asserted confidently and all four were wrong. It is the parent rule of
+"check the premise against the code" and of the Part 28 message standard,
+both of which survived — the general form did not.
+
+### Rule 9, restored: say so when the instruction is wrong
+
+*"When investigation shows the instruction was wrong or stale, say so and
+propose the correct thing rather than building what was asked."*
+
+Absent as a rule and **practised constantly** — the Part 43 brief's
+"hers is the only figure available" was false for Jackson, the Part 46
+brief cited a rule that does not exist in the repo, and the Part 45 brief
+carried a false premise about RentCast. Each was reported rather than
+built around. That the behaviour survived without the rule is luck, or
+rather it is the rule having been absorbed; writing it down costs nothing
+and makes it inheritable.
+
+### Rules kept as they are
+
+**3, merge discipline** — intact and exercised every run.
+
+**4, `deal_analyzer_math` is sacred** — deliberately superseded. The
+byte-hash version proved nothing about behaviour and failed on any branch
+that legitimately added a function; the two-signal behavioural fingerprint
+replaced it and the old rule is named in this file so it is not
+reinstated. **Do not restore the original form.**
+
+**6, no scraping** — present and correctly narrowed in Part 41 to
+contractor-pricing and listing sites, explicitly not licensed APIs.
+
+**7, OpenAI spend discipline** — present as **Money**, and since
+generalised beyond OpenAI: RentCast has the same shape (shared cap,
+per-feature counter, confirm-before-spend, caching), most recently the
+size-override gate. Worth stating as one rule about metered third-party
+calls rather than one about OpenAI.
+
+**10, reachability is not correctness** — the substance is here (five
+features shipped "correct, tested and unreachable", two sweeps, the
+navigate-don't-drive-URLs rule) but the four-word framing is the memorable
+part and is restored with them.
+
+### Rule 8, half restored
+
+*"One prompt at a time, easiest to hardest, report before merging each
+part."* The **one-at-a-time** and **report-before-merging** halves are
+present and enforced. The **easiest-to-hardest ordering** is not, and is
+not what we do — work runs in the order the prompt sets. Recorded as
+lapsed rather than restored, because restoring a rule nobody follows
+teaches the next reader to ignore the list.
+
+### Rule 11, not restored — it lives somewhere better
+
+*"Census and BLS have no paid tiers at all."* Absent from this file, but
+**live in `tools/service_costs.py`** as structured entries with
+`free=True`, a pricing model, `configured_key` and a `last_verified`
+date — user-facing, and re-verifiable rather than remembered.
+
+One correction: the original states it flatly, while the code is more
+careful — the Census entry records that the free tier *"is near-certain
+but has not been formally confirmed."* **The code is the more honest of
+the two.** Restoring the flat version to this file would make the record
+worse. It stays where it is, and this entry says where.
+
+---
+
+## A rewrite is verified against the document it replaced, not by reading it
+
+Part 41 recorded that a rule stated twice loses its condition in the
+shorter statement. **This is the same failure at document scale, and it is
+worse, because what is lost leaves no trace at all.**
+
+`HANDOFF.md` replaced a stale predecessor. The rewrite was the right call
+— the old document had the repo under the wrong owner, called a built
+branch unbuilt, and carried two false premises that cost real
+investigation time. **The staleness was real and the cost of the fix was
+rules going out with it.**
+
+**The mechanism: a rewrite keeps what the writer is currently holding in
+mind and drops what reads as history.** Nobody deletes a rule. They write
+a new document about the live problems, and a rule nobody has needed
+lately never comes up. So the rules most likely to be lost are exactly the
+ones that have not fired recently — and a rule that has not fired recently
+is either obsolete or *load-bearing and quiet*, which are indistinguishable
+from inside the rewrite. Rule 2 is the second kind: no incident lately,
+because we have barely written to production.
+
+**THE CHECK: when a document is replaced rather than edited, it is not
+verified by reading the replacement. It is verified by walking the OLD one
+for things the new one lacks.** Reading the new document tells you it is
+coherent, which it will be — coherence is what the writer optimised for.
+Only the old one can tell you what is missing.
+
+Corollaries earned here:
+
+### Why nobody was wrong, which is the part that generalises
+
+Two statements stood in direct contradiction and both were true:
+
+> *"Standing rule 1 already demands both failure states be demonstrated."*
+> *"No such rule exists in the repo, and the phrase appears nowhere in it."*
+
+**The original handoff was never a repo file.** It was a document pasted
+into the conversation that opened this project. One party was reading it
+from that context; the other was reading the repository. Neither could see
+what the other was looking at, and neither was mistaken.
+
+**THE HAZARD: knowledge that lives only in a chat context disappears when
+the chat does.** It is not merely undocumented — it is invisible to every
+instrument, because every instrument this project has reads the repo. A
+grep cannot find it, a test cannot pin it, a diff has nothing to compare.
+It survives exactly as long as someone remembers to carry it forward, and
+it looks identical to settled knowledge right up until the window closes.
+
+**This project has already paid this cost once.** A conversation was lost
+to size, and the project carried itself forward on a document that then
+lived only in the *next* conversation. Each hand-off looked safe because
+the document was right there — in a context that was itself temporary.
+Thirty-six runs later four standing rules were gone and the only reason
+they came back is that one person still had the original.
+
+**THE RULE: a predecessor must be COMMITTED, not quoted.** If a document
+is load-bearing enough to hand forward, it is load-bearing enough to be a
+file. Pasting it into a prompt hands it forward exactly once; committing
+it hands it forward permanently and makes it diffable, greppable and
+testable. The cost is a few kilobytes against a failure mode with no
+symptom.
+
+The corollary for anything else living in a conversation: **if it matters
+and it is not in the repo, it does not exist.** Not "is poorly
+documented" — does not exist, because nothing here can see it.
+
+* **Keep the predecessor.** The original was never committed, so there was
+  nothing to diff against and no way to notice for thirty-six runs. A
+  superseded document costs a few kilobytes and is the only instrument
+  that can audit its successor. **Done, not just recommended:** the eleven
+  are preserved in `docs/original-handoff-standing-rules.md` with the
+  disposition of each, and `tests/test_handoff_standing_rules.py` diffs
+  this file against them, so the next rewrite drops one loudly. It is
+  positive-controlled — removing a restored rule fails it by name.
+* **A numbered list is a checkable artifact.** "Eleven standing rules"
+  survived as a *count* in someone's memory, and the count is what made
+  this audit possible. Prose loses items silently; a numbered list makes
+  the loss arithmetic.
+
+**`tests/test_handoff_rule_scope.py` cannot catch this, and it is worth
+saying why rather than widening it.** That test compares statements
+*within* one document and flags a prohibition that lost its condition. A
+rule that exists in no statement at all has no scope to disagree with and
+nothing to compare against. **Absence is not detectable from inside the
+document** — it needs the predecessor, which is a diff, not a lint. The
+test is correctly scoped and is not being widened.
+
+---
+
+## Standing rules
 
 Some of these changed. Where they did, the old rule is named so it is not
-reinstated by accident.
+reinstated by accident. **Four were recovered in Part 47 after being
+dropped by the rewrite that created this file — see the audit above.**
+
+**Every persistent DB path: env-var-with-fallback, and BOTH failure states
+demonstrated.** *Recovered in Part 47; it was rule 1 of the original
+handoff and had been missing since.* Verify via live in-process code,
+never from the Railway dashboard. A new `*_DB_PATH` must be shown failing
+(unset → a visible banner naming the variable) as well as working — the
+good path alone proves nothing, because **a misspelled or unset env var
+fails OPEN**: `os.environ.get` does not raise, it returns the default.
+That applies to test redirection too, which is the same hazard through a
+different door: patch `get_db_path` rather than set a variable, because a
+wrong attribute name raises where a wrong string key is silent. `mode=ro`
+is the member of this family that fails CLOSED, which is why it has never
+caused an incident.
+
+**No fabricated authority.** *Recovered in Part 47; rule 5 of the
+original.* Never present a number, a source, a quota, a limit or an API
+behaviour as established unless it was read from the thing itself. The
+RentCast `bedrooms` parameter, the `to_capex_lines` glob, the Jinja
+`Undefined` claim and `normalize_month`'s behaviour were each asserted
+confidently and each was wrong. This is the parent rule of "check the
+premise against the code".
+
+**When the instruction is wrong or stale, say so and propose the right
+thing rather than building what was asked.** *Recovered in Part 47; rule 9
+of the original.* Practised constantly and written down nowhere: three
+consecutive briefs carried a false premise and each was reported rather
+than built around.
+
+**Reachability is not correctness.** *Framing recovered in Part 47; rule
+10 of the original.* Five features shipped correct, tested and
+unreachable. Passing tests say a thing works, never that anyone can get to
+it. The two sweeps and "verify by navigating, not by driving URLs" below
+are the enforcement; this is the sentence that says why they exist.
 
 **Merge discipline.** Investigate → report → build → report before
 merging → merge only on explicit go-ahead → deploy → verify on production
@@ -277,17 +564,47 @@ stale entries.
 invisible features passed its own tests. Harvest hrefs from rendered HTML
 and follow them.
 
-**Production data.** Read-only means `mode=ro`. Snapshot before any
-write, and verify restoration by **content fingerprint, not file hash** —
-SQLite page reuse changes the file hash after an insert-then-delete even
-when the content is identical. Routes that rewrite whole collections
-(`save_area`, `save_expenses`, `save_capex`, `replace_loans`) require
-**complete** form posts; a partial POST silently blanks fields.
-`replace_expense_lines` reassigns line IDs on every save.
+**Production data, and FULL-COLLECTION-REWRITE ROUTES ARE DANGEROUS.**
+*Rule 2 of the original handoff, restored to full weight in Part 47.*
 
-**Money.** OpenAI calls spend against a shared **$60/month** budget. Make
-exactly the number authorised — this was overspent once (2 calls instead
-of 1).
+Read-only means `mode=ro`. **Always snapshot before a real production
+write**, and verify restoration by **content fingerprint, not file hash** —
+SQLite page reuse changes the file hash after an insert-then-delete even
+when the content is identical.
+
+`save_area`, `save_expenses`, `save_capex`, `replace_expense_lines` and
+`replace_loans` **silently blank anything a POST does not include**.
+**Always post complete forms.** This rule exists because production data
+was lost and recovered, more than once — that sentence was dropped in the
+rewrite and it is the reason the rule is obeyed rather than noted.
+
+Re-checked against the code in Part 47 and **the hazard is live**,
+demonstrated by running it: `save_area` with a complete POST leaves a
+stored answer as `good`; with the item merely absent it becomes `None`,
+because `_posted_instances()` returns `{1} ∪ existing ∪ posted` and so
+emits instance 1 of every catalogue item whether the form mentioned it or
+not. `replace_expense_lines` and `replace_loans` are both still literal
+`DELETE … INSERT` — the first ALSO reassigns line IDs on every save, which
+is a second consequence and not the main one.
+
+**One route has since grown a defence, and it is the model:**
+`save_expenses` carries acquisition-cost lines through untouched because
+they are edited by a different form, its comment noting that reading them
+from that request "would find nothing and silently blank every amount".
+Somebody hit this there and fixed it there.
+
+**Do not read "no incident lately" as "hazard gone".** We have barely
+written to production.
+
+**Money — for every metered third-party call, not just OpenAI.** *Rule 7
+of the original, which named OpenAI only; the shape has since generalised
+and the rule is stated generally.* A shared cap, a per-feature counter,
+confirm-before-spend, and cache the result so a re-view costs nothing.
+OpenAI runs against a shared **$60/month** budget and was overspent once
+(2 calls instead of 1). RentCast runs against **50 lookups/month** with
+the same machinery: a usage gate that refuses at cap independently of the
+disabled button, and a confirmation naming the call and the running count
+before any re-spend.
 
 **No scraping — and here is what that does and does not cover.** *Narrowed
 in Part 41; it previously read "Michelle explicitly does not want
