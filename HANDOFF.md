@@ -889,8 +889,7 @@ with the correct one, so it would never announce itself.
 **BLAST RADIUS, ESTABLISHED BEFORE FIXING**
 
 * **No file in hand ever hit it.** Every P&L export writes a month NAME
-  with a four-digit year — `'Aug 2025'`, `'Jun 2025
-Actual'`,
+  with a four-digit year — `'Aug 2025'`, `'Jun 2025\nActual'`,
   `'Jan 2025'` — across Jackson (Beam), Eagle Rock and OXPT (Ince) and
   Canyon, in both `.xlsx` and converted `.csv`. The numeric branch was
   unreachable in practice.
