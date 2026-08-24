@@ -40,8 +40,16 @@ from models import User
 
 
 def config_without():
+    """The REAL unset shape, not a popped key.
+
+    config.py resolves USER_STORE_PATH with os.environ.get(NAME, fallback),
+    so app.config always holds a path and production never sees a missing
+    key. The first version of these tests popped it, which made the guard
+    pass here while doing nothing on the deployed box. Reproduce what
+    actually happens instead: the value present, and equal to the default.
+    """
     cfg = dict(app.config)
-    cfg.pop("USER_STORE_PATH", None)
+    cfg["USER_STORE_PATH"] = cfg["DEFAULT_USER_STORE_PATH"]
     return cfg
 
 
@@ -154,6 +162,40 @@ class TheProductionShapeIsPinnedTests(unittest.TestCase):
 
     def test_lookup_does_not_raise_when_unconfigured(self):
         self.assertIsNone(User.find_stored_user("nobody", config_without()))
+
+
+class TheGuardSurvivesTheRealConfigShapeTests(unittest.TestCase):
+    """The defect deploying it exposed, pinned so it cannot return.
+
+    A check that reads app.config can never see whether anyone chose the
+    value, because config.py substitutes a fallback. The unit tests passed
+    by popping the key; the deployed app reported the store configured on
+    a box where the variable is unset.
+    """
+
+    def test_the_key_is_always_present_in_a_real_config(self):
+        self.assertIn("USER_STORE_PATH", app.config)
+        self.assertTrue(app.config["USER_STORE_PATH"])
+
+    def test_the_default_is_exported_so_it_can_be_compared_against(self):
+        self.assertIn("DEFAULT_USER_STORE_PATH", app.config)
+
+    def test_the_default_path_reads_as_unconfigured(self):
+        cfg = dict(app.config)
+        cfg["USER_STORE_PATH"] = cfg["DEFAULT_USER_STORE_PATH"]
+        self.assertFalse(User.user_store_is_configured(cfg))
+
+    def test_presence_alone_is_not_treated_as_configured(self):
+        """The exact bug: a value is present and still means 'nobody set it'."""
+        cfg = dict(app.config)
+        cfg["USER_STORE_PATH"] = cfg["DEFAULT_USER_STORE_PATH"]
+        self.assertTrue(cfg["USER_STORE_PATH"])
+        self.assertIsNotNone(User.user_store_warning(cfg))
+
+    def test_any_other_path_reads_as_configured(self):
+        cfg = dict(app.config)
+        cfg["USER_STORE_PATH"] = "/data/users.json"
+        self.assertTrue(User.user_store_is_configured(cfg))
 
 
 if __name__ == "__main__":

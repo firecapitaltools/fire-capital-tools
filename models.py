@@ -161,7 +161,22 @@ class User(UserMixin):
         guess. Unset means unknown, and unknown is not good enough to
         write an account to.
         """
-        return bool(User.clean_config_value(app_config.get("USER_STORE_PATH", "")))
+        configured = User.clean_config_value(app_config.get("USER_STORE_PATH", ""))
+        if not configured:
+            return False
+        # Compared against the DEFAULT, not merely checked for presence.
+        #
+        # config.py resolves this with os.environ.get(NAME, fallback), so
+        # app.config ALWAYS holds a path. The first version of this check
+        # asked whether the key had a value, which is always yes, and so
+        # reported the store configured on a box where the variable is
+        # unset. Deploying it is what exposed that -- the unit tests
+        # passed because they popped the key, which production never does.
+        default = User.clean_config_value(
+            app_config.get("DEFAULT_USER_STORE_PATH", "")) or None
+        if default and os.path.abspath(configured) == os.path.abspath(default):
+            return False
+        return True
 
     @staticmethod
     def user_store_warning(app_config: dict) -> str | None:

@@ -64,7 +64,18 @@ class Config:
     # ── Admin credentials (loaded from .env) ──────────────────────────────
     ADMIN_USERNAME: str = os.environ.get("ADMIN_USERNAME", "michelle")
     ADMIN_PASSWORD_HASH: str = os.environ.get("ADMIN_PASSWORD_HASH", "")
+    # THE FALLBACK IS NAMED SO THE APP CAN TELL IT APART FROM A CHOICE.
+    #
+    # `os.environ.get(NAME, fallback)` collapses "the operator set this"
+    # and "nobody set this" into one string, so any check reading
+    # app.config can only ever see a path and never see whether anyone
+    # chose it. That defeated the first version of this guard: it read
+    # app.config, found a value, and reported the store configured on a
+    # production box where the variable is not set at all.
+    #
+    # Exporting the default lets `User.user_store_is_configured()` ask the
+    # real question -- is this path the one nobody picked?
+    DEFAULT_USER_STORE_PATH: str = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "users.json")
     USER_STORE_PATH: str = os.environ.get(
-        "USER_STORE_PATH",
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "users.json"),
-    )
+        "USER_STORE_PATH", DEFAULT_USER_STORE_PATH)
