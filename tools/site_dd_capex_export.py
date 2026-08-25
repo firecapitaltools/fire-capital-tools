@@ -210,9 +210,38 @@ def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = 
                                       f.get("detail") if f.get("item_key") == "flooring"
                                       else None)
             unit = getattr(known, "unit", None)
+
+        # AND WHEN A PERSON TYPED THE FIGURE, THEY GET TO SAY WHAT IT MEANS
+        #
+        # Michelle: "seven buildings, two roofs -- I'd want to manually
+        # input $35,000 or $50,000 myself." A roof is a per-square-foot
+        # item, so her own $35,000 was read as a rate and produced no
+        # total: the tool refused to add up the two numbers she had just
+        # typed.
+        #
+        # This does NOT reopen the $5.75 decision. That rule is about the
+        # REFERENCE table -- a researched national average is published
+        # per square foot and stays a rate whatever anyone selects, which
+        # is why this branch tests the source before it looks at the
+        # toggle. What changes is the MANUAL case, where the person who
+        # typed the number is the only one who knows what it means, and
+        # she has already been asked: "yes, please add the toggle for 'per
+        # sq ft' or 'per job'. It's worth the extra click to ensure the
+        # data is accurate."
+        #
+        # UNSET STAYS UNSET. A blank toggle falls through untouched and
+        # the line behaves exactly as it does today -- rate, no total,
+        # reference sentence. Resolving absence to a default is the Part
+        # 46 failure and it decides money here.
+        if (described["source"] == costs.SOURCE_MANUAL
+                and described["cost"] is not None):
+            stated = _stated_cost_unit(f)
+            if stated is not None:
+                unit = stated
+
         if unit is None and described["cost"] is not None:
-            measure = (f.get("measure") or "").strip().lower()
-            if measure in refcosts.UNITS:
+            measure = _stated_cost_unit(f)
+            if measure is not None:
                 unit = measure
             else:
                 # A FREEFORM item with a hand-typed cost and no answer to
@@ -350,6 +379,32 @@ def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = 
                          else None)
         out.append(line)
     return out
+
+
+def _stated_cost_unit(finding: dict[str, Any]) -> str | None:
+    """The cost unit a person chose on the toggle, or None.
+
+    None means unanswered, and unanswered is a real state: it is not
+    resolved to "per job" here or anywhere downstream.
+
+    THE COLUMN IS SHARED AND ONLY SOMETIMES MEANS THIS
+
+    `measure` also carries the unit of a NUMBER item's reading -- a water
+    heater's "gal", an HVAC's "yr" -- written by the route from the item
+    catalogue rather than by anyone answering a toggle. Today those two
+    vocabularies happen not to overlap, but "happen not to" is not a
+    guarantee: an item whose reading is an area would put "sqft" in this
+    column and silently turn a job price into a rate. So a NUMBER item's
+    measure is never read as a cost unit, whatever it says.
+    """
+    from tools import site_dd_bank as bank
+    from tools import site_dd_unit_checklist as uc
+
+    item = bank.every_item().get(finding.get("item_key"))
+    if item is not None and item.get("kind") == uc.KIND_NUMBER:
+        return None
+    measure = (finding.get("measure") or "").strip().lower()
+    return measure if measure in refcosts.UNITS else None
 
 
 def _unpriced_reason(item_key: str | None) -> str:
