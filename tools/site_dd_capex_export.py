@@ -92,6 +92,32 @@ BUCKET_PRICED_BY_SCOPE = "Priced by scope, not by this walk"
 BUCKET_NO_FIGURE = "No researched figure"
 
 
+def _line_label(item_key, instance_label, labels):
+    """What the budget calls this line.
+
+    "ROOF COVERING — BUILDING 3", NOT "BUILDING 3"
+
+    The instance label used to REPLACE the item's name, which is right for
+    a custom item -- somebody adds "Gazebo" and the line should say Gazebo
+    -- and wrong for a catalogue item. Michelle asked to record which
+    buildings the problems are on: "it varies by property, but typically
+    buildings have numbers associated with them." A budget line reading
+    "Building 3", with no indication that the $35,000 is a roof, is a line
+    nobody can price.
+
+    So the two are joined when both exist and differ, and either one alone
+    is used when it is all there is. A custom item has no catalogue label
+    to join, so it still reads as just its own name.
+    """
+    known = (labels or {}).get(item_key)
+    instance = (instance_label or "").strip()
+    if not instance:
+        return known or item_key
+    if not known or known.strip().lower() == instance.lower():
+        return instance
+    return f"{known} — {instance}"
+
+
 def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = None,
                 detail_labels: dict[tuple[str, str], str] | None = None
                 ) -> list[dict[str, Any]]:
@@ -273,9 +299,8 @@ def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = 
 
         line = {
             "item_key": f.get("item_key"),
-            "label": (f.get("instance_label")
-                      or labels.get(f.get("item_key"))
-                      or f.get("item_key")),
+            "label": _line_label(f.get("item_key"),
+                                 f.get("instance_label"), labels),
             "category": cat,
             "category_name": cl.CATEGORY_NAMES.get(cat, "Uncategorised"),
             "condition": f.get("condition"),
