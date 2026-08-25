@@ -24,8 +24,26 @@ def login():
         # and telling the user their password is too short would be a
         # misleading answer to a configuration failure.
         if store_warning:
-            return render_template("signup.html", error=store_warning,
-                                   user_store_warning=store_warning)
+            # THE LOGIN PAGE, NOT THE SIGNUP PAGE.
+            #
+            # This rendered signup.html, and passed the same string as
+            # BOTH `error` and `user_store_warning` -- the two variables
+            # that template renders in two separate blocks. So submitting
+            # the login form returned a Create-an-account page, at the
+            # URL /login, carrying the message twice: once in the bordered
+            # block and once as plain text under it. That is the page a
+            # client photographed and sent in.
+            #
+            # One template, one variable, one block. login.html renders
+            # `error` and nothing else, so the message cannot double here
+            # by construction rather than by care.
+            #
+            # This deliberately does NOT change who can log in. The guard
+            # still returns before User.verify, so the env-configured
+            # admin is still blocked while the variable is unset -- see
+            # HANDOFF, "login is not independent of the user store". That
+            # is a separate decision and not this fix.
+            return render_template("login.html", error=store_warning)
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 

@@ -31,7 +31,22 @@
         <strong>Signup is unavailable.</strong><br>{{ user_store_warning }}
       </div>
     {% endif %}
-    {% if error %}
+    {#
+      AND NOT A SECOND TIME.
+
+      `User.create()` refuses the write by raising ValueError(warning),
+      the route assigns that to `error`, and this block used to render it
+      again immediately under the bordered one -- the same sentence twice,
+      once styled and once not. The dedicated block above has already said
+      it, so `error` is shown only when it has something different to add,
+      which is every real validation message and none of these.
+
+      The comparison lives here rather than in the routes because this
+      template owns both blocks. A route-side fix would have to be
+      repeated by every future caller and would be forgotten by one of
+      them.
+    #}
+    {% if error and error != user_store_warning %}
       <div class="login-error">{{ error }}</div>
     {% endif %}
 
