@@ -2250,6 +2250,151 @@ be overwritten by an older sentence.
 
 ---
 
+## Code written for the case in hand, not for the shape of the problem — three times this week
+
+The property checklist rendered `(items.get(key) or [none])[0]`. The first
+instance of an item and nothing else. A second roof could be created, was
+stored correctly, reached both exports correctly — and was **invisible on
+the page that exists to edit it**. Michelle could add a building and then
+never see it again.
+
+`instance_no`, `instance_label` and `add_instance()` had existed since
+repeatable items landed. `add_instance()` already worked at every scope.
+`build_lines()` already grouped on the instance label. The machinery was
+complete. One template subscripted it down to a single row, because when
+that template was written every property item was assumed to occur once.
+
+**That is the third instance of the same failure in one week, and the
+count is the reason this is written down.**
+
+| # | what was built | what the problem's shape actually was |
+|---|---|---|
+| 1 | Part 49: the absent-means-unchanged fix applied to the routes we were looking at | `site_dd.save` — the property-scope route — was missed entirely, and it is the one that writes the header fields |
+| 2 | Part 47: an audit of standing rule 2 that found four collection-writing routes | There were **eleven**. The audit had been scoped to the routes already in mind |
+| 3 | Part 54: a property checklist that renders one row per item | Items repeat at property scope for the same reason they repeat everywhere else — a building is not special |
+
+Each of the three passed its own tests. Each was correct about the case
+its author was holding. None of them asked *what is the general shape of
+this thing, and does my change cover all of it?*
+
+**The tell, in all three: a change scoped by enumeration.** "These
+routes", "these four", "this item". An enumeration written from memory is
+a list of what you happened to think of, and it looks identical to a
+complete list once it is on the page. The correction is cheap and
+mechanical — derive the list rather than recall it. `grep` for the write
+call, not for the routes you remember; loop the collection, do not index
+it. Part 51 re-ran the rule 2 audit by grepping for the writer and the
+count went from four to eleven in one command.
+
+Related: [Rule 2 audited at its real scope](#rule-2-audited-at-its-real-scope-and-the-dropped-clause-was-right)
+and [Dead paths: five found, four different ways](#dead-paths-five-found-four-different-ways-and-the-convention-that-follows).
+
+---
+
+## "Same rows, different hash" — a method, not a guess
+
+The Part 53 deployed verification of `save_expenses` ended with its own
+safety check failing:
+
+```
+   !! production restored exactly — (215, 'fa7ef69a0d49b195') -> (215, 'a559a0802f942f5e')
+
+RESULT: FAIL
+```
+
+Same table set, **same 215 rows**, different fingerprint. The scratch
+scenario had been created and deleted correctly and the row count proved
+it. That combination invites the two worst responses — assume a silent
+corruption of production data, or assume the fingerprint is broken and
+stop trusting the instrument.
+
+**It was neither, and the way it was settled is the part worth keeping.**
+
+### What was actually done
+
+The deploy that landed between the two readings had added a column,
+`loan_fee_pct`, to `underwriting_loans` (the origination-fee split). The
+hypothesis was therefore: the fingerprint hashes whole row dicts, so a new
+key changes the hash even when no value changed.
+
+That hypothesis was not argued. It was **executed**, read-only, against
+production as it stood:
+
+```python
+def fp(drop=()):
+    blob = {}
+    for t in TABLES:
+        rows = [dict(r) for r in c.execute(f"SELECT * FROM {t} ORDER BY id")]
+        for r in rows:
+            for d in drop:
+                r.pop(d, None)          # the column, removed from the HASH
+        blob[t] = rows
+    return (sum(len(v) for v in blob.values()),
+            hashlib.sha256(json.dumps(blob, sort_keys=True,
+                                      default=str).encode()).hexdigest()[:16])
+
+print("current, as-is             :", fp())
+print("current, minus loan_fee_pct:", fp(("loan_fee_pct",)))
+```
+
+```
+current, as-is             : (215, 'a559a0802f942f5e')
+current, minus loan_fee_pct: (215, 'fa7ef69a0d49b195')
+=> only change is the added column: True
+```
+
+Removing that one key from the hash reproduced the before-fingerprint
+**exactly**. Not "consistent with", not "probably" — there is no room left
+for a changed value to hide, because a changed value would have survived
+the pop and moved the hash anyway.
+
+### Note what was NOT done
+
+**No `ALTER TABLE`, no `DROP COLUMN`, no copy of the database, nothing
+written.** The column was removed from the *computation*, in a
+`mode=ro` connection, at the point where the row became a dict. Dropping
+the column for real would have proved the same thing and would have meant
+running DDL on production to answer a diagnostic question — which is how a
+verification step becomes the incident it was checking for.
+
+The instrument was already a content fingerprint rather than a file hash
+([the two-signal rule](#verify-on-deployed-code-not-by-reading-it)), and
+that is exactly what made this possible: a hash computed from rows in
+Python can be recomputed under a different projection. A file-level or
+`PRAGMA`-level hash cannot be interrogated this way at all.
+
+### The general form
+
+**When a fingerprint moves and the rows look the same, recompute it with
+the one structural change you know about projected out, and see whether
+the old value comes back.**
+
+* It comes back → the change was purely additive, no value moved, and you
+  can adopt the new fingerprint as the baseline with a reason.
+* It does not come back → the structural change is *not* the explanation,
+  and you have narrowed a vague worry into a real search with the noise
+  already removed.
+
+This is a **positive control on the instrument** — the same discipline
+this file applies to comparators everywhere else. A fingerprint that can
+be made to return to its old value on demand is a fingerprint that is
+still measuring what it claims to measure.
+
+### What it cost, and what guessing would have cost
+
+One read-only script. The alternatives were: accept "probably the
+migration" and carry an unexplained hash change forward as permanent
+background noise, or spend a session auditing values that were never
+wrong. The first is how an instrument quietly stops being trusted; the
+second is how a day disappears.
+
+**Conclusion of record: additive migration only, no value altered — and
+the next person seeing "same rows, different hash" has a method rather
+than a guess.**
+
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
