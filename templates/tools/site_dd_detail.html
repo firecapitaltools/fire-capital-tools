@@ -227,29 +227,89 @@
       </p>
       <div class="table-wrap">
         <table class="rent-comps-table">
-          <thead><tr><th style="width:26%;">Item</th><th style="width:22%;">Condition</th><th>Note</th><th style="width:14%;">Photos</th></tr></thead>
+          {#
+            ONE ROW PER INSTANCE, BECAUSE A PROPERTY HAS MORE THAN ONE
+            BUILDING.
+
+            This rendered `(items.get(key) or [none])[0]` -- the first
+            instance and nothing else -- so a second roof was invisible
+            here even when the instance existed in storage. The unit and
+            room scopes have rendered every instance since repeatable
+            items landed; the property scope never caught up.
+
+            Michelle: "It varies by property, but typically buildings have
+            numbers associated with them." So the building is FREE TEXT on
+            the instance, not a registry -- she says the numbering varies,
+            and a fixed list of buildings is a property-management feature
+            she did not ask for.
+          #}
+          <thead><tr><th style="width:20%;">Item</th><th style="width:14%;">Building</th><th style="width:16%;">Condition</th><th>Note</th><th style="width:16%;">Cost</th><th style="width:8%;">Photos</th></tr></thead>
           <tbody>
             {% for key, label in cat['items'] %}
-              {% set row = (items.get(key) or [none])[0] %}
-              {% set current = row.condition if row else none %}
+              {% for row in (items.get(key) or [none]) %}
+                {% set n = row.instance_no if row and row.instance_no else 1 %}
+                {% set sfx = '' if n == 1 else '__' ~ n %}
+                {% set current = row.condition if row else none %}
+                {% set est = cost_describe(row) if row else none %}
+                <tr>
+                  <td>{{ label }}{% if n != 1 %} <span class="stat-box-sub">#{{ n }}</span>{% endif %}</td>
+                  <td>
+                    <input class="form-input" type="text" name="label_{{ key }}{{ sfx }}"
+                           value="{{ row.instance_label if row and row.instance_label else '' }}"
+                           maxlength="80" placeholder="e.g. Building 3"
+                           style="padding:5px 8px; font-size:12px;"
+                           aria-label="{{ label }} building">
+                  </td>
+                  <td>
+                    <select class="form-input" name="condition_{{ key }}{{ sfx }}" style="padding:5px 8px; font-size:12px;"
+                            {% if current %}data-condition="{{ current }}"{% endif %}>
+                      <option value="" {% if not current %}selected{% endif %}>Not assessed</option>
+                      {% for c in conditions %}
+                        <option value="{{ c }}" {% if current == c %}selected{% endif %}>{{ condition_labels[c] }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td>
+                    <input class="form-input" type="text" name="note_{{ key }}{{ sfx }}" value="{{ row.note if row and row.note else '' }}"
+                           placeholder="Optional" style="padding:5px 8px; font-size:12px;">
+                  </td>
+                  <td>
+                    {#
+                      The cost box the property scope never had. The engine
+                      has always accepted a manual cost here -- _kept_cost()
+                      reads it and a typed figure overrides the researched
+                      one -- but this form rendered no input at all, so the
+                      path was unreachable at property scope. "Roof,
+                      Building 3, $35,000" needs both halves.
+                    #}
+                    <input class="form-input" type="number" inputmode="decimal" min="0" step="any"
+                           name="cost_{{ key }}{{ sfx }}"
+                           value="{{ est.cost|round|int if est and est.has_cost else '' }}"
+                           placeholder="Cost" style="padding:5px 8px; font-size:12px;"
+                           aria-label="{{ label }} estimated cost">
+                    <select class="form-input" name="measure_{{ key }}{{ sfx }}"
+                            style="padding:4px 6px; font-size:11px; margin-top:4px;"
+                            aria-label="{{ label }} cost unit">
+                      <option value=""{% if not (est and est.measure) %} selected{% endif %}>Not specified</option>
+                      {% for unit_value, unit_label in cost_units %}
+                        <option value="{{ unit_value }}"{% if est and est.measure == unit_value %} selected{% endif %}>{{ unit_label }}</option>
+                      {% endfor %}
+                    </select>
+                  </td>
+                  <td class="stat-box-sub">
+                    {%- set ph = photos_by_item.get(key, []) -%}
+                    {{ ph|length if ph and n == 1 else '—' }}
+                  </td>
+                </tr>
+              {% endfor %}
               <tr>
-                <td>{{ label }}</td>
-                <td>
-                  <select class="form-input" name="condition_{{ key }}" style="padding:5px 8px; font-size:12px;"
-                          {% if current %}data-condition="{{ current }}"{% endif %}>
-                    <option value="" {% if not current %}selected{% endif %}>Not assessed</option>
-                    {% for c in conditions %}
-                      <option value="{{ c }}" {% if current == c %}selected{% endif %}>{{ condition_labels[c] }}</option>
-                    {% endfor %}
-                  </select>
-                </td>
-                <td>
-                  <input class="form-input" type="text" name="note_{{ key }}" value="{{ row.note if row and row.note else '' }}"
-                         placeholder="Optional" style="padding:5px 8px; font-size:12px;">
-                </td>
-                <td class="stat-box-sub">
-                  {%- set ph = photos_by_item.get(key, []) -%}
-                  {{ ph|length if ph else '—' }}
+                <td colspan="6" style="padding-top:0; border-top:none;">
+                  <button type="submit" form="propertyInstanceForm" class="btn btn-ghost"
+                          style="font-size:11px; padding:2px 8px;"
+                          formaction="{{ url_for('site_dd.add_instance', assessment_id=assessment.id) }}"
+                          name="item_key" value="{{ key }}">
+                    + Add another {{ label|lower }}
+                  </button>
                 </td>
               </tr>
             {% endfor %}
@@ -263,6 +323,16 @@
     <button type="submit" class="btn btn-primary">Save Assessment</button>
     <span class="page-subtitle" style="margin-left:10px;">The summary above recalculates on save.</span>
   </div>
+</form>
+
+{#
+  Additive actions post here, never inside the checklist form. A nested
+  form would silently misroute the save -- that exact bug was found and
+  fixed once already in this module.
+#}
+<form id="propertyInstanceForm" method="POST" style="display:none;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="scope" value="property">
 </form>
 
 <!-- ── Photos ─────────────────────────────────────────────────────────── -->

@@ -203,6 +203,11 @@ def detail(assessment_id):
         categories=cl.CATEGORIES,
         items=items,
         item_labels=cl.ITEM_LABELS,
+        # The property scope needs these for the same reason the unit and
+        # room scopes do: an item can occur more than once -- Michelle's
+        # roof is per BUILDING -- and each occurrence carries its own cost.
+        cost_units=COST_UNITS,
+        cost_describe=costs.describe,
         photos=photos,
         photos_by_item=photos_by_item,
         summary=summary,
