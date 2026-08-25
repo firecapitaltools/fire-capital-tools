@@ -28,14 +28,20 @@ And one thing was wrong in the export: the instance label REPLACED the
 item name, so the line read "Building 3" with no indication that the
 $35,000 was a roof.
 
-A LIMITATION THIS DOES NOT REMOVE, PINNED BELOW
+A LIMITATION THIS BRANCH DID NOT REMOVE, SINCE LIFTED
 
 Six property items are rate-priced -- roof covering, paving, roof
-drainage, facade, flooring, walls -- and for those a manual figure is
-still read as a RATE, because the unit belongs to the item rather than to
-whoever priced it. So Michelle's own example, a roof at $35,000, records
-the building correctly and still produces no total. That is the settled
-rule from the $5.75 repaint bug and is not quietly changed here.
+drainage, facade, flooring, walls -- and when this landed, a manual figure
+on one of those was read as a RATE whatever the person meant by it, so
+Michelle's own example of a roof at $35,000 recorded the building
+correctly and still produced no total.
+
+Part 54 lifted that for the manual case only: an inspector who answers the
+per-job / per-sq-ft toggle is believed, a reference rate is not converted
+by anyone, and an UNANSWERED toggle still behaves exactly as it does here.
+The test below is now the unanswered case -- it posts no measure -- and it
+stays because that is the state that must not drift.
+tests/test_capex_manual_per_job.py carries the rest.
 """
 
 import tempfile
@@ -156,13 +162,16 @@ class TwoBuildingsBecomeTwoBudgetLinesTests(unittest.TestCase):
                 self.assertIn(probe, pdf)
 
     def test_a_rate_priced_item_records_the_building_but_still_has_no_total(self):
-        """The limitation, pinned rather than papered over.
+        """The UNANSWERED toggle, pinned rather than papered over.
 
-        A roof is priced per square foot, so a manual $35,000 is read as a
-        rate and excluded from the total -- the settled rule from the $5.75
-        repaint bug, where the unit belongs to the item rather than to
-        whoever typed the figure. The BUILDING is still recorded correctly;
-        only the total is withheld.
+        `record()` posts no measure, so nobody has said whether $35,000 is
+        a job price or a rate. A roof is priced per square foot by default,
+        so the figure is read as a rate and excluded from the total. The
+        BUILDING is still recorded correctly; only the total is withheld.
+
+        Since Part 54 an inspector CAN say "per job" here and get a total
+        (tests/test_capex_manual_per_job.py). This test is what stops
+        absence quietly acquiring that answer on its own.
         """
         self.record("roof_covering", ("Building 3", 35000), ("Building 5", 50000))
         _, lines, summary = self.budget()
