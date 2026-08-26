@@ -439,7 +439,7 @@ def _cre_payload_for_city(
 
 @fire_metrics_bp.route("/", methods=["GET", "POST"])
 @login_required
-def index():
+def index(standalone_mode: bool = False):
     # Computed first (depends only on request headers, can't itself raise)
     # so the outermost except below always knows whether this caller's own
     # JS is going to do res.json() unconditionally on whatever comes back.
@@ -472,6 +472,7 @@ def index():
         context = {
             "status": status,
             "crime_workbook": _crime_workbook_status(),
+            "standalone_mode": bool(standalone_mode),
             "can_manage_fire_metrics_admin": _is_admin_user(),
             "success_message": None,
             "error_message": None,
