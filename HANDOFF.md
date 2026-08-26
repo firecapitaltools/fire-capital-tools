@@ -25,6 +25,16 @@ something is uncertain it says so.**
 Every persistent database uses a `*_DB_PATH` env var pointing at `/data`.
 The user sets Railway env vars themselves — do not attempt to.
 
+`USER_STORE_PATH=/data/users.json` is now set too (2026-08-25), so signup
+accounts have somewhere durable to live. **That the volume actually
+preserves them across a redeploy is not yet demonstrated** —
+`docs/known-issues.md` entry 1 carries the evidence and the six-step check.
+
+**`docs/known-issues.md`** is where anything believed-but-unverified goes,
+one entry each, dated, with what would close it. Read it alongside this
+file; it is short by design and it is the first place to look before
+trusting a claim about the deployed environment.
+
 Railway's GraphQL API sits behind Cloudflare and returns **error 1010**
 to a request with no browser `User-Agent`. That is a blocked fingerprint,
 not a bad token.
@@ -2509,6 +2519,8 @@ above.
 ## What has not been verified
 
 Stated plainly so it is not mistaken for tested ground.
+
+> **Anything with a written-down way to settle it now lives in `docs/known-issues.md`**, one entry each, with what would close it. This list stays for the standing caveats that have no single check to run. If you find yourself writing "someone should verify X", it belongs in that file, not here.
 
 - ~~The AI synthesis path was never exercised.~~ **Now verified.** One
   authorized generation on 2026-08-17 against a deliberately thin
