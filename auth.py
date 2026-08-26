@@ -20,30 +20,26 @@ def login():
     store_warning = User.user_store_warning(current_app.config)
 
     if request.method == "POST":
-        # Checked before validation, not after: the form is not the problem
-        # and telling the user their password is too short would be a
-        # misleading answer to a configuration failure.
-        if store_warning:
-            # THE LOGIN PAGE, NOT THE SIGNUP PAGE.
-            #
-            # This rendered signup.html, and passed the same string as
-            # BOTH `error` and `user_store_warning` -- the two variables
-            # that template renders in two separate blocks. So submitting
-            # the login form returned a Create-an-account page, at the
-            # URL /login, carrying the message twice: once in the bordered
-            # block and once as plain text under it. That is the page a
-            # client photographed and sent in.
-            #
-            # One template, one variable, one block. login.html renders
-            # `error` and nothing else, so the message cannot double here
-            # by construction rather than by care.
-            #
-            # This deliberately does NOT change who can log in. The guard
-            # still returns before User.verify, so the env-configured
-            # admin is still blocked while the variable is unset -- see
-            # HANDOFF, "login is not independent of the user store". That
-            # is a separate decision and not this fix.
-            return render_template("login.html", error=store_warning)
+        # THE STORE GUARD DOES NOT LIVE HERE ANY MORE.
+        #
+        # It used to return before User.verify whenever USER_STORE_PATH was
+        # unset, which locked EVERY account out -- including the admin,
+        # whose credentials come from ADMIN_USERNAME and
+        # ADMIN_PASSWORD_HASH and never touch the store file at all. On
+        # 2026-08-24 that took the client off her own dashboard, and the
+        # thing the guard defends (writing an account somewhere temporary)
+        # was never in reach of this route.
+        #
+        # A guard is correct relative to the thing it protects. In signup()
+        # it stands between a person and a write that would be silently
+        # lost, and it stays there untouched. Copied here it stands between
+        # a person and a READ that is already safe: User.verify calls
+        # find_stored_user, _load_store returns {"users": {}} for a file
+        # that is not there, and the admin branch below it is env-only.
+        #
+        # So login now always reaches User.verify, and the store's state is
+        # allowed to affect only the case it actually touches -- see the
+        # failure message below.
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
 
@@ -59,7 +55,31 @@ def login():
                 return redirect(next_page)
             return redirect(url_for("dashboard"))
 
+        # THE ONE CASE THE STORE ACTUALLY TOUCHES, NAMED RATHER THAN
+        # BLOCKED.
+        #
+        # A signup account lives in the store file. If USER_STORE_PATH goes
+        # missing, _load_store returns an empty dict, find_stored_user
+        # finds nothing, and a person with a perfectly good account is told
+        # their password is wrong. That is a false statement about their
+        # credentials, and it is the only way the store's state can affect
+        # logging in at all -- so it gets its own sentence.
+        #
+        # APPENDED, NOT SUBSTITUTED, and shown for every failed attempt
+        # rather than only for non-admin usernames. Choosing the message by
+        # username would make this page answer "is this the admin account?"
+        # for anyone who asked it twice. Same message for every failure,
+        # no oracle.
+        #
+        # It also does not repeat user_store_warning(): that text names the
+        # variable and suggests a path, which is the right detail for the
+        # operator and the wrong thing to print for whoever else reaches a
+        # public login page.
         error = "Invalid username or password."
+        if store_warning:
+            error += (" Saved accounts cannot be read at the moment, so only "
+                      "the administrator account can sign in. If this is your "
+                      "account, please contact your administrator.")
 
     return render_template("login.html", error=error)
 

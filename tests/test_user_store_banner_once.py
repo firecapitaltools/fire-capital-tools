@@ -21,14 +21,24 @@ whole of it -- the Part 54 lesson about changes scoped to the case in
 hand. Both are covered here, and the template-side guard covers callers
 that do not exist yet.
 
-WHAT THIS DELIBERATELY DOES NOT CHANGE
+WHAT PART 55 DELIBERATELY LEFT ALONE, AND PART 57 THEN DID
 
-The login guard still returns before `User.verify`, so the env-configured
-admin still cannot log in while the variable is unset. That is a separate
-and larger decision. `test_login_is_still_blocked` pins the current
-behaviour so the decision is made deliberately rather than drifted into.
+Part 55 fixed only what the page looked like. The guard still returned
+before `User.verify`, so while the variable was unset nobody could log in
+at all -- the env-configured admin included, whose credentials never touch
+the store file. That was pinned rather than fixed, because changing who
+can log in is an operator's decision and not a side effect of fixing a
+doubled banner.
+
+Part 57 took that decision: the guard is out of `login()`, signup keeps
+its refusal untouched, and the store's one real consequence (a saved
+account cannot be READ) gets its own sentence instead of blocking
+everyone. The pin was INVERTED rather than deleted -- see
+`LoginIsNoLongerBlockedTests` -- so the file still fails loudly if the
+guard ever creeps back.
 """
 
+import re
 import unittest
 
 from models import User
@@ -80,8 +90,17 @@ class ThePreconditionTests(BannerTestCase):
 
 
 class ExactlyOnceTests(BannerTestCase):
-    def test_submitting_the_login_form(self):
-        self.assertEqual(self.count(self.post_login()), 1)
+    def test_submitting_the_login_form_shows_it_not_at_all(self):
+        """It showed twice, then once, and now never.
+
+        Part 55 stopped the login route rendering the SIGNUP template with
+        the message in two variables. Part 57 removed the store guard from
+        this route altogether, so a login POST is an ordinary credential
+        check and the configuration banner has no business on it. The
+        store's one real consequence is stated in its own sentence -- see
+        LoginIsNoLongerBlockedTests -- without naming the variable.
+        """
+        self.assertEqual(self.count(self.post_login()), 0)
 
     def test_submitting_the_signup_form(self):
         self.assertEqual(self.count(self.post_signup()), 1)
@@ -152,20 +171,34 @@ class WithTheStoreConfiguredTests(BannerTestCase):
         self.assertIn("Invalid username or password", body)
 
 
-class LoginIsStillBlockedTests(BannerTestCase):
-    """PINNED, NOT ENDORSED.
+class LoginIsNoLongerBlockedTests(BannerTestCase):
+    """INVERTED, NOT DELETED — and the inversion is the point.
 
-    Part 51 recorded that login is unaffected by the user store "because
-    the admin account is env-configured". That claim is false: the guard
-    returns before `User.verify` is ever called, so while the variable is
-    unset NOBODY can log in, admin included. This branch fixes what the
-    page looks like and changes nothing about who gets in.
+    This class used to assert `User.verify` was NEVER reached while the
+    store was unset, under the name `test_login_is_still_blocked`. It was
+    written that way deliberately: the behaviour was wrong, fixing it
+    changed who could log in, and that decision belonged to the operator
+    rather than to whoever was fixing the doubled banner. The test pinned
+    the wrong behaviour so the change could not be drifted into quietly.
 
-    This test exists so that when the access decision is taken, it is
-    taken on purpose and this file fails loudly to mark it.
+    The decision has now been taken, so the pin is turned over rather than
+    thrown away. A deleted test leaves no trace that the question was ever
+    live; an inverted one says what changed, when, and why — and it fails
+    just as loudly if the guard ever creeps back into the login route.
+
+    WHY THE GUARD WAS WRONG HERE
+
+    A guard is correct relative to the thing it protects. In `signup()`
+    the store guard stands between a person and a write that would be
+    silently lost on the next deploy, and that is exactly right. Copied
+    into `login()` it stood between a person and a READ that was already
+    safe -- `_load_store()` returns `{"users": {}}` for a file that is not
+    there, and the admin branch under it reads only ADMIN_USERNAME and
+    ADMIN_PASSWORD_HASH. It protected nothing and locked everyone out,
+    which is how a client lost access to her own dashboard on 2026-08-24.
     """
 
-    def test_login_is_still_blocked(self):
+    def verify_calls(self):
         calls = []
         real = User.verify
 
@@ -176,32 +209,63 @@ class LoginIsStillBlockedTests(BannerTestCase):
 
         User.verify = counting
         try:
-            self.post_login()
+            body = self.post_login().get_data(as_text=True)
         finally:
             User.verify = real
-        self.assertEqual(calls, [],
-                         "User.verify is now reached while the store is "
-                         "unset -- who can log in has changed, which is a "
-                         "decision, not a side effect")
+        return calls, body
 
-    def test_positive_control_verify_is_reached_once_configured(self):
-        """Without this, the assertion above would pass if `User.verify`
-        had simply been renamed."""
+    def test_login_reaches_verify_even_with_the_store_unset(self):
+        calls, _ = self.verify_calls()
+        self.assertEqual(len(calls), 1,
+                         "the store guard is back in the login route")
+
+    def test_positive_control_it_is_the_unset_state_being_tested(self):
+        """Guards against this class passing because the store quietly
+        read as configured, which would make the assertion trivial."""
+        self.assertFalse(User.user_store_is_configured(self.app.config))
+
+    def test_the_failure_is_about_the_credentials_not_the_configuration(self):
+        _, body = self.verify_calls()
+        self.assertIn("Invalid username or password", body)
+
+    def test_but_it_says_what_the_store_actually_affects(self):
+        """The one real consequence: a signup account cannot be READ, so
+        telling that person their password is wrong is a false statement
+        about their credentials."""
+        _, body = self.verify_calls()
+        self.assertIn("Saved accounts cannot be read", body)
+        self.assertIn("administrator", body)
+
+    def test_that_sentence_is_absent_once_the_store_is_configured(self):
         self.app.config["USER_STORE_PATH"] = "/some/configured/users.json"
-        calls = []
-        real = User.verify
+        _, body = self.verify_calls()
+        self.assertIn("Invalid username or password", body)
+        self.assertNotIn("Saved accounts cannot be read", body)
 
-        @staticmethod
-        def counting(username, password, app_config):
-            calls.append(username)
-            return real(username, password, app_config)
+    def test_the_message_is_the_same_for_every_username(self):
+        """No oracle. Choosing the wording by username would make this
+        page answer "is this the admin account?" to anyone who asked it
+        twice."""
+        bodies = []
+        for name in ("michelle", "definitely-not-a-real-account", "admin"):
+            body = self.client.post("/login", data={
+                "username": name, "password": "wrong"}).get_data(as_text=True)
+            bodies.append(re.findall(r'class="login-error">([^<]*)', body))
+        self.assertEqual(len(set(map(tuple, bodies))), 1, bodies)
 
-        User.verify = counting
-        try:
-            self.post_login()
-        finally:
-            User.verify = real
-        self.assertEqual(len(calls), 1)
+
+class TheLoginPageLeaksNothingTests(BannerTestCase):
+    """The operator's detail and the visitor's message are different
+    things. `user_store_warning()` names the variable and suggests a path;
+    that is right for whoever configures Railway and wrong to print on a
+    public login page."""
+
+    def test_the_variable_is_never_named_on_the_login_page(self):
+        for response in (self.client.get("/login"), self.post_login()):
+            with self.subTest(method=response.request.method):
+                body = response.get_data(as_text=True)
+                self.assertNotIn("USER_STORE_PATH", body)
+                self.assertNotIn("/data/users.json", body)
 
 
 if __name__ == "__main__":
