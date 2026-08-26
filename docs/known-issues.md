@@ -63,12 +63,16 @@ matters.
 
 Two specifics the indirect evidence does not reach:
 
-* **The signup write path has never run in production.**
-  `/data/users.json` does not exist. No account has ever been created —
-  the file is absent, not empty. Every login to date has been the
-  env-configured admin, which never reads or writes this file. So
-  "signup works" is itself untested; what is known is that signup no
-  longer *refuses*.
+* ~~**The signup write path has never run in production.**~~
+  **Settled 2026-08-25, by accident.** A verification script for the login
+  guard posted the signup form while the store was configured, which is
+  not a probe but a real account creation. It worked: `zz-signup-probe`
+  was written to `/data/users.json` and the file appeared where the
+  variable points. The account was removed immediately, confirmed unable
+  to log in, and the file — left empty — was deleted, returning production
+  to its previous state. So the write path is now known to work and to
+  write to the right place. **The redeploy half is still untested**, which
+  is the part that matters and the reason this entry stays open.
 * Volume identity across deploys is a Railway service property, not
   something the container can observe about its own future.
 
@@ -81,7 +85,8 @@ the client rather than by us.
 **How to close it.**
 
 1. On the deployed app, sign up a throwaway account through the real form
-   (suggested: `zz-persistence-check`, with a password you record).
+   (suggested: `zz-persistence-check`, with a password you record). This
+   half is known to work — see above — so expect it to succeed.
 2. Confirm it can log in, and confirm `/data/users.json` now exists on the
    container and contains that username.
 3. Push any trivial commit — a comment, a line in this file.
