@@ -2405,6 +2405,88 @@ than a guess.**
 
 ---
 
+## A guard is correct relative to the thing it protects — three instances, one outage
+
+A guard is not a piece of code that is safe. It is a piece of code that is
+safe **about one specific thing**. Move it and the code travels; the
+protection does not. Three instances this session, and the third put a
+client off her own dashboard.
+
+| | the guard | what it was supposed to protect | what it actually did at the new site |
+|---|---|---|---|
+| 1 | Part 51's `app.config` check for `USER_STORE_PATH` | writing accounts somewhere non-durable | **always returned `True`.** `config.py` resolves with `os.environ.get(NAME, fallback)`, so the key always holds a value. Asking "is it set?" is asking a question whose answer is always yes |
+| 2 | the test redirect for `MARKET_CACHE_DB_PATH` | keeping tests out of the real cache | **failed open.** The variable does not exist — `MARKET_DATA_DB_PATH` does — so the redirect silently did nothing and two rows went into the developer's own cache |
+| 3 | the user-store guard in `signup()`, copied into `login()` | a WRITE that would be silently lost on the next deploy | **blocked a READ that was already safe**, and with it every login including the env-configured admin. A client was locked out of production on 2026-08-24 |
+
+### Why the third one is the clearest case
+
+In `signup()` the guard is exactly right. A person is about to create an
+account; if `USER_STORE_PATH` is unset that account goes to the container
+filesystem and disappears at the next push, surfacing days later as *"my
+password stopped working"*. Refusing is the correct answer, and it stays.
+
+Copied into `login()` the same three lines mean something entirely
+different, because **login does not write anything**. It calls
+`User.verify`, which calls `find_stored_user`, which calls `_load_store`,
+which returns `{"users": {}}` for a file that is not there — already safe,
+already correct. And underneath that sits the admin branch, which reads
+`ADMIN_USERNAME` and `ADMIN_PASSWORD_HASH` from the environment and never
+touches the store file at all.
+
+So the guard defended nothing on that route and cost everything: an early
+`return` in front of authentication locks out every account, for a reason
+unrelated to what the guard is about. The one consequence the store's
+state genuinely has for logging in — a *saved* account cannot be read, so
+"invalid username or password" is a false statement about that person's
+credentials — was the one thing the guard did not say.
+
+### The check, before reusing a guard anywhere
+
+**What does this guard protect, and does the new call site touch that
+thing at all?**
+
+Two questions, and the second is the one that gets skipped. It is not
+"does this guard make sense here" — a store guard on a login page reads
+perfectly sensible, which is exactly the problem. It is the narrower,
+duller question of whether the resource being defended is even in reach
+of this code path. Follow the call, all the way down, until you find the
+write, the read, or the network call the guard exists to stand in front
+of. If it is not there, the guard is not protecting this route; it is just
+failing it.
+
+Two corollaries, both earned:
+
+* **An early `return` in front of authentication is never a small
+  change.** It converts "this feature is unavailable" into "nobody can get
+  in", and those have completely different blast radii.
+* **Ask what the guard's failure mode costs at the NEW site.** Failing
+  closed is right in front of a lossy write and wrong in front of a login.
+  The same guard is conservative in one place and catastrophic in the
+  other.
+
+### All three were found by running code. None by reading it.
+
+This is the part worth keeping, because all three had been read over
+without anyone noticing:
+
+* Instance 1 passed its unit tests, which popped the config key — a state
+  production never reaches. It was caught **only by deploying** and
+  watching the banner fail to appear.
+* Instance 2 was caught by finding **two unexplained rows** in a local
+  cache, not by re-reading the patch that put them there.
+* Instance 3 was caught by a **client's screenshot**, and then pinned by
+  counting `User.verify` calls on the deployed container: zero with the
+  store unset, one with it configured. Reading `auth.py` had not revealed
+  it — the guard looks entirely reasonable sitting there.
+
+Every one of these is invisible to inspection and obvious to execution,
+which is [the standing rule about verifying on deployed code](#verify-on-deployed-code-not-by-reading-it)
+arriving from a third direction. **Instrument the thing and watch it
+behave. A guard that is never reached and a guard that always passes look
+identical in a diff.**
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
