@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 
 from flask import Flask, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
-from flask_login import LoginManager, current_user, logout_user
+from flask_login import LoginManager, current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError, CSRFProtect
 
 from config import Config
@@ -77,6 +77,7 @@ def create_app(config_class: type = Config) -> Flask:
     from tools.deal_dive import deal_dive_bp
     from tools.feedback import feedback_bp
     from tools.fire_metrics import fire_metrics_bp
+    from tools.fire_metrics.routes import index as fire_metrics_index
     from tools.mmr_summary import mmr_bp
     from tools.rent_comps import rent_comps_bp
     from tools.scorecard_pro import scorecard_bp
@@ -209,6 +210,11 @@ def create_app(config_class: type = Config) -> Flask:
         if not current_user.is_authenticated:
             return redirect(url_for("auth.login"))
         return render_template("dashboard.html")
+
+    @app.route("/fire-metrics/", methods=["GET", "POST"])
+    @login_required
+    def fire_metrics_standalone():
+        return fire_metrics_index.__wrapped__(standalone_mode=True)
 
     return app
 

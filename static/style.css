@@ -221,6 +221,10 @@ a { color: inherit; text-decoration: none; }
   min-width: 0;
 }
 
+.main-content-standalone {
+  margin-left: 0;
+}
+
 .content-wrapper {
   padding: 36px 40px;
   max-width: 1120px;

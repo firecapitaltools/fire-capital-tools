@@ -19,6 +19,7 @@
 <body>
 <div class="layout">
 
+  {% if not standalone_mode %}
   <button
     type="button"
     class="mobile-nav-backdrop"
@@ -27,7 +28,9 @@
     tabindex="-1"
     hidden
   ></button>
+  {% endif %}
 
+  {% if not standalone_mode %}
   <!-- ── Sidebar ─────────────────────────────────────────── -->
   <aside class="sidebar" id="app-sidebar" aria-label="Primary navigation">
     <a class="sidebar-brand" href="{{ url_for('dashboard') }}">
@@ -178,9 +181,11 @@
       </div>
     </div>
   </aside>
+  {% endif %}
 
   <!-- ── Main content ──────────────────────────────────────── -->
-  <main class="main-content">
+  <main class="main-content{% if standalone_mode %} main-content-standalone{% endif %}">
+    {% if not standalone_mode %}
     <header class="mobile-topbar" id="mobile-topbar">
       <a class="mobile-topbar-brand" href="{{ url_for('dashboard') }}" aria-label="Go to dashboard">
         <img class="mobile-topbar-mark" src="{{ url_for('static', filename='img/logo-mark.svg') }}" alt="" width="32" height="32" style="width:32px; height:32px; max-width:32px; max-height:32px; display:block;">
@@ -197,6 +202,7 @@
         <span class="mobile-nav-toggle-glyph" aria-hidden="true">☰</span>
       </button>
     </header>
+    {% endif %}
     <div class="content-wrapper">
 
       {% with messages = get_flashed_messages(with_categories=true) %}
