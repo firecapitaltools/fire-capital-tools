@@ -535,3 +535,163 @@ front of Michelle.
   `visible_leaks`, and a new item rather than a detail.
 - **What a per-room paint price actually is.** Section 4 asserts the
   mechanism, not the figure.
+
+---
+
+# Currency check, 2026-08-26 — approved, still valid, one step now wrong
+
+**Michelle approved this design:** *"I AGREE WITH YOUR ASSESSMENT. WE
+SHOULD BE MORE DETAILED ON WHAT NEEDS TO BE REPLACED OR REPAIRED."*
+
+Re-read in full against everything merged since it was written, at master
+`d693dd5`. **The design holds. Nothing in it is invalidated.** One step of
+§7 is now partly done, one is now *wrong as written*, and the priority of
+the last step has changed. Details below, so the next person implementing
+§7 does not follow a stale instruction.
+
+## C1. Work-options registry (`8b8ba17`) — already absorbed
+
+§6 already carries the DONE callout. Confirmed in code: the grouping key
+now reads
+
+```python
+key = (f.get("area_id"), f.get("room_id"), f.get("item_key"),
+       f.get("condition"), f.get("detail"),
+       described["cost"], described["source"],
+       (f.get("instance_label") or "").strip())
+```
+
+`detail` is in the key. **§7 step 3 is half done** — the key is widened,
+the label suffix is not. No change to the design.
+
+## C2. Building instances — **§6's label recommendation is now WRONG AS WRITTEN**
+
+This is the one thing that needs correcting before anyone implements it.
+
+§6 quotes the label expression as it was:
+
+```python
+"label": (f.get("instance_label")
+          or labels.get(f.get("item_key"))
+          or f.get("item_key")),
+```
+
+and gives as its third reason for a suffix that *"`instance_label` already
+takes precedence over the item label and should keep it."*
+
+**That premise is stale.** Part 53 replaced this with `_line_label()`,
+which no longer lets the instance label win — it **joins** them with an em
+dash, because a budget line reading "Building 3" with no indication that
+the $35,000 is a roof is a line nobody can price:
+
+```python
+def _line_label(item_key, instance_label, labels):
+    known = (labels or {}).get(item_key)
+    instance = (instance_label or "").strip()
+    if not instance:
+        return known or item_key
+    if not known or known.strip().lower() == instance.lower():
+        return instance
+    return f"{known} — {instance}"
+```
+
+So `Roof covering — Building 3`. The suffix proposal would then produce
+**`Toilet — Powder room — replace seat`**: three parts, two em dashes,
+and no way to tell which separator means "where" and which means "which
+job". The document's own worked example, `Powder room toilet — replace
+seat`, is no longer what the code would produce.
+
+**The design intent survives; the mechanism must change.** Options, in
+preference order:
+
+1. **Extend `_line_label()` to take the detail** and compose all three
+   deliberately — item, instance, scope — choosing separators that do not
+   collide. `Toilet (Powder room) — replace seat` reads correctly and
+   keeps one function responsible for the whole label, which is what
+   `_line_label()` was extracted to be.
+2. Suffix with a different separator, e.g. a colon:
+   `Toilet — Powder room: replace seat`. Cheaper, and it puts two
+   punctuation conventions in one string.
+3. A `Detail` column. Still rejected for §6's reason 1 — the PDF is a
+   fixed-width portrait table with no room for a tenth field.
+
+**Recommendation: option 1.** `_line_label()` already exists precisely to
+own this question, and it did not exist when §6 was written. §6's reason 3
+should be read as "the instance label must survive composition", which is
+still true and is what option 1 guarantees.
+
+§6's reasons 1 and 2 are unaffected: the PDF still has no room for a
+column, and the suffix must still be gated on `kind == KIND_CONDITION`
+explicitly rather than relying on the `WORK_CONDITIONS` filter.
+
+## C3. The manual per-job toggle (Part 54) — no invalidation, one priority change and one sharpened warning
+
+**Priority.** §7 step 5 recommends researching `COST_BY_DETAIL` *"starting
+with `walls_ceiling` paint-only — that is the one that converts an
+untotallable rate into a number."* That sentence was written when a
+per-square-foot item could not be totalled at all. It can now: an
+inspector who types a figure and answers the per-job toggle gets a total,
+which is exactly Michelle's two roofs at $35,000 and $50,000.
+
+So step 5 is **still worth doing and no longer urgent**. A researched
+paint price is a better answer than an inspector's guess — it is a
+national average with a source and a date, and it applies where nobody has
+typed anything — but the gap it fills is "nobody has priced this" rather
+than "this cannot be priced at all". **Steps 1–4 are now clearly the
+higher-value half**, and they remain safe with no researched figures.
+
+**The sharpened warning, and it is the more important half.** §4 flags the
+call site at `site_dd_capex_export.py`:
+
+```python
+known = refcosts.for_item(f.get("item_key"),
+                          f.get("detail") if f.get("item_key") == "flooring"
+                          else None)
+```
+
+and says it is *"not a live bug, because every flooring variant is `sqft`
+and this call only reads `.unit`… it becomes a real bug the moment any
+item has detail-dependent units."*
+
+Still true, still not a live bug — verified, the line is unchanged. But
+Part 54 built a whole layer on top of `unit` resolution at that exact
+spot: a manual figure's unit can now be overridden by the toggle, while a
+**reference** figure's unit still comes from `for_item()`. That makes the
+unit the reference table reports load-bearing in a way it was not before,
+and detail-dependent units are precisely what `COST_BY_DETAIL` invites —
+"repaint" priced per square foot and "replace drywall" priced per job on
+the same item key.
+
+**So §7 step 4 is no longer housekeeping.** Passing the real `detail` to
+`for_item()` must land *before* any `COST_BY_DETAIL` entry whose unit
+differs from its item-level entry, or a reference price will be applied
+with the wrong unit and either total wrongly or refuse to total.
+
+One addition to step 4 that §4 does not mention: `costs.apply_reference()`
+and `costs.reference_for()` take a `flooring_type` argument and every
+caller passes `None`. Under the generalisation they take `detail`, and
+those call sites need updating too — otherwise `for_item` gets the detail
+in the export and not in the provenance path, and the two disagree about
+what a finding costs.
+
+## C4. Order of work — revised
+
+§7's five steps are still the right five. Revised sequencing:
+
+1. `_item()` accepts `options` on a `KIND_CONDITION` item. **Unchanged.**
+2. Form renders the scope detail when the condition implies work.
+   **Unchanged.**
+3. Label composition — **changed**: the grouping-key half is done; the
+   label half becomes "extend `_line_label()` to compose item, instance
+   and detail", per C2.
+4. `for_item(item_key, detail)` generalised, plus `apply_reference` /
+   `reference_for`. **Promoted** — it is now a prerequisite for step 5
+   rather than a tidy-up, per C3.
+5. Research `COST_BY_DETAIL`. **Demoted** — still valuable, no longer
+   urgent, and still a separate decision with the numbers in front of
+   Michelle.
+
+**Nothing here changes the size of the work or its shape.** The design was
+written to be robust to exactly this kind of drift — §5's "existing
+findings with no detail stay valid, by construction" is untouched, and
+assessment 11 remains unaffected by all of it.
