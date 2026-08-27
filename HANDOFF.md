@@ -195,6 +195,120 @@ answers.**
 
 ---
 
+## Michelle answered all six (2026-08-26) — and three of them CLOSE work
+
+Her answers verbatim, with what each one settles. **Three close work
+rather than opening it**, and those are recorded as decisions so nobody
+re-derives them: an investigated-and-declined design and a never-considered
+one look identical a year later.
+
+### 1. Detail values — YES
+
+> *"I AGREE WITH YOUR ASSESSMENT. WE SHOULD BE MORE DETAILED ON WHAT NEEDS
+> TO BE REPLACED OR REPAIRED."*
+
+`docs/site-dd-detail-values.md` is approved and gets its own run. It was
+re-read on 2026-08-26 against everything merged since it was written and
+is still current — the confirmation, and the one ordering change it
+produced, are recorded at the end of that document.
+
+### 2. Per-bed occupancy — YES, and BROADER than the question asked
+
+> *"THIS IS IMPORTANT. WE NEED TO DISTINGUISH IF A PROPERTY IS BY UNIT OR
+> BY BED. IN STUDENT HOUSING, WE NEED PER BED OCCUPANCY. WITH
+> MULTIFAMILY, IT WOULD BE BY UNIT OCCUPANCY."*
+
+She was asked whether to build per-bed for one property. She answered that
+the tool needs a **mode**. That reframes the work from a special case onto
+the properties foundation, and `docs/site-dd-per-bed-occupancy.md` is
+revised against it. **Note what she did not say**: she did not say she owns
+a by-the-bed property, and she did not answer the shared-bedroom question
+that decides option B from option D. Both remain open.
+
+### 3. Unit status — NO. **AREA_STATUSES widening is DECLINED.**
+
+> *"UNIT STATUS ISN'T IMPORTANT FOR MY PURPOSE. WHAT IS MOST IMPORTANT IS
+> THE CORRECT UNIT NUMBER, UNIT TYPE, OCCUPIED OR VACANT. ONE OTHER FIELD
+> I'D LIKE TO INCLUDE ARE TWO EXTRA FIELDS FOR 1) PETS PRESENT; 2) HOW
+> MANY PETS. THESE TWO WOULD BE DONE EARLY ON WHEN THE INSPECTOR WALKS
+> INTO THE DOOR."*
+
+**Considered and declined, not abandoned.** Two runs of design went into
+widening the per-unit vocabulary — the one-axis-versus-two question,
+`Notice` as a fourth state, `Vacant Not Ready`, and Model/Holding. The
+work was sound and the reasoning is preserved in
+`docs/site-dd-per-bed-occupancy.md` §3A. It is declined on her stated
+requirement, which is narrower than what we designed: **unit number, unit
+type, occupied or vacant.** Three of those four already exist.
+
+The design argued the vocabulary was *"short by at least one state, and
+that is true for conventional multifamily too"*. That argument is not
+withdrawn — it is **outranked**. She is the person the distinction would
+serve and she says it does not serve her. Do not rebuild the case from the
+document without a new fact; the document is the record of why, not a
+standing proposal.
+
+**What she asked for instead** is two new fields, pets present and pet
+count, which is the smallest thing in this batch and is built. They are
+columns on `site_dd_areas`, not checklist items, so they cannot reach the
+capital budget — see *Pets at the door, and why they are not checklist
+items* below.
+
+### 4. Acquisition fee — it is a COST. **The GP-receipt branch is CLOSED.**
+
+> *"ACQUISITION FEE IS PART OF THE COST OF THE DEAL. IN YOUR EXAMPLE, THE
+> $225K WOULD BE PART OF THE TOTAL CAPITAL RAISE NEEDED TO OFFICIALLY
+> CLOSE. OTHER FEES LIKE ASSET MANAGEMENT FEES, CAPITAL TRANSACTION FEES,
+> CLOSING COSTS ETC ARE ALL PART OF THE COSTS."*
+
+**Nothing changes, and that is the finding.** `acquisition_costs()` already
+folds `acquisition_fee_total` into `effective_total` / `effective_pct`,
+which `underwriting_math` hands to the engine as equity required at close.
+The model has always treated the fee the way she describes it. Verified in
+code rather than assumed: `tools/underwriting_math.py`, `effective = (…) +
+fee_total + loan_fee_total`, and `_engine_inputs(scenario,
+acq["effective_pct"] + capex_pct)`.
+
+**The second sentence is worth more than the first.** She was asked about
+one fee and answered about the class — asset management, capital
+transaction, closing costs, *"all part of the costs"*. That retroactively
+confirms the **existing convention across the board**, not just this line
+item. A convention nobody had put to her is now one she has stated. Any
+future "should this fee be a GP receipt instead?" is answered in advance.
+
+### 5. Scorecard period mismatch — HER DATA ENTRY, not our bug
+
+> *"JACKSON'S T12 SHOULD MATCH MY SCORECARD MONTHS. IF THEY DON'T, THAT IS
+> MY HUMAN ERROR. ALL PROPERTIES' T12s SHOULD MATCH THE SAME TIME PERIOD
+> AS THEIR MATCHING SCORECARD."*
+
+**`align_stated_occupancy()` stays exactly as built.** Michelle's T12 KPIs
+covered 5/24–12/24 against a Jackson P&L covering Aug 2025–Jul 2026: zero
+months in common, and the card says *"No months in common"* rather than
+showing a number.
+
+**The honest behaviour did its job, and that is the entry.** It was built
+as a refusal to display something that could not be justified, over a
+brief that would have put a plausible 50–60% figure from the wrong year
+under a Jackson heading. It has now caught a **real** mistake in real data
+and she has confirmed it as one. This is the payoff for a design that
+declines rather than guesses, and it is worth having on the record next
+time declining looks like it is costing a feature.
+
+It also converts a rule into a stated requirement: **a property's T12 and
+its scorecard cover the same period**, by her own instruction. A mismatch
+is now a data-entry error to surface, not an ambiguity to accommodate.
+
+### 6. Per-account data — SHE CANNOT REMEMBER
+
+She does not recall what she meant. **Call Friday after 2pm.** Stays
+unscoped until then — do not infer a requirement from the phrase. Note
+this also leaves the [three deleting routes](#the-three-deleting-routes-a-decision-not-to-build-with-its-condition)
+deferral in place: per-account data shipping is the first of its three
+trigger conditions, and it has not shipped.
+
+---
+
 ## Blocked on Michelle
 
 Nothing below should be started without an answer. Each has been
