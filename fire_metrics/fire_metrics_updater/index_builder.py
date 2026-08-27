@@ -141,6 +141,8 @@ _DISPLAY_SUFFIXES = [
     " urban county",
     " municipality",
     " county",
+    " city (balance)",  # must precede " city"
+    " town (balance)",  # must precede " town"
     " city",
     " town",
     " village",
@@ -169,6 +171,45 @@ def _clean_display_city(city: str) -> str:
     return text
 
 
+def _canonical_city_aliases(clean_city: str, state_abbr: str) -> set[str]:
+    """Extra aliases for Census compound/prefixed display names.
+
+    Handles cases where clean_city is still a compound after suffix stripping:
+    - Slash form "Louisville/Jefferson County" → alias for "Louisville"
+    - Hyphen form "Nashville-Davidson", "Macon-Bibb County" → alias for first part
+    - "Urban X" prefix "Urban Honolulu" → alias for "Honolulu"
+    - "X City" suffix "Boise City" → alias for "Boise"
+    """
+    extra: set[str] = set()
+
+    # Slash form: canonical city is everything before "/"
+    if "/" in clean_city:
+        part = clean_city.split("/")[0].strip().rstrip(" ,-")
+        if part and part != clean_city:
+            extra |= build_city_aliases(part, state_abbr)
+
+    # Hyphen form: canonical city is everything before first "-"
+    elif "-" in clean_city:
+        part = clean_city.split("-")[0].strip().rstrip(" ,-")
+        if part and part != clean_city:
+            extra |= build_city_aliases(part, state_abbr)
+
+    # "Urban X" prefix (Urban Honolulu → Honolulu)
+    if clean_city.lower().startswith("urban "):
+        part = clean_city[6:].strip()
+        if part:
+            extra |= build_city_aliases(part, state_abbr)
+
+    # "X City" suffix where City is a place-type word, not part of the name
+    # (Boise City → Boise).  Does not alter multi-word names like "Kansas City".
+    if clean_city.endswith(" City") and len(clean_city) > 5:
+        part = clean_city[:-5].strip()
+        if part:
+            extra |= build_city_aliases(part, state_abbr)
+
+    return extra
+
+
 def _identity_row(city: str, state_abbr: str) -> dict[str, Any]:
     clean_city = _clean_display_city(city)
     display_name = f"{clean_city}, {state_abbr}"
@@ -179,6 +220,8 @@ def _identity_row(city: str, state_abbr: str) -> dict[str, Any]:
     # be an exact alias match too, not just fuzzy-close.
     search_keys = set(build_city_aliases(city, state_abbr))
     search_keys |= build_city_aliases(clean_city, state_abbr)
+    # Extra aliases for compound/prefixed Census names (e.g. Nashville-Davidson → Nashville)
+    search_keys |= _canonical_city_aliases(clean_city, state_abbr)
 
     return {
         "city": city,
@@ -311,6 +354,51 @@ def backfill_city_coordinates(conn) -> dict[str, Any]:
         conn.commit()
 
     return {"rows_checked": len(rows), "rows_updated": len(updates)}
+
+
+def backfill_search_aliases(conn) -> dict[str, Any]:
+    """Re-compute and replace search_aliases for every included city.
+
+    Safe to run on an existing DB: only touches search_aliases and the
+    identity columns (display_name, normalized_city, normalized_display_name,
+    search_key); all metric data is untouched.
+    """
+    rows = conn.execute(
+        "SELECT city, state FROM cities WHERE include_flag = 1"
+    ).fetchall()
+
+    updated = 0
+    for row in rows:
+        identity = _identity_row(row["city"], row["state"])
+        conn.execute(
+            "DELETE FROM search_aliases WHERE city = ? AND state = ?",
+            (row["city"], row["state"]),
+        )
+        for alias in identity["search_keys"]:
+            conn.execute(
+                "INSERT OR IGNORE INTO search_aliases (search_key, city, state) VALUES (?, ?, ?)",
+                (alias, row["city"], row["state"]),
+            )
+        conn.execute(
+            """UPDATE cities SET
+               display_name = ?,
+               normalized_city = ?,
+               normalized_display_name = ?,
+               search_key = ?
+               WHERE city = ? AND state = ?""",
+            (
+                identity["display_name"],
+                identity["normalized_city"],
+                identity["normalized_display_name"],
+                identity["search_key"],
+                row["city"],
+                row["state"],
+            ),
+        )
+        updated += 1
+
+    conn.commit()
+    return {"rows_updated": updated}
 
 
 def ingest_population_and_landlord(workbook_path: Path, conn) -> dict[str, Any]:
