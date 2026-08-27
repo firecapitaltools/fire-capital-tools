@@ -340,3 +340,206 @@ sequencing point, and it strengthens it: a per-bed turn budget wants
 reachable. Before the fix it was not, so per-bed budgeting would have
 inherited the gap on exactly the life-safety items a turn inspection
 exists to find.
+
+---
+
+# Revision 2, 2026-08-26 — she answered, and it is a MODE
+
+**Design only. No build. Written against master at `d693dd5`.**
+
+> *"THIS IS IMPORTANT. WE NEED TO DISTINGUISH IF A PROPERTY IS BY UNIT OR
+> BY BED. IN STUDENT HOUSING, WE NEED PER BED OCCUPANCY. WITH MULTIFAMILY,
+> IT WOULD BE BY UNIT OCCUPANCY."*
+
+The document above asked whether to build per-bed occupancy for one
+property. She answered a different and larger question: the tool should
+know **which kind of property it is looking at**. That is a property-level
+attribute driving behaviour, not a feature for The View.
+
+## R2.1 What her answer settles, and what it conspicuously does not
+
+**Settled:**
+
+* Per-bed occupancy is wanted. §1's "build nothing" row is off the table.
+* It is a **mode**, so by-unit behaviour must be untouched when the mode
+  is off. That is a stronger constraint than the original design carried
+  and it makes the work safer, not larger — see §R2.4.
+* Multifamily stays per-unit, explicitly. The existing model is correct
+  for the majority of the portfolio, by her own statement.
+
+**Not settled, and both matter more than they look:**
+
+* **She did not say she owns a by-the-bed property.** §1's central
+  question — *whose problem is this* — is still open. She said the tool
+  needs to distinguish, which is a statement about the tool. The evidence
+  for per-bed remains Paresh's file for Zuna's property.
+* **She did not answer the shared-bedroom question**, and that is still
+  the thing that decides option B from option D. *Can one bedroom be
+  leased to two people at any by-the-bed property you own?* Until that is
+  answered the shape is undecided, and rework between B and D is most of
+  the build. **Ask it again, on its own, in one sentence.**
+
+## R2.2 Where the flag lives — and it has no home yet
+
+This is the finding that changes the plan, so it goes first.
+
+A by-unit/by-bed flag is a fact about a **property**, not about a walk. It
+does not change between inspections, and two assessments of the same
+building that disagree about it would be a contradiction rather than a
+history.
+
+**There is no properties table anywhere in this product.** Verified:
+`site_dd_db.py` creates findings, assessments, items, photos, areas,
+rooms, media and bank items — no properties. The twelve-property registry
+is assembled at request time from Deal Dive, Underwriting and Site DD
+labels. This is already recorded as *Blocked on Michelle* item 3, the Site
+DD property header, and it is **still unanswered**.
+
+So the options are:
+
+| where | cost | what goes wrong |
+|---|---|---|
+| **A. `site_dd_assessments.leasing_basis`** | one nullable column, trivial | retyped every inspection; two assessments of one building can disagree; the flag is not available to anything outside Site DD |
+| **B. On a property record** | needs the properties table first | nothing — it is the correct home |
+| **C. Derive it from the data** (any area has beds → by-bed) | none | **rejected.** The mode has to be known *before* the walk, to decide what the form asks. Deriving it from what was entered is circular |
+
+**The honest conclusion: her answer did not unblock per-bed occupancy, it
+re-pointed it at a different blocker.** It now sits behind the properties
+decision, which is hers and has been outstanding since Part 47. That is
+worth telling her plainly, because it converts one of her two "important"
+answers into a reason to settle item 3 — and item 3 was previously
+competing with nothing.
+
+If per-bed has to start before that decision, **option A with a stated
+migration path** is defensible: a nullable `leasing_basis` on the
+assessment, NULL meaning by-unit, moved to the property record when one
+exists. It should be written down as a deliberate temporary home, not
+discovered later as a design.
+
+## R2.3 Does beds-as-rooms still hold? Yes — and the mode narrows it
+
+**Option B survives the reframing intact**, and one of the objections to
+it weakens.
+
+The original argument stands unchanged: `site_dd_rooms` exists, carries
+`room_type` and `label`, findings are already keyed on `room_id`, and at a
+4BR/4BA property a bed *is* a bedroom. Nothing merged since changes that.
+
+What the mode adds: under a flag, **"a bed is a room" only has to be true
+for properties flagged by-bed.** The original document had to defend
+room-status as a universally good idea — including the argument that it
+also serves conventional multifamily, one bedroom sealed for water damage.
+That argument was fine but it was load-bearing, and it made the change
+touch every property. Under a mode it becomes optional: room status can
+ship for by-bed properties only, and the multifamily case can be decided
+later on its own merits.
+
+**What the mode does NOT rescue is the shared-bedroom case.** If two beds
+can share one bedroom, a room-level status cannot represent them in
+by-bed mode any more than it could before, and option D's `site_dd_beds`
+table is still the only answer. A flag does not change what a room can
+hold. §R2.1's unanswered question is therefore still the pivot, and no
+amount of mode design substitutes for it.
+
+## R2.4 What the mode changes about cost — smaller, and for a reason
+
+The original estimate was **~300–450 lines across 8–10 files** for option
+B, with the spread driven by one decision: whether a unit's `status`
+becomes *derived* from its beds or stays independently entered.
+
+**The mode resolves that decision, which removes most of the spread.**
+
+Derived-versus-independent was hard because it applied to every unit in
+the product. Under a flag it does not: in by-unit mode nothing is derived
+and every existing read of `area["status"]` is untouched, by construction.
+In by-bed mode the unit's status can be derived, because in that mode
+there is no other source for it. The expensive question — *what happens
+to the hundreds of existing per-unit reads* — has the answer "nothing".
+
+Revised estimate:
+
+| piece | change from the original |
+|---|---|
+| `leasing_basis` flag + accessor + label map | **new, small** — one nullable column, one accessor, one map |
+| `site_dd_rooms.status` + migration | unchanged, small |
+| `ROOM_STATUSES` vocabulary | **smaller.** It no longer has to serve conventional multifamily, so the four-state question in §2 can be answered for student housing alone |
+| form control on the room page | unchanged, medium |
+| roll-up | **smaller** — derived in by-bed mode only, so the roll-up has one behaviour to get right rather than a policy that must hold everywhere |
+| every existing `area["status"]` read | **removed from scope** — by-unit is the untouched path |
+| report and export surfacing | unchanged, medium |
+| tests, including a by-unit regression suite | **larger** — the mode's whole promise is that by-unit is unchanged, and that has to be demonstrated, not asserted |
+
+**Revised: ~250–350 lines, 9–11 files. Still one build run, and the
+uncertainty is now in test coverage rather than in an unmade design
+decision** — which is the better place for it.
+
+The flag-plus-conditional intuition is right. It is less than a parallel
+model, and materially so, because the saving is not in the new code but in
+the old code it no longer has to touch.
+
+## R2.5 What is still unverifiable without a rent roll
+
+Unchanged from the original and worth restating, because her answer makes
+it easier to ask for.
+
+**Site DD has no rent-roll upload at all** — areas are created one at a
+time by a form. The ingest is a separate piece of work larger than option
+B, and it cannot be estimated because the input is unknown.
+
+Specifically unverifiable until one real by-the-bed rent roll from a
+property **she owns** arrives:
+
+1. **Whether a bed is a bedroom there.** The shared-bedroom question,
+   answerable from a file in seconds and unanswerable without one.
+2. **Whether her PM software exposes beds as separate unit rows**
+   (`511-A`, `511-B`) or packed into one. The first makes the ingest
+   nearly free; the second needs a parser and makes §2's
+   five-missing-bed-A problem a live correctness question.
+3. **Whether the four-state vocabulary matches.** The View's
+   `Vacant Not Ready` / `Notice` came from a KoboToolbox export. Whether
+   her properties record the same four states is unknown, and inventing a
+   vocabulary from somebody else's file is how you get a picker nobody
+   uses.
+4. **What `unit_sqft` means on a by-bed row.** The View reads 300 on a
+   4BR/4BA unit, which is very likely per-bed. Any sqft-rate line would be
+   wrong by 4x.
+
+**One file collapses all four.** It remains the single highest-value thing
+to ask for, and it is now easier to ask, because she has said the
+distinction matters to her.
+
+## R2.6 Option A is now DEAD, and that changes the recommendation
+
+The original recommendation was *"option B, conditional on §1, with option
+A taken separately and now."*
+
+**Option A — widening `AREA_STATUSES` with `Vacant Not Ready` and
+`Notice` — is declined.** Her answer to the unit-status question:
+
+> *"UNIT STATUS ISN'T IMPORTANT FOR MY PURPOSE. WHAT IS MOST IMPORTANT IS
+> THE CORRECT UNIT NUMBER, UNIT TYPE, OCCUPIED OR VACANT."*
+
+§3A argued the vocabulary was *"short by at least one state, and that is
+true for conventional multifamily too"*. That argument is not withdrawn.
+It is **outranked** by the person it was meant to serve, and it should not
+be rebuilt from this document without a new fact.
+
+Note the two answers are consistent rather than in tension: she wants
+**more** granularity where the property is leased by the bed, and **less**
+where it is leased by the unit. That is exactly what a mode expresses, and
+it is a coherent position rather than a contradiction to be resolved.
+
+**Revised recommendation:**
+
+1. **Ask the shared-bedroom question.** One sentence. It decides B from D
+   and everything else waits behind it.
+2. **Settle the properties table** (Blocked on Michelle item 3). The flag
+   has no correct home until it exists, and this is now a second reason to
+   decide it.
+3. **Ask for one by-the-bed rent roll she owns.** Collapses four
+   unknowns.
+4. Then build option B behind the flag, per §R2.4.
+5. Option A: **do not build.**
+
+Steps 1–3 are three questions and no code, and the answers change the
+shape rather than the size. None of the build should start before them.
