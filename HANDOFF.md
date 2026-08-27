@@ -309,6 +309,71 @@ trigger conditions, and it has not shipped.
 
 ---
 
+## Pets at the door, and why they are not checklist items
+
+Michelle: *"one other field I'd like to include are two extra fields for
+1) pets present; 2) how many pets. These two would be done early on when
+the inspector walks into the door."*
+
+Two columns on `site_dd_areas`, rendered in the **unit header** above the
+room list and above the unit-wide checks. Not checklist items, and the
+placement is the whole of the "must not reach the capital budget"
+requirement rather than a separate precaution.
+
+### The requirement was satisfied structurally, not by a registry entry
+
+A checklist item becomes a row in `site_dd_findings`, which is the table
+the capital budget is built from. Whether a dog produced a repair line
+would then depend on `needs_work()` — specifically on somebody remembering
+to register the yes/no option set in `WORK_OPTIONS` with an empty
+frozenset, the way `FLOORING_TYPES` and `PEST_TYPE` are. That works, and
+it is a maintained fact rather than a guaranteed one.
+
+Area columns are a different table. `build_lines()` never reads them.
+There is no registry entry to forget.
+
+The registry question was still answered rather than dodged, because it is
+the shape somebody will reach for next time: `needs_work()` returns False
+for a yes/no choice item and for a number item, and an option set nobody
+registered falls to `WORK_OPTIONS.get(key, frozenset())`. Both are pinned,
+with a positive control showing `needs_work()` still says yes to a missing
+smoke alarm — otherwise the assertions would pass on a function broken
+into always returning False.
+
+### Three states, because two would be a lie
+
+`pets_present` is nullable and the picker offers **Not stated** as the
+default. "No pets here" and "nobody asked" are different facts to whoever
+reads the report, and a checkbox has two positions and three meanings.
+
+`pet_count` is nullable for the same reason and carries the falsy-zero
+trap directly: **0 pets and no answer must stay distinguishable.**
+`clean_pet_count()` treats empty string as None and `"0"` as 0, the
+template renders `area.pet_count if area.pet_count is not none else ''`
+rather than `or ''`, and the summary line guards on `is not none`. This is
+the class the handoff already records — `bedrooms or '—'` rendering a
+studio as unknown — applied on the way in rather than after a report comes
+back saying zero pets in a building full of dogs.
+
+### Absent means unchanged, on new columns, before anything can break
+
+`update_area()` writes label, status and notes unconditionally as it
+always has — every form that posts there renders all three. The pets
+fields do **not** inherit that assumption: they are written only when the
+key is present in the dict, and `save_area` passes them only when they are
+present in the form. Unreachable today, cheap now, and the reason is the
+same one that produced `_kept_field()`.
+
+### The fifth label map
+
+`PETS_LABELS` plus `pets_present_label()`, reached through the accessor,
+for the reason `AREA_STATUS_LABELS` documents at length: this app runs
+Jinja's default `Undefined`, so a subscripted miss renders as the empty
+string and leaves no trace. A test asserts the template calls the accessor
+and never `|title`.
+
+---
+
 ## Blocked on Michelle
 
 Nothing below should be started without an answer. Each has been

@@ -31,6 +31,14 @@
   <p class="page-subtitle" style="margin:4px 0 0;">
     {{ 'Unit' if area.kind == 'unit' else 'Common area' }}
     {%- if area.status %} &middot; {{ area_status_label(area.status) }}{% endif %}
+    {#- Shown only when somebody answered. "Not stated" belongs in the
+        picker, where it is a choice; on a summary line it would be noise
+        on every unit nobody has walked yet. -#}
+    {%- if area.pets_present %} &middot; {{ pets_present_label(area.pets_present) }}
+      {#- `is not none`, never `if area.pet_count` -- a counted zero is an
+          answer and must not vanish because it is falsy. -#}
+      {%- if area.pet_count is not none %} ({{ area.pet_count }}){% endif %}
+    {%- endif %}
     &middot; {{ rooms|length }} room{{ '' if rooms|length == 1 else 's' }}
   </p>
 </div>
@@ -181,6 +189,45 @@
         {% endfor %}
       </select>
       <span class="stat-box-sub">Vacant units and common areas are what a lighter inspection covers.</span>
+    </div>
+    {#
+      PETS, AT THE DOOR.
+
+      Michelle: "one other field I'd like to include are two extra fields
+      for 1) pets present; 2) how many pets. These two would be done early
+      on when the inspector walks into the door."
+
+      So they sit in the unit HEADER, above the room list and above the
+      unit-wide checks -- the first thing on the page after the label and
+      the status. They are not checklist items: a checklist item becomes a
+      finding, and findings are what the capital budget is built from. A
+      dog is not a repair.
+
+      The picker offers "Not stated" and it is the default. Two positions
+      would be a lie: "no pets" and "nobody asked" are different facts and
+      whoever reads the report later needs to tell them apart.
+    #}
+    <div class="form-group">
+      <label class="form-label" for="pets_present">Pets present</label>
+      <select class="form-input sdd-touch" id="pets_present" name="pets_present">
+        <option value="">Not stated</option>
+        {% for value in pets_values %}
+          <option value="{{ value }}" {% if area.pets_present == value %}selected{% endif %}>{{ pets_present_label(value) }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="pet_count">How many pets</label>
+      {#
+        `value` guards the CONTAINER, not the number -- `area.pet_count or ''`
+        would render a counted zero as an empty box, which is the falsy-zero
+        trap the handoff records. Blank means unanswered; 0 means counted.
+      #}
+      <input class="form-input sdd-touch" type="number" inputmode="numeric"
+             min="0" max="{{ max_pet_count }}" step="1"
+             id="pet_count" name="pet_count"
+             value="{{ area.pet_count if area.pet_count is not none else '' }}"
+             placeholder="Leave blank if not asked">
     </div>
     <div class="form-group">
       <label class="form-label" for="notes">Notes</label>
