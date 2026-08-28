@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from datetime import datetime
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Flask, current_app, flash, jsonify, redirect, render_template, request, send_from_directory, session, url_for
 from flask_login import LoginManager, current_user, login_required, logout_user
 from flask_wtf.csrf import CSRFError, CSRFProtect
 
@@ -58,9 +58,37 @@ def create_app(config_class: type = Config) -> Flask:
         return redirect(url_for("auth.login", next=request.full_path if request.query_string else request.path))
 
     # ── User loader ────────────────────────────────────────────────────────
+    #
+    # `current_app.config`, NOT the `app` this call closed over.
+    #
+    # `login_manager` is a MODULE-LEVEL singleton, so every create_app()
+    # shares one instance and each call's `@login_manager.user_loader`
+    # REPLACES the previous callback. When the callback closed over its
+    # own `app`, a second create_app() left the first application
+    # resolving users against the second one's config -- so a session
+    # holding a perfectly good user id loaded as None and every page
+    # answered with the login form.
+    #
+    # That is not hypothetical and it is not only a test problem. It is
+    # what tests/test_fire_metrics_standalone.py does when it builds a
+    # second app with ADMIN_USERNAME="test-admin", and it is what any
+    # future test or script of ours doing the same would do. Measured
+    # before the fix: the real admin loaded as None through the clobbered
+    # loader while "test-admin" loaded as a User.
+    #
+    # A user loader only ever runs inside a request context, so
+    # current_app is always bound here, and it is by definition the
+    # application actually serving the request. Both applications then
+    # authenticate their own users at the same time, which is the
+    # property that was wanted and never held.
+    #
+    # The same reasoning applies to any other closure over `app.config`
+    # registered on a shared extension. This is the only one today --
+    # inject_user_permissions below is registered per-app on `app` itself,
+    # so it is correctly bound.
     @login_manager.user_loader
     def load_user(user_id: str) -> User | None:
-        return User.get_by_id(user_id, app.config)
+        return User.get_by_id(user_id, current_app.config)
 
     @app.context_processor
     def inject_user_permissions():
