@@ -164,6 +164,23 @@ def init_schema(conn: sqlite3.Connection) -> None:
     if "cre_failure_param" not in summaries_existing:
         conn.execute("ALTER TABLE fire_metrics_city_summaries ADD COLUMN cre_failure_param TEXT")
     conn.commit()
+    _migrate_search_aliases_v2(conn)
+
+
+def _migrate_search_aliases_v2(conn: sqlite3.Connection) -> None:
+    """One-time migration: rebuild search_aliases with canonical-city alias support.
+
+    Fixes stale aliases produced before _clean_display_city learned to strip
+    " city (balance)" and before _canonical_city_aliases was added.  Safe to
+    call on every startup; the refresh_metadata sentinel makes it a no-op once
+    complete.  Does not touch metric data or trigger any external requests.
+    """
+    if get_metadata(conn).get("search_alias_version") == "2":
+        return
+    # Local import avoids circular dependency: index_builder imports db at module level.
+    from fire_metrics.fire_metrics_updater.index_builder import backfill_search_aliases
+    backfill_search_aliases(conn)
+    set_metadata(conn, search_alias_version="2")
 
 
 @contextmanager

@@ -1,0 +1,12 @@
+{
+  "appId": "com.firecapital.analytics",
+  "appName": "Fire Analytics",
+  "webDir": "www",
+  "server": {
+    "url": "https://fire-capital-tools-production.up.railway.app",
+    "cleartext": false
+  },
+  "ios": {
+    "contentInset": "automatic"
+  }
+}
