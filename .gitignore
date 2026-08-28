@@ -14,6 +14,8 @@ dist/
 build/
 .venv/
 venv/
+# Capacitor - Pods dir is a build artifact; ios/ itself is committed
+ios/App/Pods/
 fire_metrics/.env
 fire_metrics/*.env
 fire_metrics/data/cache/*
@@ -34,3 +36,5 @@ fire_metrics/__pycache__/
 fire_metrics/**/__pycache__/
 fire_metrics/.DS_Store
 
+
+node_modules/
