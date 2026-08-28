@@ -307,6 +307,48 @@ this also leaves the [three deleting routes](#the-three-deleting-routes-a-decisi
 deferral in place: per-account data shipping is the first of its three
 trigger conditions, and it has not shipped.
 
+
+### Notes for the Friday call
+
+Short, and only the things that need her rather than us.
+
+**1. Per-account data.** What she meant. Nothing is scoped until this is
+answered — do not infer a requirement from the phrase.
+
+**2. The properties table (Blocked on Michelle item 3) — now with a
+second reason.** It has been outstanding since Part 47, and until this
+week the only argument for settling it was the Site DD property header.
+There is now a second: **her per-bed answer did not unblock per-bed work,
+it re-pointed it at this decision.**
+
+She asked for the tool to distinguish a by-unit property from a by-bed
+one. That flag is a fact about a *property* — it does not change between
+inspections, and two assessments of one building that disagreed about it
+would be a contradiction rather than a history. **There is no properties
+table anywhere in the product**, so the flag has no correct home, and
+per-bed cannot start properly until it does. See
+`docs/site-dd-per-bed-occupancy.md` §R2.2.
+
+So item 3 now blocks the larger of her two "this is important" answers,
+which it did not appear to a week ago.
+
+**3. Ask them together, not separately.** Per-account data and a
+properties table are **adjacent questions**: both are about what a record
+belongs to and who may see it. One asks *which property is this row
+about*, the other asks *which person is this row for*. Answering them
+apart risks a properties design that has to be reopened the moment
+per-account data arrives, or an access model with nothing to hang
+per-property permissions on.
+
+She may well have one picture in mind that covers both. Worth putting
+them side by side rather than as two items on a list.
+
+**Also still open and worth one sentence each if there is time:** the
+shared-bedroom question (*can one bedroom be leased to two people at any
+by-the-bed property you own?* — it decides the shape of per-bed work), and
+**one real rent roll from a by-the-bed property she owns**, which collapses
+four separate unknowns at once.
+
 ---
 
 ## Pets at the door, and why they are not checklist items
@@ -2196,6 +2238,41 @@ working feature with no way in, so a person lost something every day.
 Nothing in the 27 is costing anyone anything. A sweep producing 27
 entries needing 27 written reasons, 26 of which say "this is fine", is
 permanent maintenance for a yield already in hand.
+
+
+### The sixth, and the first the instrument caught before a person did
+
+**`/fire-metrics/`, 2026-08-28.** Beckett's `72d6be1` added a standalone
+FIRE Metrics view linked from no template. `test_route_reachability`
+failed on his push **within hours, on a commit nobody on this side had
+read**, and named the endpoint.
+
+Compare how the first five were found: two by the dead-reader sweep, one
+by a navigation check, one by looking for links from the detail page, one
+by an investigation. **Every one of them after the fact, by a person going
+looking — and the notetaker only after Michelle asked for two features
+that already existed.** That is the cost of finding these late: she spent
+a call describing work that was already built and shipped.
+
+This one cost one test run and no human attention at all.
+
+**Worth stating plainly because the sweeps were expensive to build and
+their value had been theoretical.** `test_route_reachability` was written
+after the fact, against a class of bug already found, which is the
+position where an instrument looks like bookkeeping — it can only confirm
+what is already known until the day something new trips it. This is that
+day, and it caught a stranger's commit rather than our own, which is the
+harder case and the one a convention cannot cover.
+
+It also did the second half of its job: the failure message names the
+endpoint, says why it matters (*"a person can reach them only by typing
+the URL"*), and offers the allowlist with a written reason. The diagnosis
+is in the failure, not in whoever remembers the history. Full write-up for
+Beckett in `docs/beckett-open-test-failures.md`.
+
+**No change to the "a sixth instrument is not the lesson" conclusion
+above.** That was about adding *another* sweep; this is the return on one
+already built, and the two are not in tension.
 
 ### The waiting-half convention
 
