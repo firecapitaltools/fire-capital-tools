@@ -227,6 +227,7 @@ def detail(assessment_id):
         # than a gap. It also gives area_status_label() the caller it
         # never had -- it shipped in 5cde052 reached only by its test.
         area_status_label=db.area_status_label,
+        pets_present_label=db.pets_present_label,
         assessment_status_label=db.assessment_status_label,
         conditions=cond.CONDITIONS,
         condition_labels=cond.CONDITION_LABELS,
@@ -601,6 +602,11 @@ def area_detail(assessment_id, area_id):
         statuses=db.AREA_STATUSES,
         # See detail() above for why this is the accessor, not the map.
         area_status_label=db.area_status_label, copy_sources=others,
+        # Pets, asked at the door. The accessor again, not PETS_LABELS --
+        # the fifth label map in the codebase and the fifth to be reached
+        # through a function for the reason spelled out above.
+        pets_values=db.PETS_VALUES, pets_present_label=db.pets_present_label,
+        max_pet_count=db.MAX_PET_COUNT,
         finding_count=finding_count,
         feedback_tool=FEEDBACK_TOOL_NAME,
     )
@@ -615,11 +621,21 @@ def save_area(assessment_id, area_id):
     with db.get_connection() as conn:
         if not _area_or_404(conn, assessment_id, area_id):
             return _not_found()
-        db.update_area(conn, area_id, {
+        # The pets fields are passed ONLY when the form actually carried
+        # them, so update_area's absent-means-unchanged rule has something
+        # to read. Putting request.form.get() here unconditionally would
+        # hand it None for a form that never rendered them, which is
+        # indistinguishable from an inspector choosing "not stated" and
+        # would blank a real count on the next save from any other form.
+        header = {
             "label": request.form.get("label"),
             "status": request.form.get("status"),
             "notes": (request.form.get("notes") or "").strip() or None,
-        })
+        }
+        for field in ("pets_present", "pet_count"):
+            if field in request.form:
+                header[field] = request.form.get(field)
+        db.update_area(conn, area_id, header)
         unit_catalogue = list(uc.items_for_unit())
         items = unit_catalogue + _added_items(conn, assessment_id, area_id,
                                               None, unit_catalogue)

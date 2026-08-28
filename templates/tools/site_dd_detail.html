@@ -147,6 +147,9 @@
             <span class="stat-box-sub" style="display:block;">
               {{ 'Unit' if r.area.kind == 'unit' else 'Common area' }}
               {%- if r.area.status %} &middot; {{ area_status_label(r.area.status) }}{% endif %}
+              {%- if r.area.pets_present %} &middot; {{ pets_present_label(r.area.pets_present) }}
+                {%- if r.area.pet_count is not none %} ({{ r.area.pet_count }}){% endif %}
+              {%- endif %}
               &middot; {{ r.room_count }} room{{ '' if r.room_count == 1 else 's' }}
               &middot; {{ '%.0f%%'|format(r.summary.completion_pct) }} complete
               {%- if r.summary.work_count %} &middot; <span style="color:#b45309;">{{ r.summary.work_count }} need work</span>{% endif %}

@@ -369,6 +369,22 @@ def _rebuild_findings(conn: sqlite3.Connection) -> None:
     conn.execute("DROP TABLE site_dd_findings_old")
 
 
+# Pets, asked at the door. Michelle: "these two would be done early on
+# when the inspector walks into the door."
+#
+# NULLABLE ON PURPOSE, BOTH OF THEM.
+#
+# `pets_present` NULL means nobody answered; 'no' means somebody stood
+# there and said no. `pet_count` NULL means unanswered; 0 means counted,
+# and none. Those are different facts and the falsy-zero convention in
+# HANDOFF exists because 0 and "unknown" collapsing into each other is a
+# bug this codebase has already shipped once (a studio rendering as an
+# unknown bedroom count).
+_AREA_ADDED_COLUMNS = (
+    ("pets_present", "TEXT"),
+    ("pet_count", "INTEGER"),
+)
+
 _MEDIA_ADDED_COLUMNS = (
     ("item_key", "TEXT"),
     ("area_id", "INTEGER"),
@@ -436,6 +452,10 @@ def init_schema(conn: sqlite3.Connection) -> None:
     for name, coltype in _FINDING_ADDED_COLUMNS:
         if name not in existing:
             conn.execute(f"ALTER TABLE site_dd_findings ADD COLUMN {name} {coltype}")
+    existing_areas = {row[1] for row in conn.execute("PRAGMA table_info(site_dd_areas)")}
+    for name, coltype in _AREA_ADDED_COLUMNS:
+        if name not in existing_areas:
+            conn.execute(f"ALTER TABLE site_dd_areas ADD COLUMN {name} {coltype}")
     existing_media = {row[1] for row in conn.execute("PRAGMA table_info(site_dd_media)")}
     for name, coltype in _MEDIA_ADDED_COLUMNS:
         if name not in existing_media:
@@ -1006,6 +1026,76 @@ def area_status_label(value: Any) -> str:
     return AREA_STATUS_LABELS.get(value, "Not stated")
 
 
+# ── Pets, recorded at the door ───────────────────────────────────────────
+#
+# Michelle: "one other field I'd like to include are two extra fields for
+# 1) pets present; 2) how many pets. These two would be done early on when
+# the inspector walks into the door."
+#
+# A THIRD STATE, BECAUSE TWO WOULD BE A LIE
+#
+# A checkbox has two positions and three meanings: yes, no, and nobody
+# looked. Storing NULL for the third is what keeps "no pets here" and "we
+# never asked" apart, and they are different facts to whoever reads the
+# report later. Same reason `status` is nullable and offers "Not stated".
+PETS_YES = "yes"
+PETS_NO = "no"
+PETS_VALUES = (PETS_YES, PETS_NO)
+
+# The fifth label map, and it exists for the reason the other four do:
+# every render site would otherwise be `{{ area.pets_present|title }}`,
+# which works only while every value is a single lowercase word. See the
+# AREA_STATUS_LABELS comment above -- this is that lesson applied on the
+# way in rather than after a screen has read "Vacant_Not_Ready".
+PETS_LABELS = {
+    PETS_YES: "Pets",
+    PETS_NO: "No pets",
+}
+
+
+def pets_present_label(value: Any) -> str:
+    """What to show for a stored pets answer. "Not stated" for NULL and
+    for anything unrecognised, matching the empty option the picker
+    offers."""
+    return PETS_LABELS.get(value, "Not stated")
+
+
+def clean_pets_present(value: Any) -> str | None:
+    """A stored pets answer, or None for unanswered."""
+    return value if value in PETS_VALUES else None
+
+
+# An inspector is counting animals in a flat, not doing arithmetic. A
+# figure above this is a typo, and a typo stored is a typo somebody has to
+# explain later.
+MAX_PET_COUNT = 20
+
+
+def clean_pet_count(value: Any) -> int | None:
+    """A pet count, or None for unanswered.
+
+    ZERO IS AN ANSWER AND SURVIVES THIS FUNCTION.
+
+    `int(value or 0)` would map "" and 0 to the same thing, which is the
+    falsy-zero trap the handoff records -- there it turned a studio into
+    an unknown bedroom count. Empty string is unanswered; "0" is counted,
+    and none. Negative and absurd values are None rather than errors, the
+    same tolerance site_dd_costs.clean_cost() gives a price.
+    """
+    if value is None:
+        return None
+    text = str(value).strip()
+    if text == "":
+        return None
+    try:
+        count = int(float(text))
+    except (TypeError, ValueError):
+        return None
+    if count < 0 or count > MAX_PET_COUNT:
+        return None
+    return count
+
+
 def create_area(conn: sqlite3.Connection, assessment_id: int,
                 fields: dict[str, Any]) -> int:
     """Add a unit or common area.
@@ -1024,11 +1114,14 @@ def create_area(conn: sqlite3.Connection, assessment_id: int,
         "WHERE assessment_id = ?", (assessment_id,)).fetchone()
     cur = conn.execute(
         """INSERT INTO site_dd_areas
-           (assessment_id, kind, label, status, sort_order, notes, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+           (assessment_id, kind, label, status, sort_order, notes, created_at,
+            pets_present, pet_count)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (assessment_id, kind,
          (str(fields.get("label") or "Untitled")[:MAX_LABEL_LEN]).strip() or "Untitled",
-         status, row["n"], (fields.get("notes") or None), _now()))
+         status, row["n"], (fields.get("notes") or None), _now(),
+         clean_pets_present(fields.get("pets_present")),
+         clean_pet_count(fields.get("pet_count"))))
     conn.commit()
     return cur.lastrowid
 
@@ -1038,13 +1131,45 @@ def get_area(conn: sqlite3.Connection, area_id: int) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
+# The sentinel for "this field was not on the form that posted".
+#
+# None cannot do this job: None is what the pets fields mean when somebody
+# answered "not stated", so a caller has to be able to say "unanswered"
+# and "not mentioned" separately. A module-level object compares by
+# identity and cannot collide with a real value.
+_UNCHANGED = object()
+
+
 def update_area(conn: sqlite3.Connection, area_id: int, fields: dict[str, Any]) -> None:
+    """Update a unit header. ABSENT MEANS UNCHANGED for the pets fields.
+
+    label, status and notes are written unconditionally, as they always
+    have been: every form that posts here renders all three, so omission
+    has never been a state they can reach.
+
+    The pets fields do not get that assumption. They are new, so any form
+    written before them -- or any future partial post -- would blank a
+    count somebody walked into a flat to establish. This is the same rule
+    _kept_field() applies to findings, for the same reason, and it is
+    cheap to apply on the way in rather than after the first report comes
+    back saying zero pets in a building full of dogs.
+    """
     status = fields.get("status")
-    conn.execute(
-        "UPDATE site_dd_areas SET label = ?, status = ?, notes = ? WHERE id = ?",
-        ((str(fields.get("label") or "Untitled")[:MAX_LABEL_LEN]).strip() or "Untitled",
-         status if status in AREA_STATUSES else None,
-         (fields.get("notes") or None), area_id))
+    sets = ["label = ?", "status = ?", "notes = ?"]
+    args: list[Any] = [
+        (str(fields.get("label") or "Untitled")[:MAX_LABEL_LEN]).strip() or "Untitled",
+        status if status in AREA_STATUSES else None,
+        (fields.get("notes") or None),
+    ]
+    if fields.get("pets_present", _UNCHANGED) is not _UNCHANGED:
+        sets.append("pets_present = ?")
+        args.append(clean_pets_present(fields.get("pets_present")))
+    if fields.get("pet_count", _UNCHANGED) is not _UNCHANGED:
+        sets.append("pet_count = ?")
+        args.append(clean_pet_count(fields.get("pet_count")))
+    args.append(area_id)
+    conn.execute(f"UPDATE site_dd_areas SET {', '.join(sets)} WHERE id = ?",
+                 tuple(args))
     conn.commit()
 
 
