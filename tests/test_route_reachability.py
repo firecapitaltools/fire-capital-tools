@@ -88,6 +88,18 @@ ALLOWLIST = {
     "scorecard.download":
         "Token download, same shape as mmr.download: the token comes from "
         "the POST that produced the file and is only valid for it.",
+    "fire_metrics_standalone":
+        "A chrome-less alternate rendering of a page that IS linked. It "
+        "calls the same view as fire_metrics.index -- which the sidebar "
+        "links at /tools/fire-metrics/ -- but with standalone_mode=True, "
+        "which base.html uses to suppress the sidebar, the mobile nav and "
+        "the backdrop. It exists to be embedded, alongside the Capacitor "
+        "iOS shell config added in the same commit. Linking a chrome-less "
+        "page FROM the chrome is the one thing that must not happen: it "
+        "drops a person into a view with no navigation and no way back, "
+        "which is a worse bug than the one this sweep exists to catch. "
+        "The route a person should reach is fire_metrics.index, and they "
+        "can.",
 }
 
 
