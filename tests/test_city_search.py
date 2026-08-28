@@ -395,7 +395,128 @@ class TestStartupMigration(unittest.TestCase):
             os.unlink(tmp_path)
 
 
-@unittest.skipUnless(DB_PATH.exists(), "fire_metrics.db not present")
+def _has_indexed_cities() -> bool:
+    """Whether there is real data here to audit. READ ONLY, and that is
+    the entire point of this function.
+
+    THE GUARD ASKED THE WRONG QUESTION, AND ORDINARY WORK ANSWERED IT.
+
+    It was `skipUnless(DB_PATH.exists())` -- a question about a FILE,
+    where the class needs DATA. `get_db_path()` falls back to this exact
+    path when FIRE_METRICS_DB_PATH is unset, so **opening the FIRE
+    Metrics page on a dev machine creates it**, empty. Verified:
+    `GET /tools/fire-metrics/` with the variable unset leaves a
+    zero-row database behind, and there is nothing wrong with that --
+    it is the app doing its job.
+
+    From then on the file exists, the old guard admits the class, and
+    the audit runs against a schema with no rows: `0 != 343`. Green on a
+    clean checkout, red forever after on the same machine, with no
+    commit in between -- and the thing that changed is untracked and
+    gitignored, so it is invisible to git.
+
+    (An earlier write-up of this blamed the class's own setUpClass for
+    creating the file. That was wrong and is corrected here: with the
+    old guard the class SKIPS when the file is absent, so setUpClass
+    never runs and cannot be the creator. The mechanism above was
+    measured rather than inferred.)
+
+    Two ways to fix that were available: run the audit against a
+    temporary database, or make the guard test something the setup
+    cannot manufacture. The first is wrong here -- this class audits
+    REAL Census coverage, and a temp database has nothing to audit, so
+    the test would pass by being empty. So the guard is what changes.
+
+    `mode=ro` on the URI is what makes it true rather than merely
+    intended: a read-only connection cannot create a missing file, so
+    this function is incapable of manufacturing its own precondition.
+    """
+    if not DB_PATH.exists():
+        return False
+    try:
+        conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return False
+    try:
+        return conn.execute(
+            "SELECT COUNT(*) FROM cities WHERE include_flag=1").fetchone()[0] > 0
+    except sqlite3.Error:
+        # No `cities` table: an empty database left behind by the old
+        # guard, or one that predates the schema. Nothing to audit.
+        return False
+    finally:
+        conn.close()
+
+
+class TestTheGuardCannotManufactureItsOwnPrecondition(unittest.TestCase):
+    """The regression for the self-poisoning skip.
+
+    A skip condition that CREATES the file it is testing for makes a
+    suite green once and red forever after on the same machine, with no
+    commit in between. That is worse than a plain failure, because the
+    thing that changed is invisible to git.
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp()) / "nested" / "fire_metrics.db"
+
+    def test_asking_about_a_missing_file_does_not_create_it(self):
+        """THE ONE THAT MATTERS."""
+        import tests.test_city_search as mod
+        real, mod.DB_PATH = mod.DB_PATH, self.tmp
+        try:
+            self.assertFalse(mod._has_indexed_cities())
+        finally:
+            mod.DB_PATH = real
+        self.assertFalse(self.tmp.exists(), "the guard created the database")
+        self.assertFalse(self.tmp.parent.exists(),
+                         "the guard created the directory")
+
+    def test_an_empty_database_reads_as_nothing_to_audit(self):
+        """What every machine that ran the old guard is left holding."""
+        import tests.test_city_search as mod
+        self.tmp.parent.mkdir(parents=True, exist_ok=True)
+        sqlite3.connect(self.tmp).close()
+        real, mod.DB_PATH = mod.DB_PATH, self.tmp
+        try:
+            self.assertFalse(mod._has_indexed_cities())
+        finally:
+            mod.DB_PATH = real
+
+    def test_a_schema_with_no_rows_reads_as_nothing_to_audit(self):
+        import tests.test_city_search as mod
+        self.tmp.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(self.tmp)
+        conn.execute("CREATE TABLE cities (city TEXT, state TEXT, "
+                     "population_current INT, include_flag INT)")
+        conn.commit()
+        conn.close()
+        real, mod.DB_PATH = mod.DB_PATH, self.tmp
+        try:
+            self.assertFalse(mod._has_indexed_cities())
+        finally:
+            mod.DB_PATH = real
+
+    def test_positive_control_real_rows_read_as_something_to_audit(self):
+        """Without this, every assertion above would pass on a guard that
+        had simply been changed to `return False`."""
+        import tests.test_city_search as mod
+        self.tmp.parent.mkdir(parents=True, exist_ok=True)
+        conn = sqlite3.connect(self.tmp)
+        conn.execute("CREATE TABLE cities (city TEXT, state TEXT, "
+                     "population_current INT, include_flag INT)")
+        conn.execute("INSERT INTO cities VALUES ('Akron city','OH',190000,1)")
+        conn.commit()
+        conn.close()
+        real, mod.DB_PATH = mod.DB_PATH, self.tmp
+        try:
+            self.assertTrue(mod._has_indexed_cities())
+        finally:
+            mod.DB_PATH = real
+
+
+@unittest.skipUnless(_has_indexed_cities(),
+                     "fire_metrics.db has no indexed cities to audit")
 class TestFullCoverageAudit(unittest.TestCase):
     """Verify every >=100k city in the DB is findable by canonical-name + state search."""
 
