@@ -206,9 +206,21 @@ def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = 
         ref = f.get("_reference")
         unit = getattr(ref, "unit", None)
         if unit is None:
-            known = refcosts.for_item(f.get("item_key"),
-                                      f.get("detail") if f.get("item_key") == "flooring"
-                                      else None)
+            # The finding's own detail, unconditionally.
+            #
+            # This used to read `f.get("detail") if item_key == "flooring"
+            # else None`, which passed None on every call it was written
+            # for -- a `flooring` finding is KIND_CONDITION and its detail
+            # is always NULL, because the material lives on the sibling
+            # `flooring_type` row. It was correct by accident and only
+            # because every flooring variant is priced per square foot, so
+            # nothing downstream noticed which unit came back.
+            #
+            # It stops being correct the moment a detail changes the UNIT
+            # rather than only the rate, which is exactly what
+            # COST_BY_DETAIL invites: "repaint" per square foot and
+            # "replace drywall" per job on one item key.
+            known = refcosts.for_item(f.get("item_key"), f.get("detail"))
             unit = getattr(known, "unit", None)
 
         # AND WHEN A PERSON TYPED THE FIGURE, THEY GET TO SAY WHAT IT MEANS

@@ -257,20 +257,59 @@ being proposed, already running in production, already exercised by tests.
 The proposal is to **stop special-casing `flooring` and make the second
 argument what it always was**:
 
+> ## ⚠ THE SKETCH BELOW IS WRONG. Corrected 2026-08-29, built in `Part 62`.
+>
+> It has **one fallback where there are two cases**, and the one it
+> misses would have put a fabricated figure into a budget.
+>
+> `for_item("flooring", "concrete")` returns `None` today, on purpose.
+> `concrete` carries a `0.0` rate that the old `if rate:` read as absent,
+> and `concrete_flooring` is in `UNPRICED` with a written reason —
+> polished/sealed concrete varies far too widely to quote. Under the
+> sketch, `COST_BY_DETAIL` has no concrete entry, the lookup misses, and
+> it **falls through to the item-level $6.50/sqft**. A material we
+> deliberately declined to price would acquire a researched-looking
+> number, through exactly the mechanism the cost-provenance design exists
+> to prevent.
+>
+> **Two different answers were collapsed into one:**
+>
+> | the detail is… | the right answer | why |
+> |---|---|---|
+> | unrecognised (`bamboo`, `terrazzo`) | the item-level figure | it is the price of the job the item ordinarily means, and it is what every pre-detail finding is already priced at |
+> | **recognised and deliberately unpriced** (`concrete`) | **`None`** | we know what it is and have said we cannot quote it |
+>
+> So `UNPRICED_DETAIL` was added beside `COST_BY_DETAIL`, and the two
+> cases are separated explicitly rather than left to depend on whether a
+> float happens to be falsy. What shipped:
+
 ```python
 COST_BY_DETAIL: dict[tuple[str, str], ReferenceCost] = { ... }
 
+# (item, detail) pairs we know and decline to price. NOT the same as a
+# detail nobody has entered.
+UNPRICED_DETAIL: frozenset[tuple[str, str]] = frozenset({("flooring", "concrete")})
+
 def for_item(item_key: str, detail: str | None = None) -> ReferenceCost | None:
     if detail:
-        specific = COST_BY_DETAIL.get((item_key, detail))
+        key = (item_key, detail)
+        if key in UNPRICED_DETAIL:
+            return None
+        specific = COST_BY_DETAIL.get(key)
         if specific is not None:
             return specific
     return REFERENCE_COSTS.get(item_key)
 ```
 
-`FLOORING_BY_TYPE` folds into `COST_BY_DETAIL` as seven `("flooring", …)`
-entries and stops being a special case. **The fallback is the whole
-migration story** — see section 5.
+`FLOORING_BY_TYPE` folds into `COST_BY_DETAIL` and stops being a special
+case — **derived from it, not transcribed from it**, because six rates
+copied by hand is six chances to mistype a price into a budget. Both
+tables are generated from the one that already exists, so there stays a
+single authoritative source for every figure.
+
+**The fallback is the whole migration story** — see section 5. The
+correction above does not change that: an existing finding with no detail
+still gets the item-level price, which is what it has always had.
 
 ### One call site is already looking in the wrong place
 
