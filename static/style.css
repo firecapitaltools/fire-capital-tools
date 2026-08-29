@@ -2606,6 +2606,7 @@ hr.divider {
   .fire-search-input {
     min-width: 140px;
     flex-basis: 140px;
+    font-size: 16px; /* prevent WKWebView zoom on focus */
   }
 
   .fire-city-chip {
