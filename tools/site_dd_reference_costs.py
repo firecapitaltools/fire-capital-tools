@@ -392,6 +392,57 @@ FLOORING_BY_TYPE: dict[str, float] = {
 FLOORING_SOURCES = ("HomeGuide", "RealCostIQ", "CostToRenovate", "ProjectCostPro")
 
 
+# ── Prices that depend on WHICH JOB, not only on which item ──────────────
+#
+# One item key, several jobs, several prices. A toilet needing a seat and
+# a toilet needing replacing are one condition word and two figures an
+# order of magnitude apart; the reference table's shape assumed one
+# canonical job per item and had nowhere to put the difference.
+#
+# EMPTY OF NEW PRICES ON PURPOSE. This is the mechanism, not the
+# research. `closet` and `dryer_vent` sit in UNPRICED precisely because no
+# single job describes them, and giving them numbers is a separate step
+# with the figures in front of Michelle -- see
+# docs/site-dd-detail-values.md section 7 step 5. Shipping the lookup
+# first means the schema, the form and the exports can be verified while
+# every figure is still exactly what it was.
+#
+# Flooring is folded in and stops being a special case: `for_item` used to
+# name it in an `if`, which is the same lookup written once for one item.
+#
+# DERIVED FROM FLOORING_BY_TYPE, NOT TRANSCRIBED FROM IT. Six rates copied
+# by hand is six chances to mistype a price into a budget, and this file
+# has a rule about numbers with no source. One table stays authoritative.
+COST_BY_DETAIL: dict[tuple[str, str], ReferenceCost] = {
+    ("flooring", material): _c(
+        "flooring", rate, UNIT_SQFT, FLOORING_SOURCES,
+        f"{material.title()} installed, researched average per square foot.")
+    for material, rate in FLOORING_BY_TYPE.items() if rate
+}
+
+# (item, detail) pairs that are deliberately NOT priced, which is a
+# different answer from "nobody has entered a detail".
+#
+# THIS DISTINCTION IS LOAD-BEARING AND THE DESIGN SKETCH DROPPED IT.
+#
+# `docs/site-dd-detail-values.md` section 4 proposes
+# `COST_BY_DETAIL.get(...)` falling through to the item-level entry when
+# the detail is not found. That is right for an UNRECOGNISED detail -- a
+# material nobody researched should get the general flooring figure. It is
+# wrong for a RECOGNISED one we decided not to price: concrete flooring
+# currently returns None, because `concrete` carries a 0.0 rate that the
+# old `if rate:` treated as absent, and `concrete_flooring` is in UNPRICED
+# with a reason. Falling through would have quietly repriced it at
+# $6.50/sqft.
+#
+# So the two cases are separated explicitly rather than left to depend on
+# a falsy float.
+UNPRICED_DETAIL: frozenset[tuple[str, str]] = frozenset(
+    ("flooring", material) for material, rate in FLOORING_BY_TYPE.items()
+    if not rate
+)
+
+
 # ── Deliberately unpriced ────────────────────────────────────────────────
 #
 # Real repairs that could not be given an honest figure. THIS LIST IS THE
@@ -548,7 +599,7 @@ NOT_A_COST_ITEM: dict[str, str] = {
 
 # ── Lookup ───────────────────────────────────────────────────────────────
 
-def for_item(item_key: str, flooring_type: str | None = None
+def for_item(item_key: str, detail: str | None = None
              ) -> ReferenceCost | None:
     """The researched cost for one item, or None.
 
@@ -556,14 +607,34 @@ def for_item(item_key: str, flooring_type: str | None = None
     key" on purpose: a caller deciding whether to put a number on a line
     only needs to know there isn't one. Use `status()` when the reason
     matters.
+
+    THE SECOND ARGUMENT IS THE DETAIL, WHICH IS WHAT IT ALWAYS WAS.
+
+    It used to be called `flooring_type` and only one item consulted it,
+    behind `if item_key in ("flooring",)`. That was the general mechanism
+    written for a single case: a detail selecting between prices for one
+    item key. Flooring is now one set of entries in COST_BY_DETAIL like
+    any other, and nothing here names it.
+
+    The unit comes back with the cost, which is why this matters more
+    than it looks. A manual figure's unit can be overridden by the
+    per-job toggle; a REFERENCE figure's cannot, so whatever this returns
+    is the last word on how that line is measured. A detail whose job is
+    priced per job rather than per square foot has to arrive here or the
+    line is measured wrongly with no way for anyone to correct it.
     """
-    if item_key in ("flooring",) and flooring_type:
-        rate = FLOORING_BY_TYPE.get(flooring_type)
-        if rate:
-            return _c("flooring", rate, UNIT_SQFT, FLOORING_SOURCES,
-                      f"{flooring_type.title()} installed, researched average "
-                      f"per square foot.")
-        return None if flooring_type in FLOORING_BY_TYPE else REFERENCE_COSTS.get("flooring")
+    if detail:
+        key = (item_key, detail)
+        # Decided against, not merely unresearched -- see UNPRICED_DETAIL.
+        if key in UNPRICED_DETAIL:
+            return None
+        specific = COST_BY_DETAIL.get(key)
+        if specific is not None:
+            return specific
+    # An unrecognised detail falls back to the item's own figure, which is
+    # the right default: it is the price of the job the item ordinarily
+    # means, and it is what every finding recorded before details existed
+    # is already priced at.
     return REFERENCE_COSTS.get(item_key)
 
 

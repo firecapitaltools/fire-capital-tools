@@ -107,22 +107,45 @@ def clean_cost(value: Any) -> float | None:
 
 
 def reference_for(finding: dict[str, Any],
-                  flooring_type: str | None = None) -> Any:
+                  detail: str | None = None) -> Any:
     """The researched reference cost for a finding, or None.
 
     The ONLY route by which est_cost_source can become 'reference'. A
     figure that is not in site_dd_reference_costs cannot become one at
     render time, by construction: nothing else in this codebase writes
     that value, and a test asserts it.
+
+    THE DETAIL COMES FROM THE FINDING UNLESS A CALLER OVERRIDES IT.
+
+    Reference prices now vary by detail -- which job, not only which item
+    -- so this function has to know the detail or it will price a seat
+    replacement as a whole toilet. The finding carries its own detail, so
+    that is the default and no caller has to remember to pass it.
+
+    The override exists for exactly one item and it is worth naming
+    rather than leaving to be rediscovered. **`flooring` keeps its
+    material on a SIBLING row**: the material is a fact about the floor
+    whether or not it needs replacing, so it lives on its own
+    `flooring_type` item, and a `flooring` finding's own `detail` is
+    NULL. `site_dd.py` builds `flooring_by_room` from those siblings and
+    passes the material in here. That asymmetry is deliberate and stays;
+    what changes is that it is now the exception to a general rule
+    instead of the only rule there was.
+
+    Which is also why the argument is no longer called `flooring_type`.
+    It was never about flooring; flooring was the only caller that had a
+    detail worth consulting.
     """
     from tools import site_dd_reference_costs as refcosts
 
     key = finding.get("bank_item_key") or finding.get("item_key")
-    return refcosts.for_item(key, flooring_type)
+    if detail is None:
+        detail = finding.get("detail")
+    return refcosts.for_item(key, detail)
 
 
 def apply_reference(finding: dict[str, Any],
-                    flooring_type: str | None = None) -> dict[str, Any]:
+                    detail: str | None = None) -> dict[str, Any]:
     """Fill in a reference cost, WITHOUT ever overwriting a person.
 
     An inspector standing in the room beats a national average, always.
@@ -132,7 +155,7 @@ def apply_reference(finding: dict[str, Any],
     """
     if normalize_source(finding.get("est_cost_source")) == SOURCE_MANUAL:
         return finding
-    ref = reference_for(finding, flooring_type)
+    ref = reference_for(finding, detail)
     if ref is None:
         return finding
     return {**finding,
@@ -142,7 +165,7 @@ def apply_reference(finding: dict[str, Any],
 
 
 def reference_hint(finding: dict[str, Any],
-                   flooring_type: str | None = None) -> dict[str, Any] | None:
+                   detail: str | None = None) -> dict[str, Any] | None:
     """What the researched table would put on this line, for DISPLAY only.
 
     Read-only by construction: it returns text and a number and no
@@ -160,7 +183,7 @@ def reference_hint(finding: dict[str, Any],
     Returns None when the table has no figure, which is also when there
     is nothing to override.
     """
-    ref = reference_for(finding, flooring_type)
+    ref = reference_for(finding, detail)
     if ref is None:
         return None
     from tools import site_dd_reference_costs as refcosts
