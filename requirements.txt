@@ -4,6 +4,20 @@ Flask-WTF>=1.2
 python-dotenv>=1.0
 bcrypt>=4.0
 openpyxl>=3.1
+# Reads .xls (OLE2) only, for ResMan rent-roll exports -- openpyxl cannot
+# open them, and that was the sole thing blocking the Oxford Pointe file.
+#
+# Chosen because it is pure Python with no system dependency, and because
+# it DELIBERATELY DROPPED .xlsx support in 2.0: it cannot widen the .xlsx
+# surface even by accident, which a more capable reader would.
+#
+# PINNED, and the reason is the trade rather than habit. xlrd is in
+# maintenance mode: the parser is frozen, so its behaviour will not drift
+# under us -- but a future OLE2 parsing CVE would not be fixed upstream
+# on any timetable. If one lands we vendor the fix or drop .xls; we do not
+# wait. Recorded so that decision is made deliberately rather than
+# discovered during an incident.
+xlrd==2.0.2
 Werkzeug>=3.0
 matplotlib>=3.7
 numpy>=1.24

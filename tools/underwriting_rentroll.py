@@ -44,7 +44,10 @@ by trusting the header index.
 from __future__ import annotations
 
 import datetime
-from typing import Any
+from typing import Any, NamedTuple
+
+import re
+from pathlib import Path
 
 import openpyxl
 
@@ -170,25 +173,99 @@ def _unit_value(row, unit_col):
     return None
 
 
-def parse_rent_roll_workbook(path) -> dict[str, Any]:
-    """Parse a ResMan rent roll .xlsx into per-unit lines.
+def _load_rows(path) -> tuple[list[list[Any]], list[str]]:
+    """The first sheet as rows, and the workbook's sheet names.
 
-    Raises UnrecognizedRentRoll if the layout is not recognized or yields no
-    units -- never returns a partially-guessed result."""
+    ONE PLACE THAT KNOWS ABOUT FILE FORMATS.
+
+    The parser below reasons about a list of lists and nothing else -- it
+    uses the workbook only to get rows and to name the sheets when it
+    rejects an MMR. Keeping the format branch here means a third format
+    later has an obvious home, and means the parsing logic never grows a
+    second opinion about what a cell is.
+
+    ResMan exports .xls, not .xlsx. That is the whole reason this exists:
+    the layout was already parsed correctly and completely -- 152 units at
+    Oxford Pointe, every column mapped -- and the only thing standing
+    between the tool and the file was that openpyxl cannot open OLE2.
+
+    xlrd normalises differently from openpyxl and the difference is
+    deliberate rather than smoothed over here: it yields `""` for an empty
+    cell where openpyxl yields `None`, and floats for numbers that
+    openpyxl may hand back as int. Every reader downstream goes through
+    `coerce_num`, `norm` or `safe_get`, all of which already treat both
+    the same, so normalising here would be inventing a conversion nobody
+    needs.
+
+    DATES ARE THE EXCEPTION AND THEY HAD TO BE CONVERTED HERE.
+
+    openpyxl hands back a `datetime` for a date cell; xlrd hands back the
+    raw serial number and keeps the cell type separately. `_as_date()`
+    below parses datetimes and strings, so an unconverted serial fell
+    through it and returned None -- and the first run of this loader
+    reported **every lease date on all 152 units as absent** while the
+    file plainly contained them. Data present in the source and silently
+    reported as missing is the failure this codebase keeps finding, and it
+    is worse than a crash because nothing looks wrong.
+
+    So date cells are converted here, where the format difference lives,
+    rather than teaching `_as_date()` about serial numbers -- it has no
+    way to know which workbook a bare float came from, and 45839 is a
+    plausible rent as well as a plausible date.
+    """
+    ext = Path(str(path)).suffix.lower()
+    if ext == ".xls":
+        # Imported here, not at module scope. xlrd is needed by one branch
+        # of one function, and a missing optional dependency should fail
+        # where it is used with a message about the file, not at import
+        # time with a traceback about the module.
+        import xlrd
+
+        try:
+            book = xlrd.open_workbook(str(path))
+        except Exception as exc:
+            raise UnrecognizedRentRoll(
+                f"Could not open the rent roll file: {exc}") from exc
+        sheet = book.sheet_by_index(0)
+
+        def cell(r, c):
+            value = sheet.cell_value(r, c)
+            if sheet.cell_type(r, c) == xlrd.XL_CELL_DATE:
+                try:
+                    return xlrd.xldate_as_datetime(value, book.datemode)
+                except (ValueError, OverflowError):
+                    # A serial outside Excel's range. Left as it was found
+                    # rather than guessed at; _as_date() will decline it
+                    # and the field reads as unstated, which is true.
+                    return value
+            return value
+
+        rows = [[cell(r, c) for c in range(sheet.ncols)]
+                for r in range(sheet.nrows)]
+        return rows, list(book.sheet_names())
+
     try:
         wb = openpyxl.load_workbook(str(path), data_only=True)
     except Exception as exc:
-        raise UnrecognizedRentRoll(f"Could not open the rent roll file: {exc}") from exc
+        raise UnrecognizedRentRoll(
+            f"Could not open the rent roll file: {exc}") from exc
+    return rows_of(wb[wb.sheetnames[0]]), list(wb.sheetnames)
 
-    ws = wb[wb.sheetnames[0]]
-    rows = rows_of(ws)
+
+def parse_rent_roll_workbook(path) -> dict[str, Any]:
+    """Parse a ResMan rent roll into per-unit lines.
+
+    Accepts .xlsx and .xls; see `_load_rows`. Raises UnrecognizedRentRoll
+    if the layout is not recognized or yields no units -- never returns a
+    partially-guessed result."""
+    rows, sheetnames = _load_rows(path)
     header_idx = _header_index(rows)
     if header_idx is None:
         # Name the actual mistake when it is recognizable. An MMR is the file
         # most likely to be uploaded here by accident -- it is the same
         # property, the same system and a similar filename -- so it gets its
         # own message rather than a generic rejection.
-        if _looks_like_mmr(wb.sheetnames):
+        if _looks_like_mmr(sheetnames):
             raise UnrecognizedRentRoll(
                 "This looks like a Weekly Property Summary / MMR export, not a "
                 "rent roll. Please upload the property's actual rent roll file."
@@ -305,3 +382,101 @@ def parse_rent_roll_workbook(path) -> dict[str, Any]:
         "warnings": warnings,
         "source_format": "ResMan Rent Roll",
     }
+
+
+# ── Bedrooms and bathrooms, from the unit type string ────────────────────
+#
+# Michelle: "IDEALLY, I'D LIKE THE TOOL TO RECOGNIZE THE NUMBER OF BEDROOMS
+# AND BATHROOMS FROM THE RENT ROLL SO THE TOOL CAN ADJUST THE FIELDS
+# ACCORDINGLY."
+#
+# ResMan puts the layout at the front of a free-text type string and then
+# whatever else the property manager felt like typing:
+#
+#     '2/1.5 RENOVATED W/D'      '2 1.5 CLASSIC W/D'
+#     '3/2 RENOVATED  down'      '2/2 CLASSIC NEW BUILDING  W/D'
+#
+# THE PATTERN IS ANCHORED AND STOPS. It reads the leading pair and nothing
+# else, which is not tidiness -- `'3/2 RENOVATED  down'` ends in a word
+# that collides with AREA_STATUSES, and a pattern that consumed the tail
+# would hand "down" to something that reads statuses. The trailing text is
+# a description nobody has asked us to interpret, so it is left alone.
+#
+# The separator is a slash OR a space: one of the 18 real strings at Oxford
+# Pointe is `'2 1.5 CLASSIC W/D'`, typed without the slash.
+UNIT_TYPE_RE = re.compile(r"^\s*(\d+)\s*[/ ]\s*(\d+(?:\.\d+)?)")
+
+
+class UnitLayout(NamedTuple):
+    """What a type string says about a unit's rooms.
+
+    `baths` is kept as stated (1.5) alongside the split, because the
+    rent roll's own words are what an inspector will recognise and the
+    split is what Site DD needs to make rooms from.
+    """
+
+    beds: int
+    baths: float
+    full_baths: int
+    half_baths: int
+
+
+def parse_unit_type(text: Any) -> UnitLayout | None:
+    """Bedrooms and bathrooms, or None when the string does not say.
+
+    NONE IS REFUSED, NOT GUESSED, AND THE CALLER MUST REPORT IT.
+
+    A studio has no leading integer pair and there is no honest reading of
+    one -- "0 bedrooms" is a guess, and so is "1". No such row exists in
+    either rent roll we hold, so this path has never run against real
+    data; it stays a refusal rather than a default precisely because it is
+    untested. `layouts_for_units()` collects the refusals so they are
+    shown rather than silently absent.
+
+    A fractional bath other than .5 is refused for the same reason. Every
+    bath figure in the real file is 1, 1.5 or 2; .5 means one half bath,
+    and what .25 or .75 would mean is not established by anything.
+    """
+    match = UNIT_TYPE_RE.match(str(text or ""))
+    if not match:
+        return None
+    beds = int(match.group(1))
+    baths = float(match.group(2))
+    full_baths = int(baths)
+    remainder = round(baths - full_baths, 4)
+    if remainder == 0.0:
+        half_baths = 0
+    elif remainder == 0.5:
+        # 1.5 is one full bathroom plus one half. Site DD has no half-bath
+        # room type and this design does not add one: the seeding run
+        # makes two bathroom rooms and labels the second one, using
+        # create_room's existing label parameter. No schema change.
+        half_baths = 1
+    else:
+        return None
+    return UnitLayout(beds=beds, baths=baths,
+                      full_baths=full_baths, half_baths=half_baths)
+
+
+def layouts_for_units(units: list[dict[str, Any]]) -> dict[str, Any]:
+    """Every unit's layout, and every unit whose type string did not say.
+
+    Returns the parsed rows and the refusals SEPARATELY rather than
+    dropping the refusals or defaulting them. A rent roll whose types
+    cannot be read should say so on the screen that imports it; a silent
+    150-of-152 is the shape of failure this project keeps finding.
+    """
+    parsed: list[dict[str, Any]] = []
+    unreadable: list[dict[str, Any]] = []
+    for unit in units or []:
+        layout = parse_unit_type(unit.get("unit_type"))
+        row = {"unit": unit.get("unit"), "unit_type": unit.get("unit_type"),
+               "sqft": unit.get("sqft"), "status": unit.get("status")}
+        if layout is None:
+            unreadable.append(row)
+            continue
+        parsed.append({**row, "beds": layout.beds, "baths": layout.baths,
+                       "full_baths": layout.full_baths,
+                       "half_baths": layout.half_baths})
+    return {"units": parsed, "unreadable": unreadable,
+            "parsed_count": len(parsed), "unreadable_count": len(unreadable)}
