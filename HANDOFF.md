@@ -3062,6 +3062,82 @@ absence is *explained*, not that it is *announced identically everywhere*.
 
 ---
 
+---
+
+## When a positive control passes, doubt the instrument first
+
+A positive control is supposed to fail. That is its whole function: break
+the thing under test, watch the test go red, and only then believe the
+green. **Twice this session a control has come back green when it was
+broken, and each time the useful finding was in the control rather than
+in the code.**
+
+| | the control | what its passing revealed |
+|---|---|---|
+| `ALARM_STATES` | emptying the option set was expected to drop a missing smoke alarm from the budget. It did not. | `needs_work()` **rule 3** caught it anyway — `detail` was itself a work-condition string. The control was fine and the code had a second path nobody had written down |
+| **`ceil` vs `round`** | replacing `math.ceil(baths)` with `round(baths)` was expected to break the bathroom count. It did not. | **the test could not tell them apart.** Python's `round(1.5)` is `2`, and 1.5 is the only fraction in the file |
+
+The second is the more instructive, because the code was right and the
+*claim about it* was unverified. `rooms_for()`'s docstring said **"ceil,
+not round"** and gave a reason. Every test passed under either. So the
+docstring was asserting a property nothing checked — a rule stated, not a
+rule tested.
+
+`round(2.5)` is `2` and `math.ceil(2.5)` is `3`. That is where they part,
+and it is now the case that pins it. No unit in either rent roll has 2.5
+baths and `parse_unit_type()` would refuse one — the test exists for the
+rule, not for the data.
+
+> **The rule: when a positive control passes, the first hypothesis is
+> that the control is blunt, not that the code is safe.** A control that
+> cannot fail has told you nothing, and it looks exactly like a control
+> that did its job. Ask what value would distinguish the two
+> implementations, and check that the test uses it.
+
+Both instances were found because the control was *run and its result
+read*, rather than run and assumed. The habit of writing controls is not
+sufficient on its own; the result has to be looked at with the
+expectation that it might be uninformative.
+
+---
+
+## Recording a hazard does not prevent it — generating the fixture does
+
+Part 69 recorded, in this file, that a table transcribed by hand is a
+hypothesis and must be checked against its source. The entry was written
+after verifying an 18-row test table against the rent roll it described.
+
+**One run later I transcribed 152 unit labels by hand, from a truncated
+print, and produced 155.** Three duplicates and several units that do not
+exist. The tests caught it immediately — `len(REAL_LABELS) == 152` failed
+— but only because the fixture happened to carry its own size assertion.
+
+**This is not recorded as a lapse to apologise for. It is evidence about
+what recording achieves.** The rule was written down, in this document, by
+me, four days earlier. It was correct, it was prominent, and it did not
+fire — because the moment of transcribing does not feel like the moment
+the rule describes. It feels like typing.
+
+### The fix is mechanical, not mnemonic
+
+    labels = [x["unit"] for x in parse(...)["units"]]
+    write_fixture(labels)          # generated, in the commit
+
+The fixture is now emitted from the parse and committed with a comment
+saying so. Nobody has to remember anything.
+
+**The general form: a rule that depends on someone recalling it at the
+right moment is weaker than a step that makes the wrong version
+impossible to produce.** Where a hazard has a mechanical fix, prefer it to
+a written warning — and treat a hazard that recurs *after* being recorded
+as evidence that the written warning was never going to be enough, rather
+than as evidence that somebody should have read more carefully.
+
+This is the same shape as the size assertion two entries above: *assert
+the population before its contents*. Both replace a thing to remember
+with a thing that fails.
+
+
 ## 152 units, no warnings, and every lease date silently absent
 
 The `.xls` loader shipped in Part 68 read the Oxford Pointe rent roll
