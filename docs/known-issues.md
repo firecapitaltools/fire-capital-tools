@@ -34,7 +34,26 @@ happened, which is the whole point.
 
 ## 1. Volume persistence for the user store is unverified
 
-**Opened** 2026-08-25 · **Severity** medium · **Status** open
+**Opened** 2026-08-25 · **Severity** medium · **Status** closed 2026-08-29
+
+> **CLOSED BY ORDINARY USE, not by running the procedure below.**
+>
+> Beckett created an account through the real signup form on
+> **2026-08-27**. It is in `/data/users.json`, and **16 merges have
+> been deployed since**. The account is still there and still logs
+> in.
+>
+> That is the claim this entry was about — an account written by a
+> person through the form, surviving redeploys — and it is now
+> evidenced by a real account rather than a throwaway one. The
+> six-step check below was never run and does not need to be; it is
+> kept because a closed entry is the record that the question was
+> settled, and because the procedure is still the right one if
+> persistence is ever doubted again.
+>
+> Note what settled it: **nobody tested this.** Somebody used it.
+> Worth remembering when the next entry here looks like it needs a
+> deliberate experiment.
 
 **What is believed.** `USER_STORE_PATH=/data/users.json` puts signup
 accounts on the Railway volume, where they survive a redeploy. This is
