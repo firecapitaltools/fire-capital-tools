@@ -1952,6 +1952,83 @@ never been shown to redirect anything. Extended, it reads:
 recorded under *Production data*: it fails CLOSED, raising on a write
 attempt, which is why it has never caused an incident.
 
+### The eighth, and the only one caught by accident
+
+**`item.get("kind")` returns `None` for twenty of the fifty-nine
+catalogue items, so a partition check written against it examined 39 of 89
+definitions and reported success.**
+
+Part 62 needed to confirm the claim underneath the detail-values design:
+that no item key writes `detail` under two meanings, because `kind`
+partitions the item set. The check was one loop over `every_item()`
+asking each item its `kind`. It printed *"item keys with more than one
+kind: none"* — the answer the design predicted, from a third of the data.
+
+**The catalogue is assembled from three sources and they do not agree on
+the field name.** Room and unit checklist items carry `kind`; the twenty
+**item-bank** entries carry **`default_kind`**. `every_item()` merges them
+deliberately — its docstring explains that bank items are shaped like
+checklist items so a bank washer/dryer is judged by the same rule as the
+laundry checklist's — but "shaped like" stops one field short.
+
+**It surfaced by luck.** The next line sorted the results, and sorting
+`None` against a string raises. Without that `TypeError` the vacuous
+answer would have been the answer, and it happened to be the same answer
+the correct check gives — so nothing downstream would ever have
+contradicted it.
+
+Re-run properly on the *effective* kind across all four sources, the real
+result was **not** what the design claimed: `pest_evidence` is
+`KIND_CHOICE` in nine room checklists and a condition item in the property
+checklist. Harmless — property scope never writes `detail` — but the
+design's stated claim was false and is now corrected to the weaker one
+that is true.
+
+#### The general form
+
+**A catalogue assembled from several sources with different key names
+will silently answer a question about one source as though it covered all
+of them.** The failure is not a wrong answer; it is a right-looking answer
+computed over a subset, and the subset is invisible because the missing
+rows return `None` rather than raising.
+
+#### The check that would have caught it deliberately
+
+**Assert the population size before asserting anything about its
+contents.**
+
+    self.assertGreater(len(defs), 80)          # keys
+    self.assertGreater(total, 150)             # definitions
+    self.assertEqual(sources, {"room", "unit", "bank", "property"})
+
+Three lines, and they run before the partition assertion. **A partition
+check over 39 of 89 definitions is not a partition check**, and no amount
+of care in the comparison itself would have revealed that. This is the
+counting equivalent of the positive-control rule above: an instrument that
+has never been shown to *see* its whole input has not been tested, in the
+same way that one which has never returned a difference has not been.
+
+Pinned in `tests/test_sitedd_scope_details.py`, with its own control —
+dropping the bank source from the population makes the size assertion
+fail, which is what makes it an instrument rather than a comment.
+
+#### Eight this session, and this is the first found by accident
+
+The others were all caught by a control that was there on purpose: the
+dead-reader sweep satisfied by a prose comment, the route sweep's two
+false positives, `assertFalse(x and False)`, the length-threshold check
+that broke on an 11-character string, `calls == [2]` asserted after three
+calls, the `MARKET_CACHE_DB_PATH` redirect that never redirected, and the
+Part 60 bisect that counted a module's own unrelated failure as a
+reproduction.
+
+**That one was caught because the instrument was checked. This one was
+caught because sorting raised.** The difference is worth keeping in view:
+seven were a discipline working, and the eighth was a `TypeError` doing a
+control's job.
+
+
+
 ---
 
 ## Two claims that nothing visible could have contradicted
