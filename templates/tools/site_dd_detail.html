@@ -163,6 +163,23 @@
     <p class="page-subtitle" style="margin:0 0 12px;">No units added yet.</p>
   {% endif %}
 
+  {#
+    REACHABLE BY NAVIGATION, NOT ONLY BY URL.
+
+    Five features in this codebase have shipped correct, tested and
+    unreachable -- and the notetaker was found only because Michelle asked
+    for two features that already existed. A new screen gets its link in
+    the same commit as the screen.
+
+    It sits beside "add a unit" because that is the job it does: the same
+    task for 152 units instead of one.
+  #}
+  <p class="page-subtitle" style="margin:14px 0 0;">
+    Adding a whole building?
+    <a href="{{ url_for('site_dd.seed_preview', assessment_id=assessment.id) }}">
+      Preview units from a rent roll</a> &mdash; nothing is saved until you say so.
+  </p>
+
   <form method="POST" action="{{ url_for('site_dd.create_area', assessment_id=assessment.id) }}"
         class="sdd-form-grid" style="margin-top:14px;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

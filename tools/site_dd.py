@@ -33,6 +33,7 @@ from __future__ import annotations
 import datetime
 import secrets
 import shutil
+import tempfile
 from pathlib import Path
 
 from flask import (
@@ -54,6 +55,8 @@ from tools import deal_dive_db
 from tools import site_dd_bank as bank
 from tools import site_dd_checklist as cl
 from tools import site_dd_conditions as cond
+from tools import site_dd_seeding as seeding
+from tools import underwriting_rentroll as rentroll
 from tools import site_dd_costs as costs
 from tools import site_dd_reference_costs as refcosts
 from tools import site_dd_capex_export as capex_export
@@ -310,6 +313,68 @@ def save(assessment_id):
 
     flash("Assessment saved.", "success")
     return redirect(url_for("site_dd.detail", assessment_id=assessment_id))
+
+
+@site_dd_bp.route("/assessment/<int:assessment_id>/seed-preview",
+                  methods=["GET", "POST"])
+@login_required
+def seed_preview(assessment_id):
+    """What seeding this assessment from a rent roll WOULD do.
+
+    READ ONLY, AND THAT IS THE POINT. This route is the checkpoint: it
+    parses the uploaded roll, plans every unit and room, reconciles the
+    plan against what the assessment already holds, and renders it.
+    Nothing is created, nothing is updated, and no finding is touched.
+    The write is a separate run.
+
+    GET renders the upload form; POST parses and previews. The file is
+    read from the request and NOT saved -- there is nothing yet to attach
+    it to, and storing a file for a write that has not been approved is
+    the kind of side effect this screen exists to avoid.
+    """
+    assessment = _load(assessment_id)
+    if not assessment:
+        return _not_found()
+
+    preview = error = None
+    if request.method == "POST":
+        upload = request.files.get("rentroll")
+        if not upload or not upload.filename:
+            error = "Choose a rent roll file to preview."
+        elif Path(upload.filename).suffix.lower() not in SEED_UPLOAD_EXT:
+            error = (f"Unsupported file type: "
+                     f"{Path(upload.filename).suffix or 'unknown'}. "
+                     f"Rent rolls are .xls or .xlsx.")
+        else:
+            tmp = Path(tempfile.mkdtemp()) / Path(upload.filename).name
+            try:
+                upload.save(str(tmp))
+                parsed = rentroll.parse_rent_roll_workbook(tmp)
+                plan = seeding.plan_units(parsed["units"])
+                with db.get_connection() as conn:
+                    areas = db.list_areas(conn, assessment_id)
+                    rooms_by_area = {a["id"]: db.list_rooms(conn, a["id"])
+                                     for a in areas}
+                    findings_by_area = {a["id"]: db.area_finding_count(conn, a["id"])
+                                        for a in areas}
+                reconcile = seeding.plan_reconcile(plan, areas, rooms_by_area,
+                                                   findings_by_area)
+                preview = {"source": parsed.get("source_format"),
+                           "file": upload.filename,
+                           "parsed_units": parsed.get("unit_count"),
+                           **plan, "reconcile": reconcile}
+            except rentroll.UnrecognizedRentRoll as exc:
+                error = str(exc)
+            finally:
+                tmp.unlink(missing_ok=True)
+
+    return render_template(
+        "tools/site_dd_seed_preview.html",
+        assessment=assessment, preview=preview, error=error,
+        area_status_label=db.area_status_label,
+        blank_status_label=db.area_status_label(seeding.BLANK_STATUS),
+        feedback_tool=FEEDBACK_TOOL_NAME,
+    )
 
 
 @site_dd_bp.route("/assessment/<int:assessment_id>/delete", methods=["POST"])
@@ -1110,6 +1175,8 @@ def _kept_cost(form, key, suffix, existing_rows, n):
 # The two states Michelle asked for: "yes, please add the toggle for 'per
 # sq ft' or 'per job'. It's worth the extra click to ensure the data is
 # accurate."
+SEED_UPLOAD_EXT = {".xls", ".xlsx", ".xlsm"}
+
 COST_UNITS = (("each", "per job"), ("sqft", "per sq ft"))
 COST_UNIT_VALUES = {v for v, _ in COST_UNITS}
 

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+{% block title %}Seed from rent roll - {{ assessment.property_label }}{% endblock %}
+
+{#
+  THE CHECKPOINT. NOTHING ON THIS PAGE HAS BEEN WRITTEN.
+
+  Every figure here is what a seed WOULD do. The route parses, plans and
+  reconciles, and touches nothing -- the write is a separate run and a
+  separate decision. This screen exists so that decision is made by a
+  person looking at 152 units rather than by a progress bar.
+#}
+{% block content %}
+<div class="page-header" style="margin-bottom:12px;">
+  <a href="{{ url_for('site_dd.detail', assessment_id=assessment.id) }}"
+     class="btn btn-ghost" style="margin-bottom:14px; display:inline-flex;">&larr; Back to assessment</a>
+  <h1 class="page-title">Seed units from a rent roll</h1>
+  <p class="page-subtitle">
+    {{ assessment.property_label }} &middot; assessed {{ assessment.assessed_on }}
+  </p>
+</div>
+
+<div class="card">
+  <p class="page-subtitle" style="margin-top:0;">
+    <strong>Nothing is saved from this screen.</strong> Upload a rent roll to see
+    exactly which units and rooms would be created, which existing ones would be
+    reused, and what would be left alone.
+  </p>
+  {% if error %}<div class="login-error" style="margin-bottom:10px;">{{ error }}</div>{% endif %}
+  <form method="POST" enctype="multipart/form-data"
+        action="{{ url_for('site_dd.seed_preview', assessment_id=assessment.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div style="display:flex; gap:10px; align-items:end; flex-wrap:wrap;">
+      <div class="form-group" style="margin-bottom:0;">
+        <label class="form-label" for="rentroll">Rent roll (.xls or .xlsx)</label>
+        <input class="form-input" type="file" id="rentroll" name="rentroll"
+               accept=".xls,.xlsx,.xlsm">
+      </div>
+      <button type="submit" class="btn btn-primary">Preview</button>
+    </div>
+  </form>
+</div>
+
+{% if preview %}
+  <div class="card">
+    <div class="scorecard-mini-title">What this would do</div>
+    <div class="stat-grid" style="margin-top:8px;">
+      <div class="stat-box">
+        <div class="stat-box-label">Units</div>
+        <div class="stat-box-value">{{ preview.unit_count }}</div>
+        <div class="stat-box-sub">
+          {{ preview.reconcile.create_count }} new,
+          {{ preview.reconcile.reuse_count }} reused
+        </div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-box-label">Rooms created</div>
+        <div class="stat-box-value">{{ preview.reconcile.rooms_appended }}</div>
+        <div class="stat-box-sub">{{ preview.layouts|length }} distinct layouts</div>
+      </div>
+      {#
+        SAID IN WORDS, NOT IMPLIED BY SILENCE. A person approving a write
+        into an assessment that has already been walked needs to read that
+        their findings survive it, not infer it from the absence of a
+        warning.
+      #}
+      <div class="stat-box" style="{% if preview.reconcile.findings_preserved %}border-left:3px solid #059669;{% endif %}">
+        <div class="stat-box-label">Findings preserved</div>
+        <div class="stat-box-value">{{ preview.reconcile.findings_preserved }}</div>
+        <div class="stat-box-sub">nothing recorded is changed or removed</div>
+      </div>
+      <div class="stat-box" style="{% if preview.refusal_count %}border-left:3px solid #b45309;{% endif %}">
+        <div class="stat-box-label">Rows refused</div>
+        <div class="stat-box-value">{{ preview.refusal_count }}</div>
+        <div class="stat-box-sub">listed individually below</div>
+      </div>
+    </div>
+    <p class="page-subtitle" style="margin-bottom:0;">
+      Read from <strong>{{ preview.file }}</strong>
+      {%- if preview.source %} &middot; {{ preview.source }}{% endif %}
+      {%- if preview.reconcile.rooms_surplus_kept %}
+        &middot; {{ preview.reconcile.rooms_surplus_kept }} existing room(s) the
+        rent roll does not mention would be <strong>kept</strong>
+      {%- endif %}
+    </p>
+  </div>
+
+  {#
+    EVERY REFUSAL, NAMED. Not "3 rows skipped".
+
+    Oxford Pointe produces zero refusals, which is exactly when a
+    summarised-refusal path ships broken -- so this block is written to
+    name rows it will not see on the only file we can test with.
+  #}
+  {% if preview.refusals %}
+    <div class="card">
+      <div class="scorecard-mini-title">Rows this import will not read</div>
+      <p class="page-subtitle" style="margin-top:0;">
+        Each is skipped and named. None of them is guessed at.
+      </p>
+      <table class="rent-comps-table">
+        <thead><tr><th style="width:16%;">Row</th><th>Why</th></tr></thead>
+        <tbody>
+          {% for r in preview.refusals %}
+            <tr><td><code>{{ r.label }}</code></td><td>{{ r.reason }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <div class="scorecard-mini-title">Layouts</div>
+    <p class="page-subtitle" style="margin-top:0;">
+      Each set of rooms is built once and copied, not rebuilt per unit.
+    </p>
+    <table class="rent-comps-table">
+      <thead><tr><th>Layout</th><th style="width:12%;">Units</th>
+                 <th style="width:12%;">Rooms each</th><th>Rooms walked</th></tr></thead>
+      <tbody>
+        {% for l in preview.layouts %}
+          <tr>
+            <td>{{ l.name }}</td>
+            <td>{{ preview.layout_counts[l.key] }}</td>
+            <td>{{ l.rooms|length }}</td>
+            <td class="stat-box-sub">
+              {%- for r in l.rooms %}{{ r.label or r.room_type|title }}{% if not loop.last %}, {% endif %}{% endfor -%}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="scorecard-mini-title">Every unit</div>
+    <table class="rent-comps-table">
+      <thead>
+        <tr><th style="width:10%;">Unit</th><th style="width:22%;">Type</th>
+            <th style="width:8%;">Sq ft</th><th style="width:16%;">Status</th>
+            <th style="width:10%;">Rooms</th><th>What happens</th></tr>
+      </thead>
+      <tbody>
+        {% for a in preview.reconcile.areas %}
+          <tr>
+            <td><code>{{ a.unit.label }}</code>
+              {%- if a.unit.key != a.unit.label %}
+                <span class="stat-box-sub">&rarr; {{ a.unit.key }}</span>
+              {% endif %}</td>
+            <td class="stat-box-sub">{{ a.unit.unit_type }}</td>
+            <td>{{ a.unit.sqft|round|int if a.unit.sqft is not none else '&mdash;'|safe }}</td>
+            {#
+              THE INFERENCE STAYS VISIBLE.
+
+              A blank status becomes "vacant" on strong evidence -- no
+              lease, no lease end, no move-in and no rent, on all 18 units
+              and no others. It is still a conclusion we drew rather than
+              a value the file stated, and this is the screen where
+              somebody approves it. So it renders as the reasoning, not
+              the answer.
+            #}
+            <td>
+              {% if a.unit.status.inferred %}
+                <span class="stat-box-sub">(no status)</span> &rarr; {{ blank_status_label }}
+              {% else %}
+                {{ area_status_label(a.unit.status.mapped) }}
+                <span class="stat-box-sub">({{ a.unit.status.stated }})</span>
+              {% endif %}
+            </td>
+            <td>
+              {%- if a.action == 'create' %}{{ a.rooms_appended }} new
+              {%- else %}+{{ a.rooms_appended }} of {{ a.rooms_existing + a.rooms_appended }}
+              {%- endif %}
+            </td>
+            <td class="stat-box-sub">
+              {%- if a.action == 'create' %}New unit
+              {%- else %}Reuses existing unit
+                {%- if a.findings_preserved %}, {{ a.findings_preserved }} findings preserved{% endif %}
+                {%- if a.rooms_surplus %}, {{ a.rooms_surplus }} extra room(s) kept{% endif %}
+              {%- endif %}
+              {%- for note in a.unit.notes %} &middot; note: &ldquo;{{ note }}&rdquo;{% endfor %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if preview.reconcile.untouched %}
+    <div class="card">
+      <div class="scorecard-mini-title">Existing units the rent roll does not mention</div>
+      <p class="page-subtitle" style="margin-top:0;">
+        <strong>Left exactly as they are.</strong> A unit missing from a newer rent
+        roll is not evidence the apartment stopped existing, and an inspector may
+        have added it deliberately.
+      </p>
+      <table class="rent-comps-table">
+        <thead><tr><th style="width:20%;">Unit</th><th>Findings kept</th></tr></thead>
+        <tbody>
+          {% for u in preview.reconcile.untouched %}
+            <tr><td><code>{{ u.label }}</code></td><td>{{ u.findings }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
+  <div class="card">
+    <p class="page-subtitle" style="margin:0;">
+      <strong>This is a preview only.</strong> Writing the seed is not built yet, so
+      there is deliberately no button here to apply it.
+    </p>
+  </div>
+{% endif %}
+{% endblock %}
