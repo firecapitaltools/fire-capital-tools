@@ -258,6 +258,89 @@ WD_HOOKUP_STATES = (
 )
 
 
+# ── SCOPE DETAILS: which job, on an item whose condition says there is one ──
+#
+# The second population of `detail`, and the first on condition items.
+# `detail` has always held a PRESENCE fact on choice items -- what is it,
+# is it there. These hold a SCOPE fact: the condition already says the
+# thing needs work, and this says which work.
+#
+# WHY THE TWO CANNOT COLLIDE
+#
+# No item key writes `detail` under two meanings. Choice items write
+# presence; these six condition items write scope; number items write
+# neither; and the property checklist never writes `detail` at all --
+# `save()` writes twelve keys and that is not one of them. See
+# docs/site-dd-detail-values.md section 1, whose original claim ("an item
+# key is KIND_CHOICE or KIND_CONDITION, never both") was too strong and is
+# corrected there: pest_evidence is both, and is harmless for exactly that
+# reason.
+#
+# NO VALUE HERE IS "repair" OR "replace", DELIBERATELY
+#
+# needs_work() rule 3 returns True for a `detail` that is itself a work
+# condition string. That rule exists because ALARM_STATES carries the
+# literal value `replace` and the old filter read the wrong column. A
+# scope detail must not trip it: it says WHICH job, never WHETHER there is
+# one, and whether there is one is the condition's answer alone. So the
+# keys are `repair_door`, not `repair`.
+#
+# Every set below is registered in WORK_OPTIONS with an EMPTY frozenset,
+# for the same reason FLOORING_TYPES and PEST_TYPE are: "considered, and
+# no value here implies work" is a different statement from "nobody
+# looked", and test_work_options.py requires the entry either way.
+
+# Paresh's `closet_condition`. Three jobs, three prices, one condition
+# word -- which is why `closet` is in UNPRICED with "no source separates
+# them". This is the thing that was missing, not a price.
+CLOSET_SCOPE = (
+    ("replace_rod", "Replace rod"),
+    ("replace_shelves", "Replace shelves"),
+    ("replace_rod_and_shelves", "Replace rod and shelves"),
+)
+
+# `toilet_condition`. A seat is tens of dollars fitted; a toilet is $600.
+TOILET_SCOPE = (
+    ("replace_seat", "Replace seat"),
+    ("replace_toilet", "Replace toilet"),
+)
+
+# `bathtub`. Reglazing is a few hundred; replacement is a demolition.
+TUB_SCOPE = (
+    ("resurface", "Resurface / reglaze"),
+    ("replace_tub", "Replace"),
+)
+
+# `ceiling_wall_condition`. Drywall repair before paint is a second trade,
+# and this is the item whose rate is per square foot -- so it is also the
+# one where a detail could later carry a different UNIT, which is why
+# for_item() had to take the detail before any of this shipped.
+WALLS_SCOPE = (
+    ("paint", "Paint only"),
+    ("repair_and_paint", "Repair and paint"),
+)
+
+# `door_condition` and `hardware_condition` both land on `entry_door`.
+# They are one question to an inspector standing at a door: what does this
+# door need? Keeping them as two option sets would mean two pickers on one
+# item and no way to answer both.
+DOOR_SCOPE = (
+    ("paint", "Paint"),
+    ("repair_door", "Repair / rehang"),
+    ("replace_door", "Replace door"),
+    ("tighten_hardware", "Tighten hardware"),
+    ("replace_hardware", "Replace hardware / lockset"),
+)
+
+# `vent_condition`. Cleaning a dryer vent is not installing one, which is
+# why `dryer_vent` is in UNPRICED with "the checklist item does not
+# distinguish them". It does now.
+VENT_SCOPE = (
+    ("clean", "Clogged — clean it"),
+    ("install", "Missing — install one"),
+)
+
+
 # ── States taken from Paresh's v7 form ───────────────────────────────────
 #
 # His forms turned up after the Site DD rebuild, having been in
@@ -393,6 +476,19 @@ WORK_OPTIONS: dict[tuple[tuple[str, str], ...], frozenset[str]] = {
     # "considered, and the answer is none" from "nobody looked".
     FLOORING_TYPES: frozenset(),
     PEST_TYPE: frozenset(),
+    # ── Scope details: WHICH job, never WHETHER there is one ────────────
+    #
+    # All empty, and that is the whole point rather than an omission. The
+    # condition on these items already says work is needed -- the picker
+    # is only rendered when it does -- so a scope value adding its own
+    # "yes, work" would be answering a question that has already been
+    # answered, and would let a detail alone put a line in the budget.
+    CLOSET_SCOPE: frozenset(),
+    TOILET_SCOPE: frozenset(),
+    TUB_SCOPE: frozenset(),
+    WALLS_SCOPE: frozenset(),
+    DOOR_SCOPE: frozenset(),
+    VENT_SCOPE: frozenset(),
 }
 
 
@@ -455,7 +551,7 @@ EVERY_ROOM = (
           hint="What it is — separate from what condition it is in.",
           with_condition=False),
     _item("flooring", "Flooring condition"),
-    _item("walls_ceiling", "Walls & ceiling"),
+    _item("walls_ceiling", "Walls & ceiling", options=WALLS_SCOPE),
     _item("windows", "Windows"),
     _item("outlets_switches", "Outlets & switches"),
     _item("lighting", "Lighting"),
@@ -475,8 +571,8 @@ KITCHEN = (
 )
 
 BATHROOM = (
-    _item("tub_shower", "Tub / shower & surround"),
-    _item("toilet", "Toilet"),
+    _item("tub_shower", "Tub / shower & surround", options=TUB_SCOPE),
+    _item("toilet", "Toilet", options=TOILET_SCOPE),
     _item("vanity_sink", "Vanity & sink"),
     _item("exhaust_fan", "Exhaust fan", KIND_CHOICE, PRESENCE),
     _item("gfci", "GFCI outlets", KIND_CHOICE, GFCI_STATES, with_condition=False),
@@ -485,7 +581,7 @@ BATHROOM = (
 )
 
 BEDROOM = (
-    _item("closet", "Closet"),
+    _item("closet", "Closet", options=CLOSET_SCOPE),
     _item("egress_window", "Egress window", KIND_CHOICE, EGRESS_STATES,
           with_condition=False),
     _item("smoke_alarm", "Smoke alarm", KIND_CHOICE, ALARM_STATES,
@@ -495,7 +591,7 @@ BEDROOM = (
 LAUNDRY = (
     _item("washer", "Washer", KIND_CHOICE, PRESENCE),
     _item("dryer", "Dryer", KIND_CHOICE, PRESENCE),
-    _item("dryer_vent", "Dryer vent"),
+    _item("dryer_vent", "Dryer vent", options=VENT_SCOPE),
 )
 
 # Keyed by room_type. A room type with no extras gets EVERY_ROOM alone.
@@ -536,7 +632,7 @@ UNIT_WIDE = (
     _item("water_heater_age", "Water heater age", KIND_NUMBER, measure="yr"),
     _item("hvac", "HVAC", KIND_CHOICE, EQUIPMENT_STATES),
     _item("hvac_age", "HVAC age", KIND_NUMBER, measure="yr"),
-    _item("entry_door", "Entry door & lock"),
+    _item("entry_door", "Entry door & lock", options=DOOR_SCOPE),
     # Added from the v7 form.
     # A thermostat wears and gets replaced, so it takes the condition
     # scale rather than a presence set.

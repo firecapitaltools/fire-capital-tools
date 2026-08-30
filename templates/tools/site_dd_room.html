@@ -26,6 +26,42 @@
   </div>
 {% endmacro %}
 
+{#
+  WHICH JOB, asked only where the condition says there is one.
+
+  A condition item's `detail` is a SCOPE: the condition already said the
+  thing needs work, and this says which work. "Replace seat" and "Replace
+  toilet" are one condition word and two prices an order of magnitude
+  apart, which is the whole of docs/site-dd-detail-values.md.
+
+  ALWAYS OPTIONAL, WITH AN EXPLICIT UNSELECTED STATE. An inspector who
+  does not know which job leaves it alone, and the line prices at the
+  item's default -- which is exactly what every finding recorded before
+  this existed already does.
+
+  It is REVEALED BY CSS, not by JavaScript. The block is always in the
+  markup and `.sdd-scope-row` is hidden only when a non-work condition is
+  checked, so a browser without :has() shows it always rather than never.
+  This form has to work in a basement with no signal; a question that
+  appears only when a script runs is a question that sometimes does not
+  appear at all.
+#}
+{% macro scope_row(item, current, sfx='') %}
+  <div class="sdd-scope-row">
+    <div class="sdd-item-hint" style="margin:10px 0 6px;">Which job?</div>
+    <div class="sdd-cond-row" role="radiogroup" aria-label="{{ item.label }} scope of work">
+      <input class="sdd-cond-input sdd-choice-input" type="radio" id="s_{{ item.key }}{{ sfx }}_none"
+             name="detail_{{ item.key }}{{ sfx }}" value="" {% if not current %}checked{% endif %}>
+      <label class="sdd-cond-btn" for="s_{{ item.key }}{{ sfx }}_none">&ndash;</label>
+      {% for value, label in item.options %}
+        <input class="sdd-cond-input sdd-choice-input" type="radio" id="s_{{ item.key }}{{ sfx }}_{{ value }}"
+               name="detail_{{ item.key }}{{ sfx }}" value="{{ value }}" {% if current == value %}checked{% endif %}>
+        <label class="sdd-cond-btn" for="s_{{ item.key }}{{ sfx }}_{{ value }}">{{ label }}</label>
+      {% endfor %}
+    </div>
+  </div>
+{% endmacro %}
+
 {% macro choice_row(item, current, sfx='') %}
   <div class="sdd-cond-row" role="radiogroup" aria-label="{{ item.label }}">
     <input class="sdd-cond-input sdd-choice-input" type="radio" id="d_{{ item.key }}{{ sfx }}_none"
@@ -96,6 +132,9 @@
                  placeholder="{{ item.measure }}" aria-label="{{ item.label }} in {{ item.measure }}">
         {% else %}
           {{ condition_row(item, row.condition if row else none, sfx) }}
+          {% if item.options %}
+            {{ scope_row(item, row.detail if row else none, sfx) }}
+          {% endif %}
         {% endif %}
 
         {#

@@ -946,6 +946,31 @@ def _collect(form, items, *, scope, area_id, room_id, existing=None):
 
             detail = _kept_field(form, f"detail_{key}{suffix}", prior,
                                  "detail", _detail)
+
+            # A SCOPE DETAIL SAYS WHICH JOB. WITHOUT A JOB IT SAYS
+            # NOTHING, SO IT IS DROPPED RATHER THAN KEPT.
+            #
+            # On a condition item, `detail` answers "which work" and the
+            # CONDITION answers "is there work". Marking a toilet Good
+            # while "Replace seat" sits underneath it is a contradiction,
+            # and the one that survives is the condition -- it is the
+            # inspector's judgement of the fixture, and the scope is a
+            # follow-up question that should not have been asked.
+            #
+            # Applied HERE rather than inside _detail() on purpose: it has
+            # to cover the absent-means-unchanged path too. A form that
+            # posts a changed condition and no detail field would
+            # otherwise keep a stale scope from the previous save, which
+            # is exactly the state this rule exists to make unreachable.
+            #
+            # Choice items are untouched. Their detail is a PRESENCE fact
+            # -- an absent dishwasher is absent whatever its condition
+            # says -- and clearing it would delete the answer rather than
+            # a leftover.
+            if (detail is not None
+                    and item.get("kind") == uc.KIND_CONDITION
+                    and condition not in cond.WORK_CONDITIONS):
+                detail = None
             quantity = _kept_field(form, f"quantity_{key}{suffix}", prior,
                                    "quantity", to_float)
 
