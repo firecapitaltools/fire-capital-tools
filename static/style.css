@@ -3307,3 +3307,21 @@ hr.divider {
   padding: 5px 8px;
   border-radius: 0 6px 6px 0;
 }
+
+/* ── Scope-of-work picker: which job, on an item that needs one ──────────
+   Shown only when the condition says there IS work.
+
+   DEFAULT VISIBLE, HIDDEN BY EXCEPTION. The opposite rule -- hide by
+   default, reveal on a work condition -- reads more naturally and is
+   wrong here: a browser without :has() support would then never show the
+   picker at all, and the feature would be invisible rather than merely
+   untidy. This way the degraded state is "always asked", which is
+   answerable, and no JavaScript is involved either way. The Site DD forms
+   have to work in a basement with no signal.
+
+   The blank condition radio carries value="" and is checked when nothing
+   has been recorded, so an unrated item matches this selector and the
+   scope question stays out of the way until a condition is chosen. */
+.sdd-item:has(.sdd-cond-input:checked:not([value="repair"]):not([value="replace"])) .sdd-scope-row {
+  display: none;
+}

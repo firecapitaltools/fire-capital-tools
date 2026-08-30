@@ -8,6 +8,23 @@
   per-room. Same mobile-first rules as the room page.
 #}
 
+{# See site_dd_room.html for why this is revealed by CSS and not by JS. #}
+{% macro scope_row(item, current) %}
+  <div class="sdd-scope-row">
+    <div class="sdd-item-hint" style="margin:10px 0 6px;">Which job?</div>
+    <div class="sdd-cond-row" role="radiogroup" aria-label="{{ item.label }} scope of work">
+      <input class="sdd-cond-input sdd-choice-input" type="radio" id="us_{{ item.key }}_none"
+             name="detail_{{ item.key }}" value="" {% if not current %}checked{% endif %}>
+      <label class="sdd-cond-btn" for="us_{{ item.key }}_none">&ndash;</label>
+      {% for value, label in item.options %}
+        <input class="sdd-cond-input sdd-choice-input" type="radio" id="us_{{ item.key }}_{{ value }}"
+               name="detail_{{ item.key }}" value="{{ value }}" {% if current == value %}checked{% endif %}>
+        <label class="sdd-cond-btn" for="us_{{ item.key }}_{{ value }}">{{ label }}</label>
+      {% endfor %}
+    </div>
+  </div>
+{% endmacro %}
+
 {% macro condition_row(item, current) %}
   <div class="sdd-cond-row" role="radiogroup" aria-label="{{ item.label }} condition">
     <input class="sdd-cond-input" type="radio" id="uc_{{ item.key }}_none"
@@ -271,6 +288,9 @@
                  placeholder="{{ item.measure }}" aria-label="{{ item.label }} in {{ item.measure }}">
         {% else %}
           {{ condition_row(item, row.condition if row else none) }}
+          {% if item.options %}
+            {{ scope_row(item, row.detail if row else none) }}
+          {% endif %}
         {% endif %}
         <input class="sdd-note" type="text" name="note_{{ item.key }}"
                value="{{ row.note if row and row.note else '' }}" placeholder="Note (optional)">
