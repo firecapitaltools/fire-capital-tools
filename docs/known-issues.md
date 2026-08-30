@@ -157,3 +157,52 @@ failure would arrive inside a number nobody reads closely any more.
 3. **They fail** → they are real defects wearing an environmental
    excuse. Open an entry per defect and fix them.
 4. Either way, record here what was run and what it showed.
+
+---
+
+## 3. There is no restore point for the /data volume
+
+**Opened** 2026-08-30 · **Severity** high · **Status** open
+
+**What is believed.** If production data were lost or corrupted, it could
+be restored.
+
+**What is actually known.** It could not. Checked read-only against the
+Railway API on 2026-08-30:
+
+    volumeInstanceBackupList(/data)          -> 0 backups
+    volumeInstanceBackupScheduleList(/data)  -> 0 schedules
+
+Both queries **succeeded** and returned empty lists. This is not a
+permissions failure and not an unsupported plan: the capability exists for
+this volume and nothing is configured. The mutations
+`volumeInstanceBackupCreate`, `volumeInstanceBackupRestore` and
+`volumeInstanceBackupScheduleUpdate` are all exposed to Jasper's account,
+so enabling it needs one person and one setting.
+
+The volume holds all twelve databases -- including `site_dd.db` with
+Michelle's assessment 11, and `users.json`.
+
+**Why it is not settled.** Nothing has been enabled. Every recovery this
+project has performed worked by deleting a scratch row it had just
+created, which is a rollback available only because the write was one
+row we could name.
+
+**Cost if wrong.** Total and unrecoverable loss of every deal, scenario,
+assessment and uploaded file. The seeding work about to land writes 152
+areas and 894 rooms in one operation -- 350x the areas this platform has
+ever held -- and a wrong result there has no external undo.
+
+**How to close it.**
+
+1. In the Railway dashboard, enable a backup schedule on the
+   `fire-capital-tools-volume` volume. Daily is the obvious default.
+2. Confirm it appears: `volumeInstanceBackupScheduleList` returns one.
+3. Wait for the first backup and confirm `volumeInstanceBackupList`
+   returns it, with a size in the right order of magnitude (~142 MB).
+4. Record here the frequency, the retention, and **who can restore** --
+   the last one matters at 2am and is the part people discover late.
+5. Do **not** test a restore against production. If a restore is ever
+   rehearsed, rehearse it onto a separate volume.
+
+---
