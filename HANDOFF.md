@@ -2904,6 +2904,162 @@ identical in a diff.**
 
 ---
 
+---
+
+## Falsy-zero, both directions — and the second one is worse
+
+Zero and unknown are different facts. Everywhere they meet needs a
+deliberate answer, and this codebase has now had the question wrong in
+**both directions**.
+
+| direction | what it looks like | found |
+|---|---|---|
+| **Zero read as absent** | `{{ rentcast.property.bedrooms or '—' }}` rendered a **studio as unknown**. `if rate:` read a `0.0` concrete flooring rate as "no entry". | Part 55 audit; Part 61, by accident |
+| **Absent written as zero** | `noi_margin` returned `0` with no income and posted **"Low NOI Margin: 0.0%" as a red flag**. `deduction_pct` returned `0.0` with no GPR and imported **"0.000000"** into a field tagged `PROVENANCE_T12`. | Part 63 sweep, as an incidental |
+
+**THE SECOND DIRECTION IS THE MORE DANGEROUS ONE, and the reason is about
+readers rather than code: a blank prompts a question and a confident zero
+does not.**
+
+A studio showing "—" for bedrooms is wrong and *looks* wrong; somebody
+asks. "Low NOI Margin: 0.0%" in the red-flag column is wrong and looks
+like a finding. Nobody doubts it, because the tool has said it in the
+colour it uses for things that need acting on. The same asymmetry runs
+through the other pair: a blank vacancy field invites a number, whereas
+`0.000000` tagged as imported from the T12 asserts that the file said so.
+
+It is the same failure as Jackson's occupancy and the $5.75 repaint
+budget, inverted — **fabricating a confident number where absence is the
+truth** — and it arrives through a guard that reads as defensive
+programming.
+
+### The tell, and it is cheap to look for
+
+**A division guard whose `else` branch is a number rather than `None`.**
+`(a / b) if b else 0` says "when I cannot compute this, the answer is
+zero", which is almost never what the author meant. `else None` says "I
+cannot compute this", which is.
+
+Both fixes had a **precedent in the same file** — which is what makes this
+a convention drift rather than a design gap:
+
+* `noi_margin` was the odd one of three neighbours. `occ_avg` five lines
+  above returns `None` and guards its comparisons; `expense_ratio_avg`
+  four lines below divides by **the same `income_sum`** and returns
+  `None`; and the per-month version of the identical quantity at
+  `kpis.py:357` had always returned `None`.
+* `deduction_pct` contradicted a docstring one module away.
+  `quick_analyzer_math._f()` says, of this very field: *"a missing
+  vacancy rate and a vacancy rate of zero are different claims and must
+  not collapse into each other."*
+
+Neither fix invented anything. Both moved an outlier onto a rule already
+written down beside it.
+
+### What "absence explained" meant in each case
+
+Not the same thing, and that is the point — the house pattern is that
+absence is *explained*, not that it is *announced identically everywhere*.
+
+* **`noi_margin` says nothing.** The absence is already explained on that
+  screen: the warnings card carries *"Nothing in this file matched Gross
+  Potential Rent"* and the occupancy column reads "No GPR". A fourth
+  message would repeat the page; a flag would grade what cannot be
+  measured. Its two neighbours are silent in the same circumstance, so
+  silence is also the consistent answer.
+* **`deduction_pct` says it out loud**, because a blank form field with no
+  explanation is a mystery. The existing T12 warning was **extended**
+  rather than replaced: it now adds that the deduction rate cannot be
+  worked out without a gross figure, so the field is left blank to be
+  entered. And the blank is not a dead end — `build_noi()` answers with a
+  named refusal that tells the analyst exactly what to do.
+
+---
+
+## The four that STAY, and why — do not "fix" these
+
+Recorded so somebody reading the two merges above does not finish the job.
+Nine division guards were examined. Two were live defects and are fixed.
+**One must not change and four are not worth changing.**
+
+### `effective_pct` must stay `0.0` — it looks like the others and is not
+
+`underwriting_math.py:443`, `(effective / price * 100.0) if price > 0 else 0.0`.
+
+`None` breaks it **twice**:
+
+* `_engine_inputs(scenario, acq["effective_pct"] + capex_pct)` — `None`
+  raises on the addition.
+* `templates/tools/underwriting_detail.html` does
+  `'{:,.3f}%'.format(acq.effective_pct)` — raises again.
+
+And the semantics are right as they stand: **no purchase price means no
+percentage-of-price**, the engine requires a number, and zero acquisition
+cost as a fraction of nothing is the only answer that composes. This is
+the case where `None` would be the defect.
+
+### The four cosmetic ones stay
+
+* `completion_pct` in **both** `site_dd_conditions.py:238` and
+  `site_dd_unit_checklist.py:781`. `total_items` counts a **fixed
+  catalogue** and is never zero, so the guard is unreachable — and it
+  feeds **four templates** through `'%.0f%%'|format`, every one of which
+  raises on `None`. Four screens of blast radius for a state that cannot
+  occur.
+* `mmr_report/parsers.py:93` `pct_occ` and `:359` `avg_rent` — a "Total"
+  row declaring zero units, or a building with zero occupied units. MMR
+  file shapes, not analysis output.
+
+### Two deliberately deferred, not overlooked
+
+* **`pct_change`** (`scorecard_pro/kpis.py:446`). A category whose first
+  half averaged zero reports *"no change"*. Worth doing, and note it has a
+  **pre-existing ambiguity independent of this**: `len < 2` returns the
+  same `0.0`, so two different unknowns already share one value. Fixing
+  the division guard alone would leave half the problem.
+* **`used_pct`** (`admin.py:120`). An unreadable volume reports `0.0`, so
+  `level` computes to `"ok"` — a storage monitor saying healthy because it
+  cannot see. Wrong failure direction, but `statvfs` returning a zero
+  block count on a live mount is unreachable.
+
+---
+
+## "Twelve" was nine, and a pattern match is not a reading
+
+**The Part 63 sweep reported "twelve division guards". There are nine.**
+The brief for Part 64 then carried "twelve" forward as fact and scoped a
+run on it.
+
+The grep shape `if <name> else 0` bundled **three different mechanisms**:
+
+| | count | what it actually is |
+|---|---|---|
+| genuine division guards | 9 | `(a / b) if b else 0` — the thing being looked for |
+| `return row["n"] if row else 0` | 6 | `COUNT(*)` queries. A COUNT always returns a row, and `0` is the correct answer to "how many" |
+| `payment / 12 if payment else 0.0` | 3 | the denominator is the **constant 12**. `0 / 12` is `0.0`, so the guard is a no-op |
+
+Only reading each member separated them, and the separation changed the
+conclusion: of nine, two were live, one must never change, and six were
+tidiness or less.
+
+**This is the third correction of this shape in one session** — a category
+asserted from a pattern match rather than from reading its members:
+
+1. **Part 62**: the design's `for_item` sketch had one fallback where
+   there are two cases, and would have repriced concrete flooring.
+2. **Part 63**: the design's nine scope items were three different kinds
+   of item; three were `KIND_CHOICE` and could not take a scope detail at
+   all.
+3. **Part 65**: twelve guards were three mechanisms; nine were guards.
+
+The general form: **a set assembled by shape is a hypothesis, and its
+count is the least reliable thing about it.** Every one of these read
+correctly, produced a plausible number, and was wrong about what the
+members were. The fix is not more careful grepping — it is that the
+grep's output is the *input* to the work, never a finding, and the finding
+only exists once each member has been opened.
+
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
