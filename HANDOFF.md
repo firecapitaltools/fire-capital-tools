@@ -3060,6 +3060,69 @@ absence is *explained*, not that it is *announced identically everywhere*.
 
 ---
 
+---
+
+## 152 units, no warnings, and every lease date silently absent
+
+The `.xls` loader shipped in Part 68 read the Oxford Pointe rent roll
+completely — **152 units, `source_format` "ResMan Rent Roll", warnings
+empty** — and reported `lease_start`, `lease_end`, `move_in` and
+`move_out` as `None` on **every one of the 152**, while the file plainly
+contained them.
+
+**xlrd hands back a raw serial for a date cell and keeps the cell type
+separately.** `sheet.cell_value(r, c)` on a date returns `45839.0`, not a
+`datetime`. openpyxl returns a `datetime`, so `_as_date()` — which parses
+datetimes and strings — had never needed to consider a bare float. It
+declined all of them, and declining is spelled `None`, which is also how
+the parser spells *"this field is not stated"*.
+
+### The output could not have looked better
+
+Nothing said anything was wrong. The unit count was right, the format was
+recognised, the warnings list was empty, and every field that *should*
+have been empty was empty. Four columns of real data had become four
+columns of honest-looking absence.
+
+This is the **"data present, silently reported missing"** family, and it
+sits with the falsy-zero pair rather than apart from them:
+
+| | |
+|---|---|
+| zero read as absent | a studio's `0` bedrooms rendered as "—" |
+| absent written as zero | `noi_margin` graded `0.0%` as a red flag |
+| **present read as absent** | **every lease date on 152 units** |
+
+All three are the same confusion — a value and its absence sharing one
+representation — and this one is the hardest to notice, because the output
+of a parser that dropped a column is indistinguishable from the output of
+a file that never had it.
+
+### What caught it, which is the part worth keeping
+
+**Comparing the output against the file, rather than checking the return
+value.** The return value was checked first and it passed: 152 units, no
+warnings, the number Part 35 predicted. Everything asserted about it was
+true.
+
+What found the defect was opening the workbook separately and asking what
+was in the date columns — `ctype=DATE`, `44883.0 -> 2022-11-18` — and only
+then noticing the parser had said `None`.
+
+> **The rule: for an importer, the test is not "did it return something
+> plausible" but "does what it returned match what is in the file".** A
+> parser can only be verified against its input. A count and a clean
+> warnings list establish that it did not crash, which is a different
+> claim and a much weaker one.
+
+The same reasoning is why the fix went in the **loader** and not in
+`_as_date()`. The loader is where the format difference lives and where a
+serial is known to be a date; `_as_date()` receives a bare float with no
+idea which workbook it came from, and **45839 is a plausible rent as well
+as a plausible date**. A converter that guessed there would be inventing
+exactly the kind of value this file is careful never to invent.
+
+
 ## The four that STAY, and why — do not "fix" these
 
 Recorded so somebody reading the two merges above does not finish the job.
