@@ -46,6 +46,7 @@ from werkzeug.utils import secure_filename
 
 from tools import branding
 from tools import deal_dive_db
+from tools import rendered_state
 from tools import underwriting_capex as ucx
 from tools import underwriting_crosscheck as uxc
 from tools import underwriting_db as db
@@ -395,6 +396,11 @@ def detail(scenario_id):
         scenario=scenario, deal=_deal_for(scenario["deal_id"]),
         units=units, expense_lines=expense_lines,
         loans=loans, default_amort_years=DEFAULTS["amort_years"],
+        # The two guarded collections, hashed as the page is about to show
+        # them. Computed here rather than in the template so the value the
+        # form carries is provably the value the route rendered from.
+        loans_state=rendered_state.token(loans),
+        capex_state=rendered_state.token(capex_lines),
         assumption_years=assumption_years,
         schedule_rows=_schedule_rows(scenario, assumption_years),
         schedule_fields=us.SCHEDULE_FIELDS,
@@ -696,6 +702,16 @@ def save_loans(scenario_id):
         if not db.get_scenario(conn, scenario_id):
             return _not_found()
 
+        # REFUSED IF THE PAGE WAS SHOWING AN OLDER STACK.
+        #
+        # replace_loans() is DELETE-then-INSERT, so a loan absent from this
+        # post is destroyed -- which is how a user deletes one, and is data
+        # loss when the post is stale. See tools/rendered_state.py.
+        if not rendered_state.matches(request.form, db.list_loans(conn, scenario_id)):
+            flash(rendered_state.STALE_MESSAGE, "danger")
+            return redirect(url_for("underwriting.detail",
+                                    scenario_id=scenario_id) + "#loans")
+
         names = request.form.getlist("loan_name")
         amounts = request.form.getlist("loan_amount")
         rates = request.form.getlist("loan_rate_pct")
@@ -859,6 +875,17 @@ def save_capex(scenario_id):
     with db.get_connection() as conn:
         if not db.get_scenario(conn, scenario_id):
             return _not_found()
+
+        # Same guard, same reason. Capex deletes by BLANKING a row rather
+        # than removing it from the DOM, but the destruction is identical:
+        # the form renders a fixed number of slots, so a row added since
+        # this page loaded is simply not among them and the DELETE takes
+        # it. See tools/rendered_state.py.
+        if not rendered_state.matches(request.form,
+                                      db.list_capex_lines(conn, scenario_id)):
+            flash(rendered_state.STALE_MESSAGE, "danger")
+            return redirect(url_for("underwriting.detail",
+                                    scenario_id=scenario_id) + "#capex")
 
         lines = []
         for idx in _posted_indexes(request.form, "capex_label_"):
