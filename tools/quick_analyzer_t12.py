@@ -147,14 +147,35 @@ def extract_totals(path: str) -> dict[str, Any]:
     if gpr <= 0:
         warnings.append(
             "This T12 has no Gross Potential Rent line, so all income is shown "
-            "as other income. The NOI is still the file's own figure."
+            "as other income. The NOI is still the file's own figure. "
+            "The deduction rate cannot be worked out without a gross figure "
+            "to measure against, so Vacancy & Credit Loss is left blank for "
+            "you to enter."
         )
         net_rental_income = 0.0
 
     # The whole distance from gross potential rent to net rental income:
     # vacancy plus loss-to-lease, bad debt, concessions and discounts.
     deductions = max(0.0, gpr - net_rental_income)
-    deduction_pct = (deductions / gpr * 100.0) if gpr else 0.0
+    # NONE, NOT ZERO. A RATE NEEDS SOMETHING TO BE A RATE OF.
+    #
+    # This returned 0.0 when there was no gross figure to divide by, and
+    # that zero then travelled into the Deal Analyzer's Vacancy & Credit
+    # Loss field as "0.000000" -- tagged PROVENANCE_T12 and snapshotted as
+    # `imported_vacancy_pct`, so the tool was claiming the file STATED a
+    # deduction rate of zero. It stated nothing of the kind: it has no
+    # gross potential rent line at all, which is why `deductions` is zero
+    # in the first place.
+    #
+    # The DEDUCTION AMOUNT above is a real zero and stays one -- nothing
+    # was deducted, and that is measured. Only the RATE is unknowable, and
+    # the two are different facts.
+    #
+    # `_f()` in quick_analyzer_math already states this rule for the same
+    # field: "a missing vacancy rate and a vacancy rate of zero are
+    # different claims and must not collapse into each other." This line
+    # was the place they collapsed.
+    deduction_pct = (deductions / gpr * 100.0) if gpr else None
     # Everything counted as income that is not net rental income.
     other_income = egi - net_rental_income
 

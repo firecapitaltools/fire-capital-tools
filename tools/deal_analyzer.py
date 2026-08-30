@@ -237,7 +237,25 @@ def _form_from_t12(form, totals):
         # dollar away from the file's own -- visible if the reader clears
         # the NOI field to watch the build-up recompute. Six keeps it
         # under a cent on a $1.3M rent roll.
-        "vacancy_pct": f"{totals['vacancy_pct']:.6f}",
+        # BLANK WHEN THE FILE COULD NOT STATE IT.
+        #
+        # `totals["vacancy_pct"]` is None for a T12 with no gross potential
+        # rent line, because a deduction rate needs a gross figure to be a
+        # rate OF. Formatting None here used to be impossible only because
+        # the other side sent 0.0; it now sends None, and the honest form
+        # value for "the file does not say" is the same empty string every
+        # other unstated field in this form uses.
+        #
+        # A blank is not a dead end. `to_float("")` is None, `build_noi()`
+        # answers with a named refusal -- "Vacancy is required (enter 0 for
+        # a fully occupied property)" -- and the T12 warning flashed
+        # alongside says why the field is empty. One keystroke, and the
+        # zero becomes the analyst's claim rather than the tool's.
+        #
+        # It also fixes the provenance snapshot below: `imported_vacancy_pct`
+        # now records "not stated" instead of a measured-looking 0.000000.
+        "vacancy_pct": ("" if totals["vacancy_pct"] is None
+                        else f"{totals['vacancy_pct']:.6f}"),
         "other_income": f"{totals['other_income']:.2f}",
         "expenses_mode": "amount",
         "operating_expenses": f"{totals['operating_expenses']:.2f}",
