@@ -41,12 +41,36 @@ The proposal is a **second population in the same column**:
 | **scope detail** (new) | `KIND_CONDITION` items, only when the condition is in `WORK_CONDITIONS` | *which job* | `toilet` = `replace_seat` |
 
 **These two populations cannot collide, and the reason is structural, not
-a convention anyone has to remember.** `kind` partitions the item set: an
-item key is `KIND_CHOICE` or `KIND_CONDITION`, never both, and `_item()`
-already enforces the corollary that only a choice item can carry
+a convention anyone has to remember.** `kind` partitions the item set, and
+`_item()` already enforces the corollary that only a choice item can carry
 `with_condition` as an independent fact. So for any given `item_key`,
 `detail` means exactly one thing. No schema change, no discriminator
 column, no namespacing.
+
+> **The claim was originally written as "an item key is `KIND_CHOICE` or
+> `KIND_CONDITION`, never both". That is false, and the weaker statement
+> above is what is true and what the design needs.** Corrected 2026-08-29
+> after checking it against the catalogue rather than restating it.
+>
+> `pest_evidence` is `KIND_CHOICE` with options in all nine room
+> checklists **and** a condition item in the property checklist
+> (`cl.ITEM_KEYS`). One key, two kinds.
+>
+> It is harmless, and the reason is worth writing down rather than
+> rediscovering: **property scope never writes `detail` at all.**
+> `site_dd.save()` writes twelve keys per finding — scope, area_id,
+> room_id, category_key, item_key, instance_no, instance_label,
+> condition, est_unit_cost, est_cost_source, measure, note — and `detail`
+> is not one of them. So no item key writes `detail` under two meanings,
+> which is the property this design actually rests on. The stronger claim
+> was a convenient shorthand for it and does not hold.
+>
+> Also note the catalogue is assembled from **three** sources with
+> **two** key names: room and unit checklist items carry `kind`, and the
+> twenty bank items carry `default_kind`. `item.get("kind")` reads `None`
+> for every bank item, so a partition check written against `kind` alone
+> silently examines 39 of 89 definitions and reports success. See the
+> HANDOFF entry on vacuous instruments.
 
 The validation gate is also already there and already correct:
 
@@ -71,6 +95,55 @@ references them. The manifest's "roughly 25 item-specific condition
 scales" is right. **The honest count of those carrying a real scope
 distinction is nine.** Most of the rest are his phrasing of our five
 states, at coarser resolution.
+
+> ## ⚠ SIX OF THESE NINE. Corrected 2026-08-29, built in `Part 63`.
+>
+> **Three rows of the table below name items that §1's own partition
+> argument excludes.** `appliance_disposal`, `washer` and `dryer` are
+> `KIND_CHOICE`, carry the `PRESENCE` option set
+> (`present` / `hookup_only` / `absent`), and **already populate `detail`
+> with presence**. Giving them a scope detail is precisely the collision
+> §1 says is structurally impossible: one column, one item key, two
+> meanings.
+>
+> The table was written from Paresh's form outward — his
+> `disposal_condition` and `appliance_service` scales genuinely do encode
+> a scope — without checking which side of our own partition our
+> corresponding items sat on. Six of the nine are `KIND_CONDITION` with
+> no options and are clean; three are not.
+>
+> | item | kind | verdict |
+> |---|---|---|
+> | `closet`, `toilet`, `tub_shower`, `walls_ceiling`, `entry_door`, `dryer_vent` | condition, no options | **built** — scope detail, as designed |
+> | `appliance_disposal`, `washer`, `dryer` | **choice**, `PRESENCE` options | **not built** — routed to step 5 |
+>
+> ### And the three need no schema change at all
+>
+> They carry `with_condition=True`, so they already record a condition
+> *alongside* the presence detail. The distinctions Paresh wanted are
+> **condition-shaped, not detail-shaped**, and our data already separates
+> them:
+>
+> | his observation | our condition | already stored? |
+> |---|---|---|
+> | disposal *Jammed* | `repair` | yes |
+> | disposal *Not Working* | `replace` | yes |
+> | appliance *Service* | `repair` | yes |
+> | appliance *Replace* | `replace` | yes |
+>
+> **The gap is pricing, not capture.** `for_item()` consults the item key
+> and now the detail; it does not consult the condition, so a serviced
+> washer and a replaced one both price at $925 and a jammed disposal and
+> a dead one both price at $375.
+>
+> So these three want a **`COST_BY_DETAIL` sibling keyed on
+> `(item_key, condition)`**, and that is a change to budget figures.
+> **Routed to section 7 step 5**, the run where prices move and Michelle
+> sees them — not to the schema-and-form steps, which they do not need.
+>
+> Note this also strengthens §1 rather than weakening it: the partition
+> held, and following it is what caught the three. The error was in the
+> item table, which was assembled from his form without checking ours.
 
 ### The nine that carry a real scope distinction
 
@@ -557,6 +630,11 @@ Three reasons to prefer this over a `Detail` column:
 5. Research `COST_BY_DETAIL`, with sources and dates, starting with
    `walls_ceiling` paint-only — that is the one that converts an
    untotallable rate into a number.
+   **Plus, added 2026-08-29: a `COST_BY_DETAIL` sibling keyed on
+   `(item_key, condition)`**, and the first three entries for it are
+   `appliance_disposal`, `washer` and `dryer` — see the §2 callout. They
+   need no schema and no form change; they need `for_item()` to consult
+   the condition, and they need figures. A serviced washer is not $925.
 
 Steps 1–4 are safe with no researched figures at all. Step 5 is where the
 budget changes, and it should be a separate decision with the numbers in
