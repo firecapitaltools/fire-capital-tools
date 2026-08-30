@@ -183,8 +183,12 @@ For Oxford Pointe that is:
 | 3 / 1.5 | 1 | 7 | 2 (one labelled *Half bath*) |
 | 3 / 2.0 | 32 | 7 | 2 |
 
-**~880 rooms across 152 units.** That number is worth seeing before it is
-written.
+**894 rooms across 152 units.** Corrected 2026-08-30: the ~880 above was
+an estimate written before the code counted, and it was low by 14.
+`25x4 + 1x5 + 77x6 + 16x6 + 1x7 + 32x7 = 894`, produced by
+`plan_units()` and pinned by a test. The figure is worth seeing before
+it is written, which is why it was asked for again rather than assumed
+to match.
 
 ### 3.2 `copy_layout` for identical units
 
@@ -268,7 +272,7 @@ The preview shows, before any write:
 * **Every unit**, with its label, `unit_key` if it differs, layout, square
   footage, and mapped status.
 * **The rooms that would be created**, summarised per layout and totalled
-  — *"152 units, ~880 rooms"* is the number that makes someone check.
+  — *"152 units, 894 rooms"* is the number that makes someone check.
 * **The status mapping**, as the §1.2 table, so the collapse of `NTV` and
   `UE` into `occupied` is visible rather than buried.
 * **What already exists**, if the assessment has been walked: areas that
