@@ -481,10 +481,32 @@ def generate_advanced_insights(df_filtered, accounts, targets=None):
         red_flags.append(f"Low Occupancy: {occ_avg:.1%}")
 
     income_sum = df_filtered["Income"].sum() if "Income" in df_filtered else 0
-    noi_margin = df_filtered["NOI"].sum() / income_sum if income_sum else 0
-    if noi_margin > 0.55:
+    # NONE, NOT ZERO. NO INCOME MEANS NO MARGIN, NOT A MARGIN OF NOTHING.
+    #
+    # This returned 0 and then graded it. On a file with no income --
+    # Jackson's, whose GPR line does not parse -- the margin came out 0,
+    # fell through `< 0.40`, and posted "Low NOI Margin: 0.0%" as a RED
+    # FLAG. A property nobody could compute a margin for was reported as
+    # having failed a threshold, in a colour that means "act on this".
+    #
+    # The file already knew the answer in two places. `occ_avg` five lines
+    # up returns None and guards both comparisons; `expense_ratio_avg`
+    # four lines down divides by THIS VERY `income_sum` and returns None
+    # when it is falsy. This line was the odd one of three neighbours, and
+    # the per-month version of the same quantity at kpis.py:357 has always
+    # returned None too. Nothing new is invented here -- the outlier is
+    # brought into line with the convention already around it.
+    #
+    # SAYING NOTHING IS THE RIGHT SILENCE HERE, not a gap in the report.
+    # The absence is already explained on the same screen: the warnings
+    # card carries "Nothing in this file matched Gross Potential Rent",
+    # and the occupancy column reads "No GPR" rather than a number. A
+    # second message would repeat what the page already says; a flag would
+    # grade what cannot be measured.
+    noi_margin = (df_filtered["NOI"].sum() / income_sum) if income_sum else None
+    if noi_margin is not None and noi_margin > 0.55:
         green_flags.append(f"Strong NOI Margin: {noi_margin:.1%}")
-    elif noi_margin < 0.40:
+    elif noi_margin is not None and noi_margin < 0.40:
         red_flags.append(f"Low NOI Margin: {noi_margin:.1%}")
 
     # Aggregate (sum expenses / sum income) rather than averaging the monthly
