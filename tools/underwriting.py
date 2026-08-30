@@ -78,6 +78,40 @@ ALLOWED_UPLOAD_EXT = {".xlsx", ".xlsm", ".csv"}
 # above, which is shared with the rent roll and T12 importers.
 OM_UPLOAD_EXT = {".pdf"}
 
+# ── .xls, on the rent-roll route ONLY ────────────────────────────────────
+#
+# ResMan exports rent rolls as .xls, not .xlsx, which is the only reason
+# the Oxford Pointe file could not be uploaded: the layout parsed
+# completely once it could be opened.
+#
+# SCOPED RATHER THAN ADDED TO THE SHARED SET, for the reason _save_upload's
+# own docstring gives about the OM route. The T12 importer shares
+# ALLOWED_UPLOAD_EXT and reads through openpyxl, which cannot open OLE2 --
+# widening the shared constant would let a .xls reach it and fail
+# somewhere less legible than the gate.
+#
+# WHAT ACCEPTING .xls ACTUALLY MEANS, recorded because it is a real
+# widening of what this application will parse:
+#
+# .xlsx is a ZIP of XML. .xls is an **OLE2 compound document** -- a
+# structured-storage container with a far richer history of parser bugs
+# than ZIP, because it is a filesystem-like format with offsets and
+# sector chains rather than a list of files.
+#
+# What makes it acceptable here, and these are existing properties rather
+# than new promises:
+#
+#   * the extension gate above, which is per-route and closed by default;
+#   * parsing happens in-process with xlrd, a pure-Python reader -- there
+#     is no shelling out to a converter and no system library;
+#   * xlrd executes nothing. It has no macro support to invoke, and .xls
+#     macros live in a storage stream it does not read;
+#   * uploads land under the scenario's own directory and are read once.
+#
+# The residual risk is xlrd's own OLE2 handling, and it is stated rather
+# than waved at: see the requirements.txt note about maintenance mode.
+RENTROLL_UPLOAD_EXT = ALLOWED_UPLOAD_EXT | {".xls"}
+
 DEFAULTS = {
     "closing_costs_pct": 2.0, "ltv_pct": 65.0, "amort_years": 30,
     "hold_years": 5, "selling_costs_pct": 2.0, "vacancy_pct": 5.0,
@@ -988,7 +1022,7 @@ def upload_rentroll(scenario_id):
         return redirect(url_for("underwriting.detail", scenario_id=scenario_id))
 
     try:
-        original, path = _save_upload(scenario_id, upload)
+        original, path = _save_upload(scenario_id, upload, RENTROLL_UPLOAD_EXT)
         parsed = parse_rent_roll_workbook(path)
     except UnrecognizedRentRoll as exc:
         flash(str(exc), "danger")
