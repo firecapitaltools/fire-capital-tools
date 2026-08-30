@@ -148,8 +148,20 @@ split) were left with a known weakness on a written condition: fix it the
 moment *either* per-account data ships *or* a second person can log in.
 
 **The second one happened on 27 August**, when the signup account was
-created. So that work is already due and does not depend on Friday. It is
-modest, and it is now owed regardless.
+created. **That work is now done** — those three lists refuse a save from
+a page that was showing an older version, rather than silently deleting
+the row somebody else added. It did not depend on Friday and did not wait
+for it.
+
+> **Worth saying out loud, and it is the point rather than a complaint:**
+> Beckett created that account **himself**. Nobody decided he should have
+> one, because **there is no step at which anyone decides.** The signup
+> form is open, and an account created through it sees every deal, every
+> scenario, every inspection and every uploaded file. That is not a story
+> about Beckett — it is what "site-wide" means, demonstrated. It also
+> means the question in §2 is a live one about who can see her data
+> today, not an architectural preference about how the tool should be
+> built.
 
 ### If she has no view at all
 

@@ -542,6 +542,44 @@ completely", and nobody had measured which.
 
 ## The three deleting routes: a DECISION not to build, with its condition
 
+> ## ✅ RESOLVED 2026-08-29. The condition fired on its own.
+>
+> **Trigger 2 — "more than one person can log in" — became true on
+> 2026-08-27**, when a second account was created through the signup form.
+> Not by anyone acting on this entry: it was noticed while gathering
+> production figures for something else, and the condition below was
+> specific enough that recognising it took one line of reading.
+>
+> The rendered-state token is built — `tools/rendered_state.py`, one
+> helper, three call sites — and verified on deployed code with two
+> sessions on one scenario: the stale save is refused, the other session's
+> loan survives, and a current save still works including deliberate
+> deletion.
+>
+> **This entry is kept rather than deleted, and the decision below was
+> correct when it was made.** Deferring was right, the reasoning holds,
+> and the only thing that changed is the world. What follows is the
+> record of a deferral that worked, not of a mistake.
+>
+> ### All four premises were re-checked before building
+>
+> The investigation was weeks old and the codebase had moved, so nothing
+> below was taken on trust. All four still held, with one refinement:
+> **capex deletes by BLANKING a fixed set of slots** rather than removing
+> DOM rows, so its exposure is a row *added* since render rather than one
+> *omitted*. The destruction is identical and so is the fix.
+>
+> ### What it cost the user, stated rather than discovered later
+>
+> The refusing routes redirect, so a stale session **loses its unsaved
+> edits**. `detail()` is 124 lines of context assembly; re-rendering it
+> from a POST would rebuild all of it and would show fresh data everywhere
+> except the section just edited. The same routes already lose the form on
+> a validation refusal, so this matches the behaviour beside it. Nothing
+> **stored** is ever at risk — the refusal happens before any write.
+
+
+
 `save_loans`, `save_capex` and `save_gp_partners` delete omitted rows
 rather than blanking them. **Investigated in Part 52 and deliberately left
 alone.** Recorded as a decision because "not built" and "not noticed" look
@@ -602,6 +640,52 @@ than a shrug: build the token if ANY of these becomes true.**
 Any one of the three, not all three. Until then the exposure is one person
 with two tabs on their own analysis, and the cost of being wrong is a
 reload.
+
+---
+
+## A condition attached to a deferral has now paid off twice
+
+Two deferrals in this project were written with an explicit trigger rather
+than as an intention to revisit. **Both fired without anyone going back to
+look for them.** That is the entire argument for the practice, and it is
+worth stating now that there is a pair rather than an anecdote.
+
+| | the condition | how it fired |
+|---|---|---|
+| **Entrata** | survived in one statement of the rule and was lost in the compressed restatement — the shorter version read as an unconditional claim | the loss itself was the finding: comparing the two statements showed the condition had been dropped, which is how the rule got its condition back |
+| **The three deleting routes** (Part 52) | *"build the token if ANY of these becomes true: per-account data ships; more than one person can log in; any of those three pages becomes part of a two-person workflow"* | **trigger 2 became true on 2026-08-27** when a second account was created through the signup form. Noticed on 2026-08-29 while gathering production numbers for an unrelated document |
+
+**Neither was found by remembering to check.** The Part 52 one was
+recognised in a single line of reading, because the condition named an
+observable event — *a second account exists* — rather than a feeling like
+*when this gets risky enough*. A vague condition would have required
+somebody to re-derive the judgement; a specific one only required
+somebody to notice a fact they were already looking at.
+
+### What makes a condition fire on its own
+
+* **It names something observable, not a threshold of concern.** "More
+  than one person can log in" is a thing you can check in one query.
+  "When collaboration becomes important" is not.
+* **It is written where the deferral is**, so anyone reading the reason
+  for not building reads the trigger in the same breath.
+* **Any one of several, not all of them.** The Part 52 entry listed three
+  and said *"any one of the three, not all three"*. Two of the three have
+  still not happened.
+
+### And the Entrata half is the warning
+
+A condition only survives if every restatement carries it. The Entrata
+rule lost its condition in a *shortened* version, which then read as
+unconditional and was acted on that way. **Compression is where conditions
+die** — the qualifying clause is always the part that looks droppable,
+and dropping it converts a decision into a rule.
+
+So: attach conditions, name observable events, and when restating a
+conditional rule in fewer words, check that the condition survived the
+edit rather than assuming it did.
+
+
 
 ---
 

@@ -243,8 +243,61 @@ class IdChurnTests(RouteTestCase):
         self.assertEqual(len(self.loans()), 1)
 
 
+class TheRENDEREDPageCarriesTheTokenTests(RouteTestCase):
+    """COUNTED IN THE OUTPUT, NOT IN THE FILE.
+
+    The source-level test below counts `name="_rendered_state"` in the
+    template and passes whether or not the block ever renders. Verifying
+    on deployed code showed a real page emitting ONE token where that test
+    implied two -- the capex form sits inside the analysis section and is
+    absent on a scenario that cannot be analysed, so one was correct and
+    the assertion was wrong.
+
+    That is the same vacuity as counting a catalogue by a field one of its
+    sources does not use: an instrument that has never been shown to see
+    the thing it counts. So this renders the page and requires the number
+    of tokens to equal the number of guarded forms actually present.
+    """
+
+    def tokens_and_forms(self):
+        html = self.client.get(
+            f"/tools/underwriting/scenario/{self.sid}").get_data(as_text=True)
+        forms = html.count("/loans\"") + html.count("/capex\"")
+        return html.count('name="_rendered_state"'), forms, html
+
+    def test_a_bare_scenario_renders_one_form_and_one_token(self):
+        tokens, forms, _ = self.tokens_and_forms()
+        self.assertEqual(forms, 1, "expected only the loans form on a bare scenario")
+        self.assertEqual(tokens, forms)
+
+    def test_every_guarded_form_on_the_page_carries_one(self):
+        """The invariant, whichever sections happen to render."""
+        tokens, forms, _ = self.tokens_and_forms()
+        self.assertEqual(tokens, forms)
+
+    def test_the_token_is_the_real_hash_not_an_empty_string(self):
+        """An empty value would render, count, and refuse every save."""
+        import re
+        _, _, html = self.tokens_and_forms()
+        values = re.findall(r'name="_rendered_state" value="([^"]*)"', html)
+        self.assertTrue(values)
+        for v in values:
+            with self.subTest(value=v):
+                self.assertEqual(len(v), 16)
+
+    def test_it_matches_what_the_save_route_will_recompute(self):
+        """End to end: the value on the page is the value that passes."""
+        import re
+        self.set_loans(("Senior", 3_000_000.0))
+        _, _, html = self.tokens_and_forms()
+        rendered = re.findall(r'name="_rendered_state" value="([^"]*)"', html)[0]
+        self.assertEqual(rendered, rendered_state.token(self.loans()))
+
+
 class TheFormsCarryTheTokenTests(unittest.TestCase):
-    """A guard the page never sends is a guard that refuses everything."""
+    """Source-level, and NOT sufficient on its own -- see the rendered
+    test above, which is the one that would have caught a form whose
+    block never runs."""
 
     ROOT = Path(__file__).resolve().parents[1] / "templates" / "tools"
 
