@@ -3330,9 +3330,16 @@ Stated plainly so it is not mistaken for tested ground.
   came back empty** rather than inventing a plan — which is the specific
   failure that section invites. Tagged `investor_notetaker`, counter 1 → 2.
   Transcript deleted, notes fingerprint restored exactly.
-- **No 2BD rent roll has ever been parsed.** Bedroom derivation is
-  designed and unbuilt, and the design rests on a single Appfolio file
-  whose units are all `1/1.00`.
+- ~~**No 2BD rent roll has ever been parsed.**~~ **Closed 2026-08-29.**
+  The Oxford Pointe ResMan roll parses completely: 152 units, 18 distinct
+  type strings, six distinct layouts, **77 of them 2 bed / 1.5 bath**.
+  Bedroom and bathroom derivation is built and tested against all 18
+  strings rather than a sample. Seeding remains unbuilt and is designed in
+  `docs/site-dd-rentroll-seeding.md`.
+- **The unit-label letter rule is still untested.** Oxford Pointe's
+  labels are numeric -- not one starts with a letter -- so the 60%
+  threshold below has still never run against a lettered file. The second
+  lettered roll has not arrived.
 - **The unit-label normalizer is a spec, not code.** The 60% threshold
   for detecting a letter-labelled building is a guess from one file and
   should be revisited the moment a second lettered roll exists.
