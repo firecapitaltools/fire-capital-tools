@@ -374,6 +374,15 @@
 
   <form method="POST" action="{{ url_for('underwriting.save_capex', scenario_id=scenario.id) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {#
+        THE LIST THIS FORM WAS RENDERED FROM.
+
+        Posting a whole collection DELETES anything not in the post, which
+        is how a row is removed and is data loss when the page is stale.
+        The route recomputes this from the database and refuses the save
+        if it has changed. See tools/rendered_state.py.
+      #}
+      <input type="hidden" name="_rendered_state" value="{{ capex_state }}">
     <div class="table-wrap" style="margin-bottom:12px;">
       <table class="rent-comps-table">
         <thead>
@@ -888,6 +897,15 @@
   <form method="POST" action="{{ url_for('underwriting.save_loans', scenario_id=scenario.id) }}"
         style="margin-top:16px;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {#
+        THE LIST THIS FORM WAS RENDERED FROM.
+
+        Posting a whole collection DELETES anything not in the post, which
+        is how a row is removed and is data loss when the page is stale.
+        The route recomputes this from the database and refuses the save
+        if it has changed. See tools/rendered_state.py.
+      #}
+      <input type="hidden" name="_rendered_state" value="{{ loans_state }}">
     <table class="rent-comps-table" id="loans-table">
       <thead>
         <tr><th style="width:28%;">Name</th><th>Amount ($)</th><th>Rate (%)</th>

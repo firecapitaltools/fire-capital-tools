@@ -33,6 +33,7 @@ from flask import (
 )
 from flask_login import login_required
 
+from tools import rendered_state
 from tools import deal_dive_db
 from tools import investor_report_db as db
 from tools import underwriting_db as uw_db
@@ -229,6 +230,9 @@ def detail(scenario_id):
         "tools/investor_report_detail.html",
         scenario=scenario, tiers=tiers, contributions=contributions,
         partners=partners,
+        # Hashed as the page is about to show them; see the two
+        # Underwriting collections and tools/rendered_state.py.
+        partners_state=rendered_state.token(partners),
         deal=_deal_for(scenario["deal_id"]),
         uw_scenario=uw_scenario, uw_result=uw_result,
         result=result, error=error,
@@ -273,6 +277,17 @@ def save_gp_partners(scenario_id):
         if not db.get_scenario(conn, scenario_id):
             flash("That waterfall scenario could not be found.", "danger")
             return redirect(url_for("investor_report.index"))
+
+        # Same guard as the two Underwriting collections, same reason:
+        # replace_gp_partners() is DELETE-then-INSERT, so a partner absent
+        # from this post is destroyed. That is how a user removes one, and
+        # it is data loss when the post is stale. See
+        # tools/rendered_state.py.
+        if not rendered_state.matches(request.form,
+                                      db.list_gp_partners(conn, scenario_id)):
+            flash(rendered_state.STALE_MESSAGE, "danger")
+            return redirect(url_for("investor_report.detail",
+                                    scenario_id=scenario_id) + "#gp-split")
 
         names = request.form.getlist("partner_name")
         shares = request.form.getlist("partner_share_pct")
