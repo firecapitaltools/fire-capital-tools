@@ -1546,7 +1546,24 @@ other two blocked real work.
 
 ---
 
-## The falsy-zero audit: one member, and the convention it implies
+## The falsy-zero audit: one member IN TEMPLATES, and the convention it implies
+
+> **THE SCOPE WAS NARROWER THAN THIS ENTRY SAID.** Corrected 2026-08-29.
+>
+> It reads below as though the falsy-zero *class* has one member. What
+> was actually swept is **53 `or`-fallback idioms in Jinja templates plus
+> 6 in Python** — display fallbacks, one idiom, mostly one language. The
+> negative result is correct for that, and was wrongly recorded as a
+> result about the class.
+>
+> **A truthiness guard on a numeric in Python is the same class through a
+> different idiom, and was never in scope.** `if rate:` reading `0.0` as
+> absent was found in Part 61 during unrelated work on
+> `site_dd_reference_costs.for_item()`, where concrete flooring carries a
+> `0.0` rate. An audit that had covered it would have found it.
+>
+> **The Python pass was then run, in Part 63.** See *the second sweep*
+> below.
 
 `{{ rentcast.property.bedrooms or '—' }}` rendered a **studio as unknown**,
 because 0 is falsy. That looked like a class of bug, so all 53 `or`-fallback
@@ -1574,6 +1591,73 @@ reasons worth recording so nobody re-runs the audit:
 
 Every ternary in the codebase already guards the container, which is why a
 genuine zero NOI still renders as `0`. Keep it that way.
+
+### The second sweep: numeric truthiness in Python, and it came back empty
+
+**Run 2026-08-29, AST-based, over every non-test `.py` file in the repo.**
+Looked for `if <numeric>:`, `if not <numeric>:`, `x or <default>`,
+short-circuiting `and`/`or` chains over numbers, `filter(None, …)` and
+truthiness-based comprehensions.
+
+**Two passes, because the first instrument was too blunt to trust.** A
+name-vocabulary regex alone returned **310 hits** — it matched `value`,
+`index`, `next_page`, anything. The second pass keeps a hit only when the
+same name is used in **arithmetic or a numeric comparison in the same
+file**, which is evidence the name is a number rather than a guess that
+it is. That gave **122**.
+
+**Of those 122, the honest count of live defects is zero.** They fall into
+three groups:
+
+| | what it is | verdict |
+|---|---|---|
+| **Division guards** — `(a / b) if b else …` | `b == 0` cannot be divided by | **correct.** `expense_ratio`, `noi_margin`, `per_unit`, `gap_pct`, `completion_pct`, `avg_rent`, `used_pct`, `equity_multiple`, `deduction_pct` are all this |
+| **Lists and strings** — `values`, `months`, `schedule`, `amounts`, `body` | not numbers | false positives of the name filter |
+| **Shortcuts whose zero branch is identical** | skipping does the same thing as running | **harmless**, checked individually |
+
+The third group is the one worth naming, because each looked like a hit
+and each had to be read rather than counted:
+
+* `waterfall_math.py` `if pref_rate:` — a **0% preferred return** is a
+  real deal structure, so this looked live. It is not: the loop it guards
+  computes `round(base * pref_rate)`, which is `0` for every year, so the
+  guarded and unguarded results are identical.
+* `site_dd_capex_export.py` `if l["total"]:` — a `0.0` line is added to
+  `by_source` and skipped for `by_category`, which is a genuine
+  asymmetry. It is numerically invisible: the omitted contribution is
+  `0.0`, so `priced_total` and the category breakdown still agree.
+* `underwriting_math.py` `if mgmt:` — a **0% management fee** is real
+  (self-managed), and `expenses += 0` is a no-op.
+* `debt_service / 12 if debt_service else 0.0`, twice — an all-cash deal
+  has `0`, and `0 / 12` is `0.0`.
+
+**So `if rate:` was the only member, and it is fixed.** That is a real
+negative result this time rather than a mis-scoped one — and it is worth
+noting the result is the same as Part 55's while the *reason to believe
+it* is completely different.
+
+#### The mirror class, which this sweep found and was not looking for
+
+**Twelve division guards return `0` for "cannot compute" rather than
+`None`**, conflating *the ratio is zero* with *there is no ratio*:
+
+    used_pct     = ((total - free) / total * 100) if total else 0.0
+    noi_margin   = df["NOI"].sum() / income_sum   if income_sum else 0
+    deduction_pct = (deductions / gpr * 100.0)    if gpr else 0.0
+    avg_rent     = total_rental / occupied        if occupied else 0.0
+
+This is falsy-zero **reversed**: not zero read as absent, but absent
+reported as zero. A property with no GPR shows a 0.0% deduction rate,
+which reads as *"nothing is being deducted"* rather than *"we cannot say"*
+— and that is the same failure the Site DD cost work spent several runs
+removing, arriving from the other direction. Several neighbouring guards
+in the same files correctly return `None`, so the codebase already knows
+the right answer and is inconsistent rather than wrong-headed.
+
+**Not fixed here.** It is a separate class, it changes what numbers appear
+on screens Michelle reads, and twelve call sites is its own run.
+
+
 
 
 ---
