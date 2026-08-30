@@ -92,7 +92,7 @@ BUCKET_PRICED_BY_SCOPE = "Priced by scope, not by this walk"
 BUCKET_NO_FIGURE = "No researched figure"
 
 
-def _line_label(item_key, instance_label, labels):
+def _line_label(item_key, instance_label, labels, scope_label=None):
     """What the budget calls this line.
 
     "ROOF COVERING — BUILDING 3", NOT "BUILDING 3"
@@ -108,14 +108,42 @@ def _line_label(item_key, instance_label, labels):
     So the two are joined when both exist and differ, and either one alone
     is used when it is all there is. A custom item has no catalogue label
     to join, so it still reads as just its own name.
+
+    AND THE SCOPE OF WORK, IN PARENTHESES, BECAUSE THREE PARTS NEED TWO
+    DIFFERENT SEPARATORS
+
+    A line can now carry three facts: what the item is, WHERE it is, and
+    WHICH JOB it needs. `Toilet — Powder room (Replace seat)`.
+
+    The design proposed suffixing the scope after an em dash, which was
+    written when the instance label REPLACED the item name. It no longer
+    does -- it is joined with an em dash -- so a suffix would produce
+    `Toilet — Powder room — replace seat`: two identical separators, and
+    no way to tell the place from the job. Parentheses for the scope keep
+    every shipped label byte-identical (`Roof covering — Building 3` is
+    unchanged and its tests still pass) while giving the third fact a
+    marker of its own.
+
+    The alternative -- parenthesise the PLACE and em-dash the job, which
+    is what the design sketch would become if followed literally -- reads
+    at least as well and was rejected only because it would rewrite labels
+    that are already shipped and verified against production data. Nothing
+    about the punctuation is load-bearing; not changing working output is.
+
+    `scope_label` is the inspector's own words, already looked up, and is
+    None when the scope must not be shown -- see the call site, where the
+    rule is that it never repeats what the `state` column is saying.
     """
     known = (labels or {}).get(item_key)
     instance = (instance_label or "").strip()
+    scope = (scope_label or "").strip()
     if not instance:
-        return known or item_key
-    if not known or known.strip().lower() == instance.lower():
-        return instance
-    return f"{known} — {instance}"
+        base = known or item_key
+    elif not known or known.strip().lower() == instance.lower():
+        base = instance
+    else:
+        base = f"{known} — {instance}"
+    return f"{base} ({scope})" if scope else base
 
 
 def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = None,
@@ -340,8 +368,27 @@ def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = 
 
         line = {
             "item_key": f.get("item_key"),
-            "label": _line_label(f.get("item_key"),
-                                 f.get("instance_label"), labels),
+            # THE SCOPE IS SHOWN ONLY WHEN `state` IS NOT ALREADY SAYING
+            # IT, AND THAT RULE IS DERIVED RATHER THAN LISTED.
+            #
+            # `state` below prints the CONDITION when there is a valid one
+            # and falls back to the DETAIL when there is not. So a choice
+            # finding -- a missing alarm -- already has its detail on the
+            # row, in that column, and repeating it in the label would
+            # give one row saying "Missing" twice.
+            #
+            # A scope finding is the other case: its condition is valid,
+            # so `state` prints "Replace" and the detail is nowhere. That
+            # is the one that belongs in the label.
+            #
+            # Written as a condition on `state`'s own rule rather than as
+            # a list of scope items, so adding a seventh scope item needs
+            # no edit here and cannot be forgotten.
+            "label": _line_label(
+                f.get("item_key"), f.get("instance_label"), labels,
+                detail_labels.get((f.get("item_key"), f.get("detail")))
+                if f.get("detail") and cond.is_valid(f.get("condition"))
+                else None),
             "category": cat,
             "category_name": cl.CATEGORY_NAMES.get(cat, "Uncategorised"),
             "condition": f.get("condition"),
