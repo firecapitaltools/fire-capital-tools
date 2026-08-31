@@ -141,7 +141,12 @@ def reference_for(finding: dict[str, Any],
     key = finding.get("bank_item_key") or finding.get("item_key")
     if detail is None:
         detail = finding.get("detail")
-    return refcosts.for_item(key, detail)
+    # AND THE CONDITION, ALWAYS FROM THE FINDING. Three items name their
+    # job with the condition because their detail carries presence
+    # instead -- a washer that is there and needs repairing is a service
+    # call, not a new machine. No caller overrides this: unlike flooring's
+    # material, a finding's condition is never stored on another row.
+    return refcosts.for_item(key, detail, finding.get("condition"))
 
 
 def apply_reference(finding: dict[str, Any],

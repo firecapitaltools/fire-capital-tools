@@ -248,7 +248,8 @@ def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = 
             # rather than only the rate, which is exactly what
             # COST_BY_DETAIL invites: "repaint" per square foot and
             # "replace drywall" per job on one item key.
-            known = refcosts.for_item(f.get("item_key"), f.get("detail"))
+            known = refcosts.for_item(f.get("item_key"), f.get("detail"),
+                                      f.get("condition"))
             unit = getattr(known, "unit", None)
 
         # AND WHEN A PERSON TYPED THE FIGURE, THEY GET TO SAY WHAT IT MEANS

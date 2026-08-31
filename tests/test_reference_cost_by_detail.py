@@ -157,9 +157,9 @@ class TheDetailComesFromTheFindingTests(unittest.TestCase):
         seen = {}
         real = refcosts.for_item
 
-        def spy(item_key, detail=None):
+        def spy(item_key, detail=None, condition=None):
             seen["args"] = (item_key, detail)
-            return real(item_key, detail)
+            return real(item_key, detail, condition)
 
         refcosts.for_item = spy
         try:
@@ -216,8 +216,10 @@ class TheExportNoLongerNamesFlooringTests(unittest.TestCase):
         from pathlib import Path
         src = Path(refcosts.__file__).parent / "site_dd_capex_export.py"
         code = re.sub(r"#.*", "", src.read_text(encoding="utf-8"))
-        self.assertIn('refcosts.for_item(f.get("item_key"), f.get("detail"))',
+        self.assertIn('refcosts.for_item(f.get("item_key"), f.get("detail")',
                       code)
+        # And the condition, for the three items whose detail is presence.
+        self.assertIn('f.get("condition"))', code)
 
 
 class TheOutputIsUnchangedTests(unittest.TestCase):
