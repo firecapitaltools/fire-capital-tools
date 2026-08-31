@@ -240,8 +240,9 @@ means restoring on production, which is not something to try for practice.
 * **The other eleven databases.** This runbook is Site DD. The same
   `VACUUM INTO` approach works for any of them; none has a snapshot taken
   by anything today.
-* **Uploaded files** under `/data/uploads` — 51 files, 1.9 MB, no
-  snapshot, no backup.
+* **Uploaded files** under `/data/uploads` — no snapshot, no backup.
+  *(52 files, 2.15 MB on 2026-08-31; `du -sh /data/uploads` answers it
+  and this line will not be maintained.)*
 * **`users.json`** — the account store. Same.
 
 **Those are real gaps.** They are not this runbook's job to fix, and they
