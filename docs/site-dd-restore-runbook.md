@@ -3,6 +3,41 @@
 **For someone who is worried and in a hurry. Read §0, then go to the
 section that matches.**
 
+> # BEFORE ANYTHING ELSE: WHAT THIS RUNBOOK DOES NOT COVER
+>
+> **This document covers `site_dd.db` and nothing else.** If what you have
+> lost is not Site DD, the honest answer is that there is no snapshot of
+> it, and you should learn that here rather than by reading three
+> sections and finding no instructions.
+>
+> | | snapshot exists? |
+> |---|---|
+> | `site_dd.db` | **yes** — taken automatically before every seed, plus hand-taken ones. §2 and §3 below |
+> | the other **eleven** databases | **no.** underwriting, deal_dive, investor_report, investor_notes, market_data_cache, scorecard_pro_history, fire_metrics, feedback, rent_comps, app_settings, openai_usage |
+> | `/data/uploads` — 52 files, 2.1 MB | **no** |
+> | `/data/users.json` — the account store | **no** |
+> | platform-level volume backups | **no, and not purchasable on this plan** — known-issue 3 |
+>
+> **`/data/backups` also holds four `keep-` files** — hand copies of
+> deal_dive, investor_notes, underwriting and site_dd taken on 12–17
+> August. They are point-in-time copies of a world three weeks old, not
+> a backup regime. Their contents are listed under *Where snapshots
+> live*.
+>
+> **Why the gap exists, so nobody assumes it was an oversight.** The Site
+> DD snapshot hangs off `apply_seed`, the one write in this application
+> big enough to justify copying a database first. The other eleven are
+> written a form at a time, and **there is no scheduler in this platform**
+> — no cron, no timer, no background job that is not a human clicking
+> something. So there is nowhere for an automatic snapshot of them to
+> hang.
+>
+> **What that is NOT is a cost problem.** Measured 2026-08-31: a
+> `VACUUM INTO` of all twelve databases is content-identical, takes
+> **16 ms**, and the whole set plus a gzipped copy of `uploads` and
+> `users.json` is **2.45 MB** against 4,816 MB free. If somebody decides
+> to snapshot everything, nothing about the volume argues against it.
+
 **There is no platform backup.** The workspace is on Railway's Hobby plan
 and `maxBackupsCount` is `0` — see known-issues entry 3. Everything below
 is application-level and is the whole of the recovery story.
@@ -245,8 +280,15 @@ means restoring on production, which is not something to try for practice.
 ## §5 — What is not covered
 
 * **The other eleven databases.** This runbook is Site DD. The same
-  `VACUUM INTO` approach works for any of them; none has a snapshot taken
-  by anything today.
+  `VACUUM INTO` approach works for any of them — **verified on all twelve
+  on 2026-08-31, content-identical, 16 ms for the set** — and none has a
+  snapshot taken by anything today. What is missing is a trigger, not a
+  mechanism: see HANDOFF, *The other eleven*.
+
+  **If you are about to do something risky, take one by hand first.**
+  There is no command for this yet; the shape is one `VACUUM INTO` per
+  file, exactly as §0 does for Site DD, into `/data/backups` with a
+  `keep-` name so the pruner cannot reach it.
 * **Uploaded files** under `/data/uploads` — no snapshot, no backup.
   *(52 files, 2.15 MB on 2026-08-31; `du -sh /data/uploads` answers it
   and this line will not be maintained.)*
