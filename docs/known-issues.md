@@ -131,14 +131,18 @@ production system is a worse problem than the one being investigated.
 **What is believed.** The two errors in the deployed test run are
 environmental, not defects, so a run showing exactly two is a pass.
 
-**What is actually known.** The deployed suite runs 1918 tests and errors
-on exactly two, both in
+**What is actually known.** The deployed suite errors on **exactly two**
+tests, both in
 `tests.test_fire_metrics_ai_summary.FireMetricsAISummaryTests`:
 `test_frontend_cre_runtime_success_payload_and_stale_overlap_do_not_fallback_to_failure`
 and `test_frontend_overview_and_cre_are_single_authority_runtime_matrix`.
 Both exercise frontend runtime behaviour and need `node`, which is not
-installed in the production image. The count has been stable across
-Parts 55 and 57.
+installed in the production image. **The two have been stable from Part
+55 to Part 84**; the suite TOTAL is not, and is not recorded here on
+purpose — it was "1918" in this entry while the real figure passed 2,400,
+and the total is bookkeeping where the two is the invariant. Run
+`railway ssh "python -m unittest discover -s tests -t ."` and read the
+error count, not the total.
 
 **Why it is not settled.** "Needs node" is the standing explanation and
 it fits, but the assertion has been taken on trust rather than
@@ -209,6 +213,18 @@ or measured rather than inferred:
 
 **Why it is not settled.** Nothing has changed and nothing here can
 change it.
+
+> **NOT RE-VERIFIED on 2026-08-31, and that is recorded rather than
+> glossed.** The Part 84 audit tried to re-run the reads above and the
+> GraphQL API answered `Not Authorized` on `me` itself — this project's
+> own documented signature of a stale credential, not of an entitlement
+> boundary — with a token whose recorded expiry was still eighteen
+> minutes away, and `railway status` did not change it although the CLI
+> works. **So the call says nothing either way about the plan**, and
+> inferring "still zero" from a failed request would be the Part 74 error
+> pointing the other way. What is observable without the API: `/data/backups`
+> contains only files this application wrote, and no platform backup has
+> appeared. The entry stands; the check wants a working credential.
 
 **Cost if wrong.** Total, unrecoverable loss of every deal, scenario,
 assessment and uploaded file, with no platform-level recovery of any kind.

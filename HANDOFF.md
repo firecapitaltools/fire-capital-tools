@@ -1,6 +1,13 @@
 # FIRE Capital Tools — handoff
 
-**Written 2026-08-17, updated 2026-08-18. Master at `66b2d1e`.**
+**Written 2026-08-17. Audited against the running system 2026-08-31 —
+see the audit note at the end of this section.**
+
+> **NO SHA HERE ON PURPOSE.** This line used to end *"Master at
+> `66b2d1e`"*, which was true for one afternoon and read as current for
+> two weeks. `git log -1 --oneline master` answers it and cannot be
+> stale. Same reason the branch table below was deleted rather than
+> corrected.
 
 This replaces an earlier handoff that had gone substantially stale. That
 document's errors cost real investigation time: it had the repo under the
@@ -57,7 +64,13 @@ deployed and verified against production before moving on.
 | `e71d382` | **Manual-cost rate fix** — the unit belongs to the item |
 | `aa2be2d` | **Notetaker sections v2** — CapEx Update, Next Steps, prompt v2 |
 
-**Deployed test suite: 1450 tests, OK, 19 skipped.**
+**Deployed test suite: run it, do not read it.**
+`railway ssh "python -m unittest discover -s tests -t ."` — the count
+moves with every merge and was recorded here as `1450` for long enough
+to be wrong by a thousand. **The invariant worth remembering is not the
+count: it is that exactly TWO tests error, both needing `node`, both in
+`test_fire_metrics_ai_summary`** (known-issue 2). A third failure is the
+signal; the total is bookkeeping.
 
 ### Word export (`9e8fdc5`)
 
@@ -501,7 +514,16 @@ and it costs real OpenAI spend against the **$60/month** budget.
 Separately: the update page renders `section.name` from the **stored**
 JSON, so existing updates keep old headings regardless.
 
-~~**5. Refi fee base.**~~ **CLOSED.** She answered — split the bank's
+**5. Investor Report — four asks nobody transcribed.** From her in-app
+feedback of 2026-08-16, found in the feedback table during the Part 84
+audit and never recorded until now: remove the top description; a section
+to upload all the notetaker reports for a timeframe; **the ability to add
+a new property/deal**; and a Word template for the individual updates.
+**Not blocked on her — blocked on us reading it.** The third overlaps
+item 3 above and is evidence about what she wants there. Nothing has been
+costed, refused or acknowledged.
+
+~~**6. Refi fee base.**~~ **CLOSED.** She answered — split the bank's
 point out as its own line — and it shipped. Recorded here rather than
 deleted because this list was read forward for two weeks with it still
 on it.
@@ -847,10 +869,12 @@ is a part of the other.
    organisation-level multi-tenancy.
 2. **Does sharing mean full access or read-only?** The backlog raised this
    and it was never answered.
-3. **What happens to what already exists?** Ten scenarios, four
-   assessments, two deals, twelve cached lookups and three properties of
-   history currently belong to nobody. They have to become somebody's, and
-   only she can say whose.
+3. **What happens to what already exists?** Everything currently belongs
+   to nobody and has to become somebody's, and only she can say whose.
+   *(Counted 2026-08-31: ten scenarios, **five** assessments, two deals,
+   **fourteen** cached lookups, three properties of history — and one
+   signup account, Beckett's. The shape of the question does not move
+   with the counts; they are here as scale, not as facts to maintain.)*
 
 Not scoped and not estimated. The one thing sayable without her: it
 touches every table and every route, and there is nothing partial to build
@@ -1545,7 +1569,9 @@ aimed at a code path the problem does not use.
 The duplicate rows came from the **Rent Comps standalone search box**,
 which takes a free-text address whenever no `deal_id` is supplied.
 Production has two deals; neither is Steiner or Belvedere, and **ten of
-twelve cached rows correspond to no deal at all**. A canonicaliser on
+twelve cached rows correspond to no deal at all** *(counted 2026-08-19;
+the cache holds fourteen rows as of 2026-08-31 — the argument is about
+the ten, not about the total)*. A canonicaliser on
 `new_deal()` / `edit_deal()` would have run **zero times** against the
 addresses that actually collided — and could not have merged them anyway,
 since they differ by the street-type suffix that the same decision
@@ -2755,7 +2781,21 @@ hashes the summary, each line's visible fields, and every XLSX cell.
 
 ```
 2026-08-20  ce25f0d9ad5de0e8  -> d0b8436a3998f63b   (Part 39 Step B)
+2026-08-31  d0b8436a3998f63b  -> f426f40c3219e1e5   (scope pricing: two
+                                UNPRICED reasons rewritten on the
+                                reference sheet; her budget line
+                                unchanged)
+2026-08-31  f426f40c3219e1e5  -> f7b1c2b4d3db4e0b   (disclosure: 16 rows
+                                added to the reference sheet, 2 to the
+                                not-priced sheet; her budget line
+                                unchanged)
 ```
+
+**Both 2026-08-31 moves were verified by diffing the export blob rather
+than by reasoning about them, and in both the LINES and the SUMMARY were
+byte-identical** — the appendix sheets grew and the budget did not move.
+That is the signature this pair of fingerprints exists to produce: the
+data hash held at `f6451ecb366f6ab4` throughout.
 
 The two are independent on purpose. The data hash held steady across that
 change while the export hash moved, which is the correct signature for a
@@ -2763,7 +2803,10 @@ wording change: her walk did not change, what the budget says about it
 did.
 
 **Assessment 11 is Michelle's live work.** Nabob Hill, inspector MJ,
-2026-08-16, one unit, one kitchen, 23 findings. Read-only, always. Its
+2026-08-16, one unit, one kitchen, 23 findings. Read-only, always.
+*Re-verified 2026-08-31: still 23 findings, data fingerprint
+`f6451ecb366f6ab4`, unchanged through the seeding work and the scope
+pricing.* Its
 `property_label` created a 12th entry in the notetaker property registry
 and does not resolve to Deal Dive deal 2 (1120 Jackson Street) *by label*,
 which is plausibly the same building.
@@ -4246,6 +4289,100 @@ mix by layout, and the answer belongs in the file rather than here.
 
 ---
 
+## The Part 84 audit: this file checked against the system it describes
+
+**Every claim below was answered by a tool or the database on
+2026-08-31, not re-read.** The prompt for it was `uw-refi-cashout`: a
+branch merged on 18 August and described as blocked for two weeks.
+
+| claim | what this file said | what is true | how |
+|---|---|---|---|
+| master's SHA | `66b2d1e` | `8cdde1a`, and it will be something else tomorrow | `git log -1 master` |
+| deployed suite | "1450 tests, OK, 19 skipped" | 2,485 tests, 2 errors, 22 skipped | ran it |
+| known-issue 2 | "runs 1918 tests" | same, and the count is not the point | ran it |
+| assessments | "four" | **five** — 21 was created by the seed | `COUNT(*)` |
+| cached lookups | "twelve" | **fourteen** | `COUNT(*)` |
+| uploaded files | "51 files, 1.9 MB" | **52 files, 2.15 MB** | `os.walk('/data/uploads')` |
+| snapshots | "3 files, 270 KB" | **7 files** after the Part 82 move | `ls /data/backups` |
+| a11 export hash | `d0b8436a3998f63b` | `f7b1c2b4d3db4e0b`, moved twice on 08-31 | recomputed |
+| a11 data hash | `f6451ecb366f6ab4` | **unchanged** | recomputed |
+| **rendered-state token** | **"do not build until one of three things is true"** | **built in Part 67, guarding all three routes** | grepped the routes |
+| per-account columns | "none in any of the twelve databases" | still none | every table, every DB |
+| properties table | "there is no properties table anywhere" | still none (`property_aliases` is the notetaker's) | every table, every DB |
+| `SOURCE_SITE_DD` | "nothing writes it" | still nothing — the one hit is prose | grep, then read the line |
+| `to_capex_lines` | "nothing calls it" | still nothing — four hits, all comments | grep, then read the lines |
+| Site DD Lite | "nothing consumes `status` as a filter" | still nothing | grep |
+| deals / scenarios | two / ten | two / ten | `COUNT(*)` |
+| assessment 11 | one unit, one kitchen, 23 findings | unchanged | `COUNT(*)` |
+| databases on the volume | twelve | twelve | `ls /data/*.db` |
+| Entrata sample | "we have never seen one" | still true — six upload dirs, none Entrata | `ls -R /data/uploads` |
+| known-issue 3 | Hobby plan, `maxBackupsCount` 0 | **could not be re-verified — see below** | GraphQL denied |
+
+### The one that matters: a summary that outlived its discussion
+
+*The three deleting routes* was marked **✅ RESOLVED 2026-08-29** — the
+condition fired, the token was built, all three routes are guarded, and
+the entry says so at length. **The one-line version in *Open operational
+items* still said "do not build it".**
+
+That entry ends with the words *"the two must say the same thing"* and a
+link to the rule about it. **It is the rules-stated-twice failure
+happening inside the entry that warns about it**, which is worth more than
+the two days it was wrong for: the discussion was updated by the person
+who did the work, and the summary was not, because a summary is not where
+you are when you finish something.
+
+**Same shape as `uw-refi-cashout`, and that is now three instances**
+(Entrata, the deleting routes, the branch table). The common factor is
+never a wrong belief — it is an entry whose truth is owned somewhere else
+and copied here.
+
+### What could not be checked, stated rather than assumed
+
+**Known-issue 3 was not re-verified.** The Railway GraphQL API answered
+`Not Authorized` on `me` itself with a token whose recorded expiry was
+eighteen minutes away, and `railway status` — which this file names as
+the refresh — did not change that, though the CLI itself works. That is
+this file's own documented signature of a stale credential rather than of
+an entitlement boundary, so **it says nothing either way about the plan**,
+and inferring "still zero backups" from a failed call would be the
+Part 74 error in the other direction.
+
+What IS observable without the API: `/data/backups` holds only files this
+application wrote, and no platform backup has appeared. Treat the entry as
+standing, and re-run the check from the CLI's own session when somebody
+next needs it.
+
+### Michelle has been waiting in the feedback table since 16 August
+
+**Feedback row 3, Investor Report, 2026-08-16 — four requests, recorded
+nowhere in this file:**
+
+1. remove the top description;
+2. **a section to upload all the notetaker reports for a timeframe**;
+3. **the ability to add a new property/deal**;
+4. a Word template for the individual updates — property, financial,
+   market, community events, next steps.
+
+Row 2 (Site DD, same evening) IS recorded and drove the property-header
+and rent-roll work. **Row 3 was never transcribed**, so the planning lists
+have never contained it and it has never been costed or refused. Item 3 in
+particular bears directly on the properties question that is currently
+listed as *blocked on Michelle*: she has already said she wants to add
+properties, which is an argument about the answer nobody was reading.
+
+**The irony is exact and worth keeping.** `feedback_db.list_feedback()`
+was one of the five features that shipped correct and unreachable, and the
+sweep that found it is one of this project's instruments. The reader was
+fixed; **the habit of reading what it returns was not.**
+
+> **Add to the start-of-run checks: read the feedback table.** It is three
+> rows and one query, it is the only channel where a user writes to us
+> unprompted, and its contents have twice turned out to be the most
+> load-bearing thing available.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
@@ -4318,16 +4455,15 @@ regression of this one. Do not spend further time reconciling it.
   sample file, and nothing else. Full statement in *Revised cost
   estimates* below; **the two must say the same thing — see
   [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
-- **Do not build the rendered-state token for `save_loans`, `save_capex`
-  and `save_gp_partners` until one of three things is true.** Those routes
-  delete omitted rows, and absent-means-unchanged is the WRONG fix because
-  omission is how those forms express removal. **The exit criterion is any
-  ONE of: per-account data ships; a second person can log in; or one of
-  those pages joins a two-person workflow.** Until then the back-button
-  path is closed by `no-store` and the exposure is one user with two tabs.
-  Full statement under *The three deleting routes* above; **the two must
-  say the same thing — see
-  [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
+- ~~**Do not build the rendered-state token for `save_loans`,
+  `save_capex` and `save_gp_partners`.**~~ **BUILT. The criterion fired on
+  2026-08-27 and the token shipped in Part 67**, guarding all three routes
+  — `underwriting.save_loans`, `underwriting.save_capex` and
+  `investor_report.save_gp_partners` — verified in the code, not recalled.
+  **This line stayed as a prohibition for two days after the discussion
+  above was marked resolved**, which is the rules-stated-twice failure
+  that this very entry warned about: the two statements must move
+  together and only one of them did. Found in the Part 84 audit.
 - **Do not rework P&L column-year assignment until a file arrives whose
   columns carry no year.** The fix is to walk the period forward from its
   start month rather than resolve each column against one default. A T12
