@@ -439,15 +439,36 @@ def generate_advanced_insights(df_filtered, accounts, targets=None):
         series_pd = pd.Series(series, dtype="float64")
         total_val = float(series_pd.sum())
 
+        # NONE MEANS "CANNOT BE COMPUTED", AND BOTH BRANCHES MEAN IT.
+        #
+        # This returned 0.0 twice, for two different unknowns, and 0.0 is
+        # a real answer to this question: a category that spent the same
+        # in both halves genuinely did not change. So a category with
+        # nothing in its first half read as "no change", and one month of
+        # data read as "no change", and neither was distinguishable from
+        # the category that truly held steady.
+        #
+        # `_pct_change` in processing.py -- same package, same quantity
+        # between two points rather than two halves -- has always returned
+        # None for a zero base, its caller guards on `is not None`, and
+        # the template already handles a null NOI change. This brings the
+        # outlier onto the rule written beside it.
+        #
+        # BOTH BRANCHES ARE NONE AND THAT COLLAPSE IS DELIBERATE. "No
+        # base to divide by" and "one month, no halves" are different
+        # reasons and the same fact: there is no percentage here. What
+        # was wrong before was not that they shared a value; it was that
+        # the value they shared was a number.
+        pct_change = None
         if len(series_pd) >= 2:
             mid_point = len(series_pd) // 2
             first_half_avg = series_pd.iloc[:mid_point].mean()
             last_half_avg = series_pd.iloc[mid_point:].mean()
-            pct_change = (last_half_avg - first_half_avg) / abs(first_half_avg) if first_half_avg != 0 else 0.0
-        else:
-            pct_change = 0.0
+            if first_half_avg != 0:
+                pct_change = (last_half_avg - first_half_avg) / abs(first_half_avg)
 
-        return {"name": name, "total": total_val, "pct_change": float(pct_change)}
+        return {"name": name, "total": total_val,
+                "pct_change": None if pct_change is None else float(pct_change)}
 
     categories = [
         (["4000", "4100", "4110"], "Rental Income"),
@@ -464,8 +485,11 @@ def generate_advanced_insights(df_filtered, accounts, targets=None):
 
     key_trends = []
     for cat in analyzed_cats:
+        # A category whose trend cannot be computed is not a category
+        # that held steady, so it produces no trend line at all. Same
+        # guard shape as occ_avg and expense_ratio_avg below.
         change = cat["pct_change"]
-        if abs(change) >= 0.03:
+        if change is not None and abs(change) >= 0.03:
             direction = "increased" if change > 0 else "decreased"
             is_income = "Income" in cat["name"]
             is_good = (change > 0) if is_income else (change < 0)
@@ -539,12 +563,18 @@ def generate_advanced_insights(df_filtered, accounts, targets=None):
             green_flags.append(f"NOI on track vs {label} ({variance_pct:+.1%})")
 
     for cat in analyzed_cats:
-        if "Utilities" in cat["name"] and cat["pct_change"] > 0.10:
-            red_flags.append(f"Utilities spiked {cat['pct_change']:.1%}")
-        if "Payroll" in cat["name"] and cat["pct_change"] > 0.10:
-            red_flags.append(f"Payroll up {cat['pct_change']:.1%}")
-        if "Rental Income" in cat["name"] and cat["pct_change"] > 0.05:
-            green_flags.append(f"Rental Income up {cat['pct_change']:.1%}")
+        # `None > 0.10` raises in Python 3, so these guards are not
+        # tidiness -- they are what keeps the whole insights card from
+        # failing on a category with a zero first half.
+        change = cat["pct_change"]
+        if change is None:
+            continue
+        if "Utilities" in cat["name"] and change > 0.10:
+            red_flags.append(f"Utilities spiked {change:.1%}")
+        if "Payroll" in cat["name"] and change > 0.10:
+            red_flags.append(f"Payroll up {change:.1%}")
+        if "Rental Income" in cat["name"] and change > 0.05:
+            green_flags.append(f"Rental Income up {change:.1%}")
 
     recommendations = []
     if occ_avg is not None and occ_avg < 0.90:
@@ -554,6 +584,8 @@ def generate_advanced_insights(df_filtered, accounts, targets=None):
 
     for cat in analyzed_cats:
         change = cat["pct_change"]
+        if change is None:
+            continue
         if "Utilities" in cat["name"] and change > 0.05:
             recommendations.append(f"Utilities: Audit water/HVAC usage and validate vendor billing (trend {change:+.1%}).")
         if "Contract" in cat["name"] and change > 0.10:
