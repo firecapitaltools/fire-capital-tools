@@ -633,6 +633,32 @@ CONDITION_COSTS: dict[tuple[str, str], ReferenceCost] = {
         "element, thermal fuse, belt and start switch.", "2026-08-31"),
 }
 
+# WHY A DECLINED SCOPE WAS DECLINED, in the line's own words.
+#
+# UNPRICED_DETAIL says "do not fall back". It did not say WHY, and the
+# export has no item-level reason to fall back on when the ITEM is priced
+# and only the scope is not -- so the line printed "No cost was recorded
+# on this finding", which is a statement about the inspector rather than
+# about the research. Found by walking a seeded unit on paper and reading
+# the output, which is what that exercise is for.
+#
+# The same silence covered `flooring` + `concrete` from Part 62 onward:
+# the reason lives under the item key `concrete_flooring`, and a
+# `flooring` finding never looks there.
+UNPRICED_DETAIL_REASONS: dict[tuple[str, str], str] = {
+    ("entry_door", "tighten_hardware"): (
+        "Tightening hinges or a strike plate is an adjustment rather than "
+        "a job, and no source publishes a figure for it — a call-out "
+        "minimum would dominate anything they did publish. Deliberately "
+        "not priced at the item's $1,450, which is a new entry door."),
+    ("flooring", "concrete"): (
+        "Sealed and polished concrete range too widely to average, so this "
+        "material is deliberately not priced. It does NOT inherit the "
+        "general flooring rate, because that would be a researched-looking "
+        "figure for a job we declined to quote."),
+}
+
+
 # The scope entries join the same two tables the flooring materials use,
 # so there is one lookup and one set of rules rather than a second
 # mechanism that behaves almost the same.
@@ -801,6 +827,17 @@ NOT_A_COST_ITEM: dict[str, str] = {
 
 
 # ── Lookup ───────────────────────────────────────────────────────────────
+
+def detail_reason(item_key: str, detail: str | None) -> str:
+    """Why this (item, detail) pair carries no figure, or "".
+
+    Only ever answers for a pair we DECLINED. A pair nobody researched
+    falls back to the item's price and so has nothing to explain.
+    """
+    if not detail:
+        return ""
+    return UNPRICED_DETAIL_REASONS.get((item_key, detail), "")
+
 
 def for_item(item_key: str, detail: str | None = None,
              condition: str | None = None) -> ReferenceCost | None:
