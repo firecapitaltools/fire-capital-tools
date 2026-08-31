@@ -399,39 +399,47 @@ class TheFindingsPreservedNumberTests(SeedTestCase):
             sdb.upsert_findings(conn, self.aid, rows)
         return area
 
-    def test_the_two_counts_differ_and_that_is_the_bug(self):
+    def test_the_three_counts_differ_and_each_answers_its_own_question(self):
+        """15 answered, 23 rows, 16 with something in them -- the note on
+        an unanswered row is the sixteenth."""
         area = self.area_with_mixed_findings()
         with sdb.get_connection() as conn:
             self.assertEqual(sdb.area_finding_count(conn, area), 15)
             self.assertEqual(sdb.area_finding_rows(conn, area), 23)
+            self.assertEqual(sdb.area_findings_with_content(conn, area), 16)
 
-    def test_the_reconcile_reports_EVERY_row_as_preserved(self):
-        area = self.area_with_mixed_findings()
+    def reconcile_as_the_route_does(self):
+        """Through `_seed_read_state`, so this test reads the same number
+        the screen does rather than one chosen here."""
+        from tools import site_dd
         plan = seed.plan_units([unit("1", "2/1.5 RENOVATED")])
-        with sdb.get_connection() as conn:
-            areas = sdb.list_areas(conn, self.aid)
-            rooms = {a["id"]: sdb.list_rooms(conn, a["id"]) for a in areas}
-            finds = {a["id"]: sdb.area_finding_rows(conn, a["id"]) for a in areas}
-        rec = seed.plan_reconcile(plan, areas, rooms, finds)
-        self.assertEqual(rec["areas"][0].findings_preserved, 23)
-        self.assertEqual(rec["findings_preserved"], 23)
+        areas, rooms, finds = site_dd._seed_read_state(self.aid)
+        return plan, seed.plan_reconcile(plan, areas, rooms, finds)
 
-    def test_and_the_write_really_does_preserve_all_23(self):
-        """The number and the reality, checked against each other rather
-        than the number being trusted."""
-        area = self.area_with_mixed_findings()
-        plan = seed.plan_units([unit("1", "2/1.5 RENOVATED")])
-        with sdb.get_connection() as conn:
-            areas = sdb.list_areas(conn, self.aid)
-            rooms = {a["id"]: sdb.list_rooms(conn, a["id"]) for a in areas}
-            finds = {a["id"]: sdb.area_finding_rows(conn, a["id"]) for a in areas}
-        rec = seed.plan_reconcile(plan, areas, rooms, finds)
+    def test_the_reconcile_reports_WHAT_SOMEBODY_PUT_THERE(self):
+        """Was 23, the row count, and 23 was true about rows and wrong
+        about work: 8 of them exist only because a page was saved. The
+        preview now says 16."""
+        self.area_with_mixed_findings()
+        _, rec = self.reconcile_as_the_route_does()
+        self.assertEqual(rec["areas"][0].findings_preserved, 16)
+        self.assertEqual(rec["findings_preserved"], 16)
+
+    def test_and_the_write_really_does_preserve_all_23_rows(self):
+        """The number on the screen counts content; the write still
+        touches nothing at all. Both are checked, because the screen
+        saying 16 must not become the write keeping 16."""
+        self.area_with_mixed_findings()
+        plan, rec = self.reconcile_as_the_route_does()
         promised = rec["findings_preserved"]
         sw.apply_seed(self.aid, plan, rec, form=self.token())
         with sdb.get_connection() as conn:
-            actually = len(sdb.list_all_findings(conn, self.aid))
-        self.assertEqual(promised, actually)
-        self.assertEqual(actually, 23)
+            rows = sdb.list_all_findings(conn, self.aid)
+            content = sdb.area_findings_with_content(
+                conn, sdb.list_areas(conn, self.aid)[0]["id"])
+        self.assertEqual(len(rows), 23, "the write lost rows")
+        self.assertEqual(promised, content)
+        self.assertEqual(promised, 16)
 
     def test_an_unanswered_row_carrying_a_note_is_somebodys_work(self):
         """The reason the answered-only count is the wrong instrument: a
@@ -442,19 +450,26 @@ class TheFindingsPreservedNumberTests(SeedTestCase):
                      if f["note"] and f["condition"] is None]
         self.assertTrue(notes)
 
-    def test_the_preview_and_the_apply_both_use_the_row_count(self):
-        """COMMENTS STRIPPED FIRST. The code's own comment explains that
-        it used to call `area_finding_count`, so a raw substring search
-        finds the explanation rather than a call -- the collision this
-        codebase has hit repeatedly. Checked on the AST.
+    def test_the_preview_and_the_apply_both_use_the_content_count(self):
+        """COMMENTS STRIPPED FIRST. The code's own comment names all
+        three counts, so a raw substring search finds the explanation
+        rather than a call -- the collision this codebase has hit
+        repeatedly. Checked on the AST.
 
-        WIDENED when the apply route landed. The read moved into
-        `_seed_read_state`, which the preview and the write now share --
-        and sharing it is the point: two independent reads of "what does
+        THIS TEST HAS NOW BEEN REWRITTEN TWICE, and that is the useful
+        thing about it. It pins WHICH counter the screen uses, and the
+        answer changed as the question got better: answered-only
+        understated what a 152-unit write protects; every row overstated
+        it, because saving a page materialises a row per item. Each
+        rewrite was a decision being recorded, not a test being bent to
+        fit the code -- the assertion is one line and the reason it moved
+        is in the commit.
+
+        WIDENED when the apply route landed: the read lives in
+        `_seed_read_state`, which the preview and the write share, and
+        sharing it is the point -- two independent reads of "what does
         this assessment already hold" is how the screen and the write
-        come to disagree. So the assertion is over the whole seeding path
-        rather than over one function, and it fails if either half grows
-        its own count.
+        come to disagree.
         """
         import ast, inspect, textwrap
         from tools import site_dd
@@ -464,6 +479,7 @@ class TheFindingsPreservedNumberTests(SeedTestCase):
             tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
             called |= {getattr(n.func, "attr", None) or getattr(n.func, "id", None)
                        for n in ast.walk(tree) if isinstance(n, ast.Call)}
-        self.assertIn("area_finding_rows", called)
+        self.assertIn("area_findings_with_content", called)
+        self.assertNotIn("area_finding_rows", called)
         self.assertNotIn("area_finding_count", called)
         self.assertIn("_seed_read_state", called)

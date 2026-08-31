@@ -1290,7 +1290,7 @@ def area_finding_count(conn: sqlite3.Connection, area_id: int) -> int:
 
     `condition IS NOT NULL` is deliberate and is why this is not the
     function to use for "how much work would survive" -- see
-    `area_finding_rows()` below. Saving a room writes a row for every
+    `area_finding_rows()` and `area_findings_with_content()` below. Saving a room writes a row for every
     checklist item, so an area can hold dozens of rows and two answers,
     and "is copy-layout still safe to offer" is a question about answers.
     """
@@ -1344,6 +1344,88 @@ def list_seed_batches(conn: sqlite3.Connection, assessment_id: int) -> list[dict
     return out
 
 
+# WHAT COUNTS AS SOMETHING A PERSON PUT THERE.
+#
+# Three questions about one table, and this is the third:
+#
+#   area_finding_count  -- how many ANSWERED items are there?  (condition
+#                          IS NOT NULL; the copy-layout question)
+#   area_finding_rows   -- how many ROWS are there?  (what a write leaves
+#                          alone; the seeding question as first fixed)
+#   area_findings_with_content -- how many rows has somebody actually put
+#                          something into?
+#
+# The third exists because the first two are both right and neither
+# answers "how much work is here". Opening a page and saving it writes a
+# row for every item in scope -- 60 of them from three empty saves -- so
+# a row count reads as effort that was never spent, and an answered-only
+# count misses a note, a cost or a photo recorded without a condition.
+#
+# EVERY COLUMN BELOW WAS CHECKED AGAINST WHAT AN EMPTY SAVE ACTUALLY
+# WRITES, rather than reasoned about:
+#
+#   * `measure` IS WRITTEN BY THE ROUTE, NOT BY A PERSON. An empty save
+#     produced 'gal' and 'yr' on rows nobody had touched -- a NUMBER
+#     item's unit comes from the catalogue, as site_dd_capex_export
+#     ._stated_cost_unit already records. So measure alone is not
+#     content, and only a quantity makes it one.
+#   * `est_cost_source` is written as 'none' by the same empty save, so
+#     it counts only when it says something else.
+#   * `instance_no`, `instance_label` and `bank_item_key` came back 1,
+#     NULL and NULL, so a second instance, a typed instance name and a
+#     bank pick are all deliberate acts and all count.
+#
+# ZERO IS A REAL ANSWER AND EMPTY IS NOT.
+#
+#   * a zero cost is a cost -- somebody wrote down that this costs
+#     nothing, which is the falsy-zero rule this codebase has now had
+#     wrong in both directions;
+#   * a zero quantity is treated the same way and for the same reason:
+#     `to_float` returns None for a blank field, so a 0 was typed;
+#   * an empty string is not a note. TRIM(x) <> '' rather than
+#     x IS NOT NULL, because a form posts '' for a field somebody
+#     cleared.
+#
+# AND A PHOTO IS CONTENT ON ITS OWN. You photograph the crack, then
+# decide what it is -- site_dd_media's own comment says captures often
+# precede the finding row. A finding carrying a photo and nothing else is
+# a real state on a real walk, and it is work.
+_FINDING_CONTENT_SQL = """
+       TRIM(COALESCE(f.condition, '')) <> ''
+    OR TRIM(COALESCE(f.detail, '')) <> ''
+    OR TRIM(COALESCE(f.note, '')) <> ''
+    OR TRIM(COALESCE(f.instance_label, '')) <> ''
+    OR f.quantity IS NOT NULL
+    OR f.est_unit_cost IS NOT NULL
+    OR (f.est_cost_source IS NOT NULL
+        AND TRIM(LOWER(f.est_cost_source)) NOT IN ('', 'none'))
+    OR f.bank_item_key IS NOT NULL
+    OR COALESCE(f.instance_no, 1) > 1
+    OR EXISTS (SELECT 1 FROM site_dd_media m WHERE m.finding_id = f.id)
+"""
+
+
+def area_findings_with_content(conn: sqlite3.Connection, area_id: int) -> int:
+    """Findings in this area that somebody has put something into.
+
+    The number to show when telling a person how much recorded work a
+    write will leave alone. See the note above for what counts and, more
+    usefully, for what does not and why.
+
+    IT IS NOT A REPLACEMENT FOR EITHER OF THE OTHER TWO. `area_finding_count`
+    answers a question about answers and gates copy-layout;
+    `area_finding_rows` answers a question about rows and is the honest
+    number for "what survives". This one answers "what did anybody
+    actually do here", which is what a person reads off a screen that
+    says *findings preserved*.
+    """
+    row = conn.execute(
+        f"SELECT COUNT(*) AS n FROM site_dd_findings f "
+        f"WHERE f.area_id = ? AND ({_FINDING_CONTENT_SQL})",
+        (area_id,)).fetchone()
+    return int(row["n"] or 0)
+
+
 def area_finding_rows(conn: sqlite3.Connection, area_id: int) -> int:
     """EVERY finding row in this area, answered or not.
 
@@ -1359,6 +1441,20 @@ def area_finding_rows(conn: sqlite3.Connection, area_id: int) -> int:
     An unanswered row is still a row: it can carry a note, a cost or a
     measurement without a condition, and even an empty one is a row the
     seed does not touch. "Preserved" means every row that survives.
+
+    IT IS NOT THE NUMBER TO PUT IN FRONT OF A PERSON, and that was found
+    later: opening a page and saving it materialises a row per item, so
+    this count reads as effort nobody spent. `area_findings_with_content()`
+    is the one the preview shows; this one remains the honest answer to
+    "how many rows survive", which is a different question.
+
+    NOTHING IN PRODUCTION CALLS IT TODAY -- the preview was its only
+    caller and has moved to the content count. It is kept rather than
+    deleted because nothing else answers its question: a restore, a
+    migration or any "did every row survive" check wants exactly this,
+    and the counts either side of it answer something narrower. Said here
+    rather than left for a reader to infer, per the waiting-half
+    convention.
     """
     row = conn.execute(
         "SELECT COUNT(*) AS n FROM site_dd_findings WHERE area_id = ?",
