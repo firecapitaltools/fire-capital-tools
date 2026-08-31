@@ -4703,6 +4703,13 @@ written.
 
 ## An inference that becomes indistinguishable from a fact the moment it is stored
 
+> **BUILT 2026-08-31 (Part 88), as proposed: a note, not a column.**
+> `_notes_for()` gained one branch, so every future seed writes *"Vacant
+> inferred: the rent roll gave no status, and no lease, move-in or
+> rent."* onto the area. **The existing 18 were deliberately not
+> backfilled** — see the end of this entry for what that would involve if
+> it is ever wanted.
+
 **Assessment 21 holds 18 vacant units. Every one of them is vacant
 because a cell was blank.** The preview rendered that honestly — `unit
 118 … (no status) → vacant` — so the conclusion stayed contestable on
@@ -4760,7 +4767,7 @@ a decision rather than a side effect of a run about something else.
 **4. Nothing changes in the Lite view.** Its job is to say which areas to
 walk, and both kinds of vacancy are walked identically.
 
-### The general shape, which is why this is written down
+### The general shape, and it is NOT the falsy-zero family
 
 **A screen that shows its reasoning does not preserve it.** The preview
 was built deliberately to keep the inference visible — *"the preview is
@@ -4771,6 +4778,45 @@ because a status column has room for `vacant` and no room for *why*.
 > **When a screen is the only place an inference is visible, the
 > inference does not survive the save.** Either the reasoning goes into
 > the record or it is gone at the moment of the click that mattered.
+
+**This is a different shape from zero-read-as-absent and its two
+siblings, and the difference is worth being precise about**, because
+those three are the reflex this file reaches for whenever a value and its
+absence get confused:
+
+| | falsy-zero family | this |
+|---|---|---|
+| where it goes wrong | inside one representation — `0` and `None` collapse | at the **boundary** between a view and a row |
+| what is visible | something is wrong on the page: a studio reads "—", a red flag says 0.0% | **nothing is wrong on any page.** The preview is right, the row is right |
+| when it happens | at read time, every time | once, at the save |
+| how it is found | look at the value | notice that the screen knew something the table cannot hold |
+
+**Nothing here is a defect.** The preview did its job, the write did its
+job, and the loss is in the gap between two correct things. That is why
+it survived review: there is no wrong number to point at, and the only
+symptom is a question nobody can answer six months later.
+
+**The check it implies:** when a screen renders a conclusion ALONGSIDE
+its evidence — `(no status) → vacant`, a cost beside its provenance, a
+match beside its score — ask which of the two the save keeps. If it is
+only the conclusion, the evidence needs somewhere to go before the click,
+not after.
+
+### If the existing 18 are ever backfilled
+
+They are exactly identifiable, which is the whole reason not to have done
+it quietly:
+
+    UPDATE site_dd_areas SET notes = 'Vacant inferred: the rent roll gave
+      no status, and no lease, move-in or rent.'
+     WHERE seed_batch = 'seed-20260831-034600-0c16c9'
+       AND status = 'vacant' AND notes IS NULL;
+
+Eighteen rows, on Michelle's data, adding a sentence. Snapshot first per
+the runbook; it moves the Site DD fingerprint and does not touch
+assessment 11. **It is a decision, not housekeeping** — which is why it
+is written here as SQL somebody can run rather than done as a side effect
+of a run about something else.
 
 ---
 

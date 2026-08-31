@@ -271,12 +271,40 @@ class PlannedUnit(NamedTuple):
 # NTV's move-out date is the most useful fact in the file for scheduling a
 # walk: a unit that empties on a known date is one you inspect after that
 # date, and that is the difference between one visit and two.
+# AND AN INFERENCE IS A FACT ABOUT THE IMPORT, SO IT IS WRITTEN DOWN TOO.
+#
+# `vacant` and `vacant` are the same two bytes whether the file said so or
+# we concluded it, and the file is not kept -- the preview holds it
+# between preview and apply and deletes it either way. So the moment the
+# seed commits, a stated vacancy and an inferred one are
+# indistinguishable forever, and the screen that showed the reasoning
+# ("(no status) -> vacant") is gone.
+#
+# The evidence is strong: on Oxford Pointe the eighteen units with no
+# status are exactly the eighteen with no lease start, no lease end, no
+# move-in and no in-place rent, and two independent summary sections
+# agree. That is why this is a NOTE and not a column -- a `status_source`
+# would need a vocabulary on the area card, the Lite filter, the label
+# maps and both exports, to hedge a conclusion nobody has reason to
+# doubt.
+#
+# What the note buys is the next rent roll. If some later export's blanks
+# mean something else -- a different system, a partial file, a column
+# that moved -- these sentences are the only place anybody would ever
+# notice that a judgement had been made.
+#
+# IT READS AS A FACT ABOUT THE IMPORT, not about the apartment. "This
+# unit is vacant" is a claim about the world that nobody here is entitled
+# to make; "the rent roll gave no status" is what actually happened.
 def _notes_for(unit: dict[str, Any], status: StatusReading) -> tuple[str, ...]:
     notes: list[str] = []
     if (status.stated or "").upper() == "NTV" and unit.get("move_out"):
         notes.append(f"Notice to vacate {unit['move_out']}")
     elif status.stated and status.stated.upper() not in ("C",):
         notes.append(f"Rent roll status: {status.stated}")
+    elif status.inferred:
+        notes.append("Vacant inferred: the rent roll gave no status, and "
+                     "no lease, move-in or rent.")
     return tuple(notes)
 
 
