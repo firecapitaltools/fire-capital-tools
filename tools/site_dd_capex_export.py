@@ -941,6 +941,29 @@ def build_xlsx(path, assessment: dict[str, Any], lines: list[dict[str, Any]],
         ref.append([(labels or {}).get(c.key, c.key), c.key, c.unit_cost,
                     refcosts.UNIT_LABELS[c.unit],
                     ", ".join(c.sources), c.note])
+    # THE SCOPE AND CONDITION FIGURES BELONG HERE TOO, and this sheet is
+    # the reason why: a budget line priced at $637.50 for a repaint was
+    # traceable to nothing, because this listed REFERENCE_COSTS only and
+    # the repaint figure lives in COST_BY_DETAIL. Section 6 of the design
+    # called that a disclosure obligation rather than a nicety -- the
+    # sheet exists so a number in the budget can be audited without
+    # leaving the file -- and shipping the figures without it left the
+    # obligation unmet for one merge.
+    # Deferred, the same way `_stated_cost_unit` imports it: the bank
+    # reads the unit checklist, which reads this module's vocabulary.
+    from tools import site_dd_bank as bank
+    detail_names = bank.detail_labels()
+    for (item_key, detail), c in sorted(refcosts.COST_BY_DETAIL.items()):
+        ref.append([
+            f"{(labels or {}).get(item_key, item_key)} "
+            f"({detail_names.get((item_key, detail), detail)})",
+            f"{item_key} / {detail}", c.unit_cost,
+            refcosts.UNIT_LABELS[c.unit], ", ".join(c.sources), c.note])
+    for (item_key, condition), c in sorted(refcosts.CONDITION_COSTS.items()):
+        ref.append([
+            f"{(labels or {}).get(item_key, item_key)} ({condition})",
+            f"{item_key} / condition {condition}", c.unit_cost,
+            refcosts.UNIT_LABELS[c.unit], ", ".join(c.sources), c.note])
     for col, width in zip("ABCDEF", (30, 24, 12, 14, 42, 80)):
         ref.column_dimensions[col].width = width
     for row in ref.iter_rows(min_row=2, min_col=6, max_col=6):
@@ -955,7 +978,7 @@ def build_xlsx(path, assessment: dict[str, Any], lines: list[dict[str, Any]],
     un.append(["Item", "Key", "Why it has no researched figure"])
     for cell in un[1]:
         cell.font = bold
-    for row in refcosts.unpriced_report(labels or {}):
+    for row in refcosts.unpriced_report(labels or {}, detail_names):
         un.append([row["label"], row["key"], row["reason"]])
     for col, width in zip("ABC", (34, 24, 90)):
         un.column_dimensions[col].width = width
