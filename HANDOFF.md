@@ -3371,6 +3371,129 @@ members were. The fix is not more careful grepping — it is that the
 grep's output is the *input* to the work, never a finding, and the finding
 only exists once each member has been opened.
 
+---
+
+## The reassurance on the approval screen was computed with the wrong counter
+
+**The seeding preview told somebody approving a 152-unit write that it
+would preserve `2` findings on an assessment holding `23`.**
+
+`area_finding_count()` filters `condition IS NOT NULL` — deliberately, and
+correctly for the question it was written for, which is *"is copy-layout
+still safe to offer"*. That is a question about **answers**. Saving a room
+writes a row for every checklist item, so an area can hold dozens of rows
+and two answers, and assessment 11 is exactly that shape: **23 rows, 2
+with a condition.**
+
+The preview reused it for a different question — *"how much of your work
+does this write leave alone"* — where every row counts. A row with no
+condition can still carry a note, a cost or a measurement, and even an
+empty one is a row the seed does not touch.
+
+**The direction of the error is the point.** Understating what is
+protected, on the one screen where a person approves the largest write
+this platform has ever made, argues *against* proceeding for a reason that
+is not true. A number that reassures wrongly and a number that alarms
+wrongly are not equally bad here — but neither is acceptable when the
+person reading it cannot check it.
+
+**Fixed by adding `area_finding_rows()` rather than changing
+`area_finding_count()`.** The old function has a live caller with a
+correct reason for the filter; changing it would have moved the defect
+rather than removed it. Both now carry docstrings saying which question
+they answer and naming the other. Confirmed on production after the merge:
+the reconcile against assessment 11 reports **`findings_preserved: 23`**.
+
+**The general shape, and it is not "count the right rows".** It is that
+**a counter is an answer to one question, and reusing it silently
+re-answers a different one.** The call site read perfectly well —
+`area_finding_count(conn, area_id)` is obviously the number of findings in
+an area — and nothing about it hinted at a filter. Same family as [a guard
+being correct relative to the thing it
+protects](#a-guard-is-correct-relative-to-the-thing-it-protects--three-instances-one-outage):
+the code travels, the reason it was right does not.
+
+---
+
+## A migration check that could not have failed, because it ran on the old code
+
+**Part 75 verified the `seed_batch` migration by running an isolation
+script on the container, and reported PASS. The check proved nothing: the
+container was carrying the pre-merge code, so the migration it was
+verifying did not exist there and never ran.**
+
+The tell was in the output and was nearly read past — the script printed
+its list of new columns and the list was **empty**. A migration that adds
+two columns, verified by a run that added none, reporting success.
+
+**Why it looked right.** Every other verification in this project is run
+on the container *on purpose* — [verify on deployed code, not by reading
+it](#verify-on-deployed-code-not-by-reading-it) is one of the oldest rules
+here, and it is correct. The rule assumes the deployed code is **the code
+under test**. For anything not yet merged that assumption inverts: the
+container is the one place guaranteed to be running something else.
+
+> **The rule: "run it on the container" verifies a merge, never a branch.**
+> Before a merge, the container is a control, not a subject. Verify branch
+> code locally against a copy of production data — pull the database down
+> and run the new code against it — and re-verify on the container after
+> the deploy.
+
+**And the same isolation, run properly after the merge, produced exactly
+the predicted result.** 2026-08-30, on the container, through the app's
+own `get_connection()` (which is what any page load does):
+
+```
+before             : (38, '1d980444f657b0bb')
+after              : (38, 'df9226d2379e7bef')
+after, minus column: (38, '1d980444f657b0bb')
+```
+
+The [projection
+method](#same-rows-different-hash--a-method-not-a-guess) settles it:
+popping `seed_batch` out of the computation returns the old fingerprint
+**exactly**, so the change is purely additive and no stored value moved. 38
+rows before and after, assessment 11 still `f6451ecb366f6ab4`, and zero
+rows carrying a batch id, because nothing has been seeded.
+
+**Adopt `df9226d2379e7bef` as the Site DD baseline**, replacing
+`1d980444f657b0bb` in the restore runbook's known-good table.
+
+**The migration is idempotent and additive, and it fires on the first
+connection anybody opens** — `init_schema()` runs inside `get_connection()`
+on reads as well as writes. It had not fired for the first four minutes
+after the deploy simply because nobody had opened a Site DD page. That is
+worth knowing before it is mistaken for a failed migration.
+
+---
+
+## Decision: the first real seed goes into a FRESH assessment
+
+**Settled 2026-08-30. Both seeding design documents listed "which
+assessment a roll seeds into" as open; this closes it for the first run
+only.**
+
+**The first Oxford Pointe seed creates a new assessment and writes into
+that.** Not assessment 11, not any assessment somebody has walked.
+
+The reason is not that the reconcile is doubted — it reuses areas, appends
+only the shortfall, deletes nothing and touches no finding, and that is
+tested. It is that **the one failure the batch undo cannot reverse is a
+wrong reuse**, and a wrong reuse requires an existing area to match
+against. Into an empty assessment there is nothing to match, so the
+undoable failure is the only failure available, and `seed_batch` covers it
+completely.
+
+The snapshot still gets taken. This decision reduces what the snapshot has
+to be right about; it does not replace it.
+
+**What this does not decide:** seeding into a walked assessment is a real
+requirement — re-uploading a roll after an inspection is the case §3.3 of
+the seeding design exists for — and it stays supported and tested. The
+decision is about **which one is done first, with a person watching**, not
+about which ones are allowed.
+
+---
 
 ## Closed, unconfirmed
 
@@ -3394,6 +3517,14 @@ regression of this one. Do not spend further time reconciling it.
   It was rebased and re-verified; the blocker is the fee-base
   double-count described above.
 - **Five merged branches can be deleted** once you are comfortable.
+- **`site_dd_seed_write` is merged and has no caller.** Nothing in
+  `tools/site_dd.py` routes to `apply_seed()` or `undo_seed()`, which is
+  deliberate — the write is merged but not run, and no real assessment has
+  been seeded. **It is a waiting half and does not yet carry the
+  waiting-half comment**, and neither sweep can see it: it is not a
+  `tools/*_db.py` module and `apply_seed` matches no reader prefix. So
+  nothing will remind anybody. The other half is a POST route behind the
+  preview screen, plus the fresh-assessment decision recorded above.
 - **A cosmetic warning** on every Site DD PDF report:
   `site_dd_report.py:146 UserWarning: No artists with labels found to put
   in legend`. Harmless, noisy, unfixed.

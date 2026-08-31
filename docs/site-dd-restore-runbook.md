@@ -132,10 +132,14 @@ instruction, so it is the sharpest check available:
 
 | | |
 |---|---|
-| whole-database fingerprint, 2026-08-30 | `(38, '1d980444f657b0bb')` |
+| whole-database fingerprint, 2026-08-30 | `(38, 'df9226d2379e7bef')` |
+| *superseded by the `seed_batch` migration* | ~~`(38, '1d980444f657b0bb')`~~ |
 | assessment 11's findings | `(23, 'f6451ecb366f6ab4')` |
 
-The whole-database figure moves whenever anything legitimately changes;
+The whole-database figure moves whenever anything legitimately changes — it
+moved on 2026-08-30 when the additive `seed_batch` migration ran, and the
+old value comes back exactly when that column is projected out of the
+computation, which is how the move was confirmed rather than assumed;
 assessment 11's does not and should not.
 
 ---
