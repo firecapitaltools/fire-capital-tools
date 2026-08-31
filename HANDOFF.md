@@ -4383,6 +4383,86 @@ fixed; **the habit of reading what it returns was not.**
 
 ---
 
+## A summary inherits staleness and launders it into a fresh reading
+
+**This is not the false-premise entry above, and the difference is the
+whole point.** A false premise is a claim somebody made that was wrong. A
+summary is a claim NOBODY made: it is assembled from entries, presented in
+one voice, and carries no provenance at all — so there is nothing in it to
+distrust.
+
+### What happened, exactly
+
+| when | what | who believed it |
+|---|---|---|
+| 2026-08-18 | `uw-refi-cashout` is merged | git |
+| 2026-08-18 → 08-31 | three sections say it is built-but-held | this file |
+| Part 82 | a consolidated open list is requested; it is assembled from those sections and reports the branch as blocked | **the report** |
+| Part 83 | the next prompt opens *"uw-refi-cashout is unmerged and parked on the fee base"*, quoting the list | **both sides** |
+| Part 83 | branch hygiene requires checking merged status per branch; the branch is in `--merged` | git, again |
+
+**Two people now believed a thing neither had read the source for**, and
+the source had been wrong for two weeks. What broke the loop was not
+scepticism. It was an instruction to verify a mechanical fact per item,
+issued for an unrelated reason.
+
+### Why a summary is worse than the stale entry it came from
+
+* **It presents as a reading.** The entries it came from are dated and
+  hedged and sit among corrections; the list says "here is what is open",
+  in the present tense, with none of that texture.
+* **It drops provenance.** *"Blocked on Michelle: the refi fee base"* has
+  no date, no source, and no way to tell that its author never opened
+  `deal_analyzer_math` — where her answer had been recorded verbatim for
+  a fortnight.
+* **It is the thing that gets quoted.** Nobody quotes a 4,000-line
+  document back into a prompt. They quote the list — so a summary is
+  precisely the artifact most likely to be restated as established, which
+  is the moment a claim is least likely to be re-checked and most likely
+  to be wrong.
+* **It survives the fix.** Correcting the entry does not correct the
+  copies, and the copies are in chat transcripts nothing can grep.
+
+**The three-instance pattern this file already records —
+`normalize_address_key`, Entrata, the deleting routes — is a rule losing
+its condition in a shorter statement. This is the same mechanism one
+level up: a DOCUMENT losing its provenance in a shorter statement.**
+
+> ## THE RULE: a consolidated list is a derived artifact. It says what it
+> was derived from and when, or it is regenerated rather than maintained.
+>
+> Concretely, and cheap enough that there is no excuse:
+>
+> 1. **Date it and name the source.** *"Assembled 2026-08-31 from Open
+>    operational items, Blocked on Michelle, and known-issues.md."* A
+>    reader then knows exactly what to distrust, which is the whole of
+>    what provenance buys.
+> 2. **Mark the items a tool could have answered.** Anything about
+>    branches, counts, rows, files or deploy state is checkable in one
+>    command, and a list that does not say which of its items are of that
+>    kind invites all of them to be trusted equally.
+> 3. **Regenerate, never maintain.** A list that is edited becomes a
+>    fourth source of truth. This file already deleted a branch table for
+>    that reason; a consolidated open list is the same object with a
+>    longer half-life.
+> 4. **The receiving side has one job**: a prompt that restates a
+>    previous report's list is quoting a derived artifact, not the world.
+>    Treat it the way this file already treats a repeated claim — as the
+>    thing to verify first, because it arrives wearing the most
+>    authority.
+
+### The counter-case, so this is not read as "never summarise"
+
+The Part 82 list was **asked for**, was the right thing to produce, and
+its shape was useful — four blocked, two known-issues, five deferred with
+exit criteria. Nothing about summarising is the error. **The error is a
+summary that does not say where it came from**, because that is what makes
+its inherited staleness invisible.
+
+The fix costs one sentence at the top.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
