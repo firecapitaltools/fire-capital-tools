@@ -477,9 +477,37 @@ class TheStatusNoteTests(unittest.TestCase):
     def test_a_current_unit_carries_nothing(self):
         self.assertEqual(seed.plan_units([unit("110")])[  "units"][0].notes, ())
 
-    def test_a_vacant_unit_carries_nothing(self):
-        self.assertEqual(
-            seed.plan_units([unit("110", status="")])["units"][0].notes, ())
+    def test_an_inferred_vacancy_says_so(self):
+        """WAS `a vacant unit carries nothing`, and that was the gap.
+
+        `vacant` and `vacant` are the same two bytes whether the file
+        said it or we concluded it, and the rent roll is not kept — so
+        after the commit the two were indistinguishable forever and the
+        screen that showed the reasoning was gone. Eighteen of assessment
+        21's units are in exactly that position.
+        """
+        notes = seed.plan_units([unit("118", status="")])["units"][0].notes
+        self.assertEqual(len(notes), 1)
+        self.assertIn("Vacant inferred", notes[0])
+        self.assertIn("no lease, move-in or rent", notes[0])
+
+    def test_the_note_is_about_the_IMPORT_not_the_apartment(self):
+        """"This unit is vacant" is a claim about the world nobody here
+        is entitled to make. "The rent roll gave no status" is what
+        happened."""
+        note = seed.plan_units([unit("118", status="")])["units"][0].notes[0]
+        self.assertIn("the rent roll gave no status", note)
+        self.assertNotIn("This unit is", note)
+
+    def test_a_STATED_vacancy_would_not_carry_it(self):
+        """The note marks an inference, so a file that says a unit is
+        vacant must not acquire one. No rent roll in hand states one —
+        this is the branch, not the observation."""
+        reading = seed.read_status("VAC")
+        self.assertFalse(reading.inferred)
+
+    def test_a_current_unit_still_carries_nothing(self):
+        self.assertEqual(seed.plan_units([unit("110")])["units"][0].notes, ())
 
     def test_area_statuses_is_not_widened_to_carry_it(self):
         """Michelle declined a wider status vocabulary in Part 58. The

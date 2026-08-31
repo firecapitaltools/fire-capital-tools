@@ -133,7 +133,11 @@ class TheWriteMatchesThePreviewTests(SeedTestCase):
         self.assertEqual(by_label["640"]["status"], sdb.AREA_OCCUPIED)
         self.assertEqual(by_label["640"]["notes"], "Notice to vacate 2026-08-13")
         self.assertEqual(by_label["212"]["status"], sdb.AREA_VACANT)
-        self.assertIsNone(by_label["212"]["notes"])
+        # WAS assertIsNone, and that was the gap Part 88 closed: the row
+        # said `vacant` and nothing said the file had not. The note is
+        # written at the same moment as the status it explains, which is
+        # the only moment the evidence still exists.
+        self.assertIn("Vacant inferred", by_label["212"]["notes"])
 
     def test_the_half_bath_keeps_its_label(self):
         plan, rec = self.plan_for([unit("110", "2/1.5 RENOVATED")])
