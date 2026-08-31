@@ -148,6 +148,14 @@ error count, not the total.
 it fits, but the assertion has been taken on trust rather than
 demonstrated — nobody has installed `node` and watched them pass.~~
 
+> **THIS ENTRY IS NOW A TASK, NOT A CLAIM, AND THAT IS WORTH SAYING OUT
+> LOUD.** The uncertainty is gone; what is left is one line in Beckett's
+> tests. **It closes when he answers, whichever way he answers** — the
+> three cases and what to do in each are decided in advance in HANDOFF,
+> *A file of claims accumulates tasks*, so the decision does not have to
+> be rediscovered on the day. He was asked directly in
+> `docs/beckett-2026-08-31.md` §1.
+
 > **DEMONSTRATED 2026-08-31. Step 1 of the procedure below was run and
 > both tests PASS** on a machine with `node v24.13.1`, in 0.118s. So the
 > explanation is confirmed: they are environmental, not defects.

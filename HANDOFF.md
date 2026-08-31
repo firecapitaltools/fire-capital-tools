@@ -4978,6 +4978,64 @@ and were never meant to agree.
 
 ---
 
+## A file of claims accumulates tasks, and a task in it goes stale
+
+**Known-issue 2 has changed kind without anybody deciding that it should,
+and the format has no way to notice.**
+
+It opened as what `docs/known-issues.md` exists for: *"a claim with a
+stated confidence and a written-down way to settle it"* — we believed the
+two deployed errors were environmental, and nobody had demonstrated it.
+**Its settling step fired in Part 87**: the two tests were run where
+`node` exists and both passed in 0.118s. The uncertainty is gone.
+
+**What remains is not a claim at all. It is a task, in somebody else's
+module** — one line in each of Beckett's tests to skip rather than error.
+So the entry can no longer be closed by anything we do, and it will sit
+in a file nobody re-reads, because **nobody re-reads a claim they
+believe**.
+
+### The same shape as the branch table, arriving from the other end
+
+The branch table went stale because it held state that git owned. This
+holds a task in a file of beliefs. **Both fail for one reason: the entry
+is no longer the kind of thing the file is checked for.** A reader
+scanning known-issues asks *"is this still true?"* — and for a task the
+answer is yes, permanently, while the thing that needs doing goes
+undone.
+
+> **When an entry's settling step fires, ask what kind of entry is left.**
+> A claim that has been settled is either closed or it has become a task,
+> and a task in a file of claims is invisible in exactly the way this
+> file was written to prevent.
+
+### The decision, made now so it does not need rediscovering
+
+**Do not close it today — Beckett has not answered**, and closing an
+entry whose action has not happened is the failure the format's own rules
+forbid: *"an entry without How to close it is a worry, not an issue"*, and
+by symmetry an entry closed without its close step is a fiction.
+
+**When he answers:**
+
+| he says | do this |
+|---|---|
+| **skip when node is absent** (our recommendation) | he changes his tests; when the deployed suite reads green, **close entry 2 as settled** with the date and the run that showed zero errors |
+| **add node to the image** | **close entry 2 as settled** as well — the errors stop either way — and open a new entry for the build change, because a `nixpacks.toml` this repo has never had is a new claim about the deploy, not a continuation of this one |
+| **leave it** | **close entry 2 as settled anyway**, and move "the deployed suite carries two permanent errors" to *Open operational items*, where tasks live. The belief is settled; the annoyance is not an issue in this file's sense |
+
+**In all three cases entry 2 closes**, because what it asked has been
+answered. That is the point of writing the decision down now: the
+temptation on the day will be to leave it open because something still
+feels unfinished, and the thing that feels unfinished belongs somewhere
+else.
+
+**The letter asks him directly** — `docs/beckett-2026-08-31.md` §1, with
+the three options and their costs — so the answer is expected rather than
+hoped for.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
