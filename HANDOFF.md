@@ -3739,18 +3739,29 @@ snapshots `site_dd.keep-<what>.db`, so "do not delete this" is expressed
 in the filename instead of remembered. That is the same move as
 `seed_batch` — put the fact in the data, not in a person.
 
-### Five snapshots already live outside the convention
+### Six snapshots lived outside the convention — RESOLVED 2026-08-31
 
-`/data` holds `deal_dive.db.pre_part14`, `deal_dive.db.pre_stepd`,
+> **Moved, and the heading was wrong twice over.** It said *five* and
+> then listed *six*, which is the arithmetic a numbered list is supposed
+> to make impossible and did not, because the count was written before
+> the list. All six are now in `/data/backups` under
+> `<database>.keep-<what>.db`; the two byte-identical `pre_stepd` copies
+> were dropped after re-verifying the hashes immediately before each
+> delete rather than trusting the measurement from the run that found
+> them. Six files, four kept, and the runbook's "where snapshots live"
+> is one place again.
+
+`/data` held `deal_dive.db.pre_part14`, `deal_dive.db.pre_stepd`,
 `investor_notes.db.pre_part14`, `underwriting.db.pre_part14`,
 `underwriting.db.pre_stepd` and `site_dd.db.pre_part14` — hand copies
-taken beside their databases rather than in `/data/backups`. They total
-about 385 KB and nothing prunes them either.
+taken beside their databases rather than in `/data/backups`. They totalled
+about 385 KB and nothing pruned them either.
 
 **They matter less for their size than for what they do to the runbook.**
-§3 says snapshots live in `/data/backups/`, and for six files that is not
-true — somebody following it under pressure would not find them. Either
-move them in or say they exist; the sentence being wrong is the cost.
+§3 said snapshots live in `/data/backups/`, and for six files that was not
+true — somebody following it under pressure would not have found them.
+The sentence being wrong was the cost, and it was fixed twice: first by
+naming both places honestly, then by making one place true.
 
 ---
 

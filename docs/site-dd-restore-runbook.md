@@ -79,81 +79,62 @@ destroys an inspector's work to correct ours is not an undo:
 
 ## §3 — Second resort: restore the snapshot
 
-### Where snapshots live — TWO PLACES, and the second one is easy to miss
+### Where snapshots live
 
-**1. `/data/backups/`.** This is where everything written from now on
-goes: `site_dd.<label>.db`, and the pre-write snapshot the seeding run
-takes for itself, named for its batch id. As of 2026-08-31 there are
-three, all 90,112 bytes — one taken by hand before the first real seed
-(`site_dd.before-first-seed.20260831-033837.db`) and one taken by
-`apply_seed` before each of the two writes into assessment 21.
+**`/data/backups/`. One place, and as of 2026-08-31 that is true without
+a caveat** — six older snapshots were sitting beside their databases in
+`/data` as `<database>.pre_<something>`, and they were moved in.
 
-**2. `/data`, beside the live databases.** Six older snapshots were taken
-by hand as `<database>.pre_<something>` and never moved. **This sentence
-used to name only the first location, which made it false for six files
-— somebody following it in a hurry would not have found them.** They are
-listed in full below.
+    ls -la /data/backups/
 
-    ls -la /data/backups/ ; ls -la /data/*.pre_*
+Seven files today:
 
-**Retention is enforced, since 2026-08-31.** `prune_snapshots()` runs
-inside `apply_seed`, immediately after the snapshot and before any write:
-it keeps everything from the last **30 days** and at least the **newest
-ten**, never deletes the newest whatever its age, and **only ever
-considers files matching `site_dd.seed-*.db`**. What it removed is
-returned in the result and named in the confirmation message.
+| file | what it is |
+|---|---|
+| `site_dd.before-first-seed.20260831-033837.db` | taken by hand before the first real seed |
+| `site_dd.seed-20260831-034509-7759d0.db` | taken by `apply_seed` before the first write into assessment 21 |
+| `site_dd.seed-20260831-034600-0c16c9.db` | and before the re-seed after the undo |
+| `deal_dive.keep-pre_part14.db` | 2026-08-12, moved 2026-08-31 |
+| `investor_notes.keep-pre_part14.db` | 2026-08-17, moved 2026-08-31 |
+| `underwriting.keep-pre_part14.db` | 2026-08-16, moved 2026-08-31 |
+| `site_dd.keep-pre_part14.db` | 2026-08-17, moved 2026-08-31 |
 
-**So a hand-taken snapshot cannot be pruned, by pattern rather than by an
-exclusion list.** `take_snapshot()` names its own output and a batch id
-always begins `seed-`, so nothing a person named can match the glob.
-`site_dd.before-first-seed.20260831-033837.db` — the only copy of the
+**Two of the six were dropped, not moved.** `deal_dive.db.pre_stepd` and
+`underwriting.db.pre_stepd` were byte-identical to their `pre_part14`
+twins — **re-verified by sha256 in the same script, immediately before
+each `os.remove`, rather than on the strength of a measurement taken in
+an earlier run** — and the survivor was opened and `PRAGMA
+integrity_check`ed before its twin was removed. Six files, four kept.
+
+Every one of the four holds only rows the live databases already have,
+unchanged; the differences that first showed up were entirely columns
+added since, which the projection method settled (HANDOFF, *"Same rows,
+different hash"*). They are kept because a snapshot costs 20–100 KB and
+"we checked once" is a worse reason to delete than "it holds nothing" is
+to keep.
+
+### Retention, and why nothing here can be pruned by accident
+
+`prune_snapshots()` runs inside `apply_seed`, immediately after the
+snapshot and before any write: it keeps everything from the last **30
+days** and at least the **newest ten**, never deletes the newest whatever
+its age, and **only ever considers files matching `site_dd.seed-*.db`**.
+What it removed is returned in the result and named in the confirmation.
+
+Checked against the real directory rather than asserted: of the seven
+files above, the pruner's glob matches **two** — the two `seed-` ones.
+
+**So every hand-taken snapshot is exempt by construction.**
+`take_snapshot()` names its own output and a batch id always begins
+`seed-`, so nothing a person named can match. That is what protects
+`site_dd.before-first-seed.20260831-033837.db`, the only copy of the
 state before the largest write this platform has made, with no platform
-backup behind it (known-issue 3) — is safe for that reason and not
-because anybody remembered it.
+backup behind it (known-issue 3) — and it protects it without anybody
+remembering to.
 
-**Name a deliberate keep `site_dd.keep-<what>.db`.** It is exempt for the
-same structural reason as anything else non-matching; the point of the
-prefix is that the intent is legible in a directory listing instead of
-living in somebody's memory.
-
-### The six older snapshots, and what they actually hold
-
-Established 2026-08-31 by comparing every row against the live database,
-not by their filenames:
-
-| file | taken | bytes | holds anything the live database does not? |
-|---|---|---|---|
-| `deal_dive.db.pre_part14` | 2026-08-12 | 20,480 | no |
-| `deal_dive.db.pre_stepd` | 2026-08-12 | 20,480 | no — **byte-identical to the one above** |
-| `investor_notes.db.pre_part14` | 2026-08-17 | 40,960 | no |
-| `underwriting.db.pre_part14` | 2026-08-16 | 106,496 | no |
-| `underwriting.db.pre_stepd` | 2026-08-16 | 106,496 | no — **byte-identical to the one above** |
-| `site_dd.db.pre_part14` | 2026-08-17 | 90,112 | no |
-
-**Every row in every one of them is present in the live database and
-unchanged.** Four tables reported differing rows on the first pass —
-`deals`, `underwriting_scenarios`, `site_dd_areas`, `site_dd_rooms` — and
-the projection method (HANDOFF, *"Same rows, different hash"*) settled
-all four: recomputing the comparison over only the
-columns the snapshot actually has leaves **zero** rows differing. The
-differences are entirely columns added since (`vintage`,
-`property_sqft`, `building_count`, `name`; the nine `refi_*` and
-`loan_fee_pct`; `pets_present`, `pet_count`, `seed_batch`). Nothing was
-edited underneath them.
-
-**One real difference, in the safe direction:** `deal_files` holds 2 rows
-in the deal_dive snapshots and 3 live. The live database has *more*, not
-less.
-
-**Proposed, not done: move them into `/data/backups` under the keep
-convention** — `deal_dive.keep-pre_part14.db` and so on — which makes
-this section's first sentence true without a caveat, brings them under
-the documented location, and leaves them exempt from pruning by pattern.
-The two byte-identical pairs could then drop one copy each, taking six
-files to four. **Nothing was deleted or moved in the run that established
-this**, deliberately: the finding that they hold nothing unique is a
-reason to stop worrying about them, not a reason to act in the same
-breath as measuring.
+**Name a deliberate keep `<database>.keep-<what>.db`.** The exemption is
+structural either way; the prefix is so the intent is legible in a
+directory listing instead of living in somebody's memory.
 
 ### Verify the snapshot BEFORE relying on it
 
