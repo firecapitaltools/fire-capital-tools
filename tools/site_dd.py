@@ -355,7 +355,10 @@ def seed_preview(assessment_id):
                     areas = db.list_areas(conn, assessment_id)
                     rooms_by_area = {a["id"]: db.list_rooms(conn, a["id"])
                                      for a in areas}
-                    findings_by_area = {a["id"]: db.area_finding_count(conn, a["id"])
+                    # EVERY row, not only the answered ones. This showed
+                    # `area_finding_count` and promised to preserve 2 on an
+                    # assessment holding 23 -- see area_finding_rows().
+                    findings_by_area = {a["id"]: db.area_finding_rows(conn, a["id"])
                                         for a in areas}
                 reconcile = seeding.plan_reconcile(plan, areas, rooms_by_area,
                                                    findings_by_area)
