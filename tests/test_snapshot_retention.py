@@ -112,7 +112,7 @@ class ItDeletesNothingWhenNothingQualifiesTests(RetentionTestCase):
     def test_a_directory_of_hand_taken_snapshots_is_left_alone(self):
         self.snap("site_dd.before-first-seed.20260831-033837.db", age_days=900)
         self.snap("site_dd.keep-before-the-migration.db", age_days=900)
-        self.snap("underwriting.db.pre_part14", age_days=900)
+        self.snap("underwriting.keep-pre_part14.db", age_days=900)
         before = self.names()
         self.assertEqual(self.prune(), [])
         self.assertEqual(self.names(), before)
