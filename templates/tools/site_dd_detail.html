@@ -180,6 +180,65 @@
       Preview units from a rent roll</a> &mdash; nothing is saved until you say so.
   </p>
 
+  {#
+    WHERE A SEEDED ASSESSMENT SHOWS ITS BATCH -- AND THEREFORE WHERE THE
+    UNDO LIVES.
+
+    The batch id is the only handle on what one import created. It is
+    printed rather than hidden in a form so it can be quoted into the
+    restore runbook, and the undo sits next to it because a rollback
+    somebody has to go and find is a rollback that happens late.
+
+    `walked` is the number that decides which repair is available: zero
+    means the batch undo reaches everything this import made, and any
+    other number means undo_seed will refuse by name and the snapshot is
+    the route. The screen says so BEFORE the button is pressed rather
+    than as an error afterwards.
+  #}
+  {% if seed_batches %}
+    <div class="card" style="margin-top:14px;">
+      <div class="scorecard-mini-title">Units created by a rent-roll import</div>
+      <table class="rent-comps-table">
+        <thead>
+          <tr><th style="width:34%;">Import</th><th style="width:12%;">Units</th>
+              <th style="width:12%;">Rooms</th><th>Undo</th></tr>
+        </thead>
+        <tbody>
+          {% for b in seed_batches %}
+            <tr>
+              <td><code>{{ b.batch }}</code>
+                <div class="stat-box-sub">{{ b.created_at }}</div></td>
+              <td>{{ b.areas }}</td>
+              <td>{{ b.rooms }}</td>
+              <td>
+                {% if b.walked %}
+                  <span class="stat-box-sub">
+                    Cannot be undone here: {{ b.walked }} finding{{ '' if b.walked == 1 else 's' }}
+                    recorded in rooms this import created. Undoing would delete that
+                    work &mdash; use the snapshot, see docs/site-dd-restore-runbook.md.
+                  </span>
+                {% else %}
+                  <form method="POST"
+                        action="{{ url_for('site_dd.seed_undo', assessment_id=assessment.id) }}"
+                        style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="batch" value="{{ b.batch }}">
+                    <label class="stat-box-sub" style="display:flex; gap:6px; align-items:center;">
+                      <input type="checkbox" name="understood" required>
+                      Delete the {{ b.areas }} unit{{ '' if b.areas == 1 else 's' }} and
+                      {{ b.rooms }} room{{ '' if b.rooms == 1 else 's' }} this import created
+                    </label>
+                    <button type="submit" class="btn btn-ghost">Undo this import</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+
   <form method="POST" action="{{ url_for('site_dd.create_area', assessment_id=assessment.id) }}"
         class="sdd-form-grid" style="margin-top:14px;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

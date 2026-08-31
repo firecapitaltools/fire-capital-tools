@@ -442,15 +442,28 @@ class TheFindingsPreservedNumberTests(SeedTestCase):
                      if f["note"] and f["condition"] is None]
         self.assertTrue(notes)
 
-    def test_the_preview_route_uses_the_row_count(self):
-        """COMMENTS STRIPPED FIRST. The route's own comment explains that
+    def test_the_preview_and_the_apply_both_use_the_row_count(self):
+        """COMMENTS STRIPPED FIRST. The code's own comment explains that
         it used to call `area_finding_count`, so a raw substring search
         finds the explanation rather than a call -- the collision this
-        codebase has hit repeatedly. Checked on the AST."""
+        codebase has hit repeatedly. Checked on the AST.
+
+        WIDENED when the apply route landed. The read moved into
+        `_seed_read_state`, which the preview and the write now share --
+        and sharing it is the point: two independent reads of "what does
+        this assessment already hold" is how the screen and the write
+        come to disagree. So the assertion is over the whole seeding path
+        rather than over one function, and it fails if either half grows
+        its own count.
+        """
         import ast, inspect, textwrap
         from tools import site_dd
-        tree = ast.parse(textwrap.dedent(inspect.getsource(site_dd.seed_preview)))
-        called = {getattr(n.func, "attr", None) or getattr(n.func, "id", None)
-                  for n in ast.walk(tree) if isinstance(n, ast.Call)}
+        called = set()
+        for fn in (site_dd.seed_preview, site_dd.seed_apply,
+                   site_dd._seed_read_state):
+            tree = ast.parse(textwrap.dedent(inspect.getsource(fn)))
+            called |= {getattr(n.func, "attr", None) or getattr(n.func, "id", None)
+                       for n in ast.walk(tree) if isinstance(n, ast.Call)}
         self.assertIn("area_finding_rows", called)
         self.assertNotIn("area_finding_count", called)
+        self.assertIn("_seed_read_state", called)

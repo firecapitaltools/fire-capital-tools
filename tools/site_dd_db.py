@@ -1300,6 +1300,50 @@ def area_finding_count(conn: sqlite3.Connection, area_id: int) -> int:
     return int(row["n"] or 0)
 
 
+def list_seed_batches(conn: sqlite3.Connection, assessment_id: int) -> list[dict[str, Any]]:
+    """Every rent-roll import that has written into this assessment.
+
+    THE SCREEN THE UNDO HANGS OFF. A batch id is the only handle on what
+    one import created, and an id nobody can see is an id nobody can use
+    -- which is how a rollback becomes archaeology at exactly the moment
+    somebody is in a hurry.
+
+    Rooms are counted through their area rather than by batch alone, so
+    an import into a different assessment cannot be attributed here.
+    `walked` counts findings recorded in rooms this import created: it is
+    zero on a fresh seed, and any other number means the undo will refuse
+    and route the person to the snapshot instead.
+    """
+    rows = conn.execute(
+        """
+        SELECT a.seed_batch                              AS batch,
+               COUNT(DISTINCT a.id)                      AS areas,
+               MIN(a.created_at)                         AS created_at
+          FROM site_dd_areas a
+         WHERE a.assessment_id = ? AND a.seed_batch IS NOT NULL
+      GROUP BY a.seed_batch
+      ORDER BY MIN(a.created_at), a.seed_batch
+        """, (assessment_id,)).fetchall()
+    out = []
+    for row in rows:
+        rooms = conn.execute(
+            """SELECT COUNT(*) AS n FROM site_dd_rooms r
+                 JOIN site_dd_areas a ON a.id = r.area_id
+                WHERE a.assessment_id = ? AND r.seed_batch = ?""",
+            (assessment_id, row["batch"])).fetchone()
+        walked = conn.execute(
+            """SELECT COUNT(*) AS n FROM site_dd_findings f
+                 JOIN site_dd_rooms r ON r.id = f.room_id
+                 JOIN site_dd_areas a ON a.id = r.area_id
+                WHERE a.assessment_id = ? AND r.seed_batch = ?""",
+            (assessment_id, row["batch"])).fetchone()
+        out.append({"batch": row["batch"], "areas": int(row["areas"] or 0),
+                    "rooms": int(rooms["n"] or 0),
+                    "walked": int(walked["n"] or 0),
+                    "created_at": row["created_at"]})
+    return out
+
+
 def area_finding_rows(conn: sqlite3.Connection, area_id: int) -> int:
     """EVERY finding row in this area, answered or not.
 

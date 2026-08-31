@@ -5,9 +5,13 @@
   THE CHECKPOINT. NOTHING ON THIS PAGE HAS BEEN WRITTEN.
 
   Every figure here is what a seed WOULD do. The route parses, plans and
-  reconciles, and touches nothing -- the write is a separate run and a
-  separate decision. This screen exists so that decision is made by a
-  person looking at 152 units rather than by a progress bar.
+  reconciles, and touches nothing. This screen exists so the decision is
+  made by a person looking at 152 units rather than by a progress bar.
+
+  THE APPLY PANEL AT THE BOTTOM POSTS TO A DIFFERENT ROUTE. Rendering
+  this page writes nothing, and that is still asserted by test; the write
+  happens only when somebody ticks the box and presses the button that
+  names the counts.
 #}
 {% block content %}
 <div class="page-header" style="margin-bottom:12px;">
@@ -21,9 +25,10 @@
 
 <div class="card">
   <p class="page-subtitle" style="margin-top:0;">
-    <strong>Nothing is saved from this screen.</strong> Upload a rent roll to see
+    <strong>Nothing is saved by previewing.</strong> Upload a rent roll to see
     exactly which units and rooms would be created, which existing ones would be
-    reused, and what would be left alone.
+    reused, and what would be left alone. Applying it is a separate step at the
+    bottom of this page.
   </p>
   {% if error %}<div class="login-error" style="margin-bottom:10px;">{{ error }}</div>{% endif %}
   <form method="POST" enctype="multipart/form-data"
@@ -204,11 +209,56 @@
     </div>
   {% endif %}
 
-  <div class="card">
-    <p class="page-subtitle" style="margin:0;">
-      <strong>This is a preview only.</strong> Writing the seed is not built yet, so
-      there is deliberately no button here to apply it.
+  {#
+    THE APPLY, AND IT NAMES THE FIGURES.
+
+    894 rooms is not a thing to write from a button that says "Apply".
+    The sentence below states what will be created, what will be reused
+    and what will be preserved, the checkbox makes the press deliberate,
+    and the button repeats the counts so the last thing read before the
+    click is the size of the write.
+
+    The four hidden `expect_` fields are the figures on this screen. The
+    apply route re-parses the file, re-reconciles it, and refuses if what
+    it computes differs from these -- so what gets written is what was
+    read here, checked rather than assumed. They are not the INPUT to the
+    write; the write derives everything again from the file.
+  #}
+  <div class="card" style="border-left:3px solid #b45309;">
+    <div class="scorecard-mini-title">Apply this to the assessment</div>
+    <p class="page-subtitle" style="margin-top:0;">
+      This writes <strong>{{ preview.figures.areas }} new unit{{ '' if preview.figures.areas == 1 else 's' }}</strong>
+      and <strong>{{ preview.figures.rooms }} room{{ '' if preview.figures.rooms == 1 else 's' }}</strong>
+      into {{ assessment.property_label }}.
+      {% if preview.reconcile.reuse_count %}
+        {{ preview.reconcile.reuse_count }} existing unit(s) are reused rather than duplicated.
+      {% endif %}
+      <strong>{{ preview.figures.findings }} finding{{ '' if preview.figures.findings == 1 else 's' }}</strong>
+      already recorded {{ 'is' if preview.figures.findings == 1 else 'are' }} left exactly as {{ 'it is' if preview.figures.findings == 1 else 'they are' }};
+      no finding is created, changed or removed.
+      {% if preview.figures.refusals %}
+        {{ preview.figures.refusals }} row(s) listed above are refused and not written.
+      {% endif %}
+      A copy of the database is taken before anything is written, and the
+      import can be undone from the assessment page.
     </p>
+    <form method="POST"
+          action="{{ url_for('site_dd.seed_apply', assessment_id=assessment.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="preview_id" value="{{ preview.preview_id }}">
+      <input type="hidden" name="{{ preview.state_field }}" value="{{ preview.state_token }}">
+      {% for name, value in preview.figures.items() %}
+        <input type="hidden" name="expect_{{ name }}" value="{{ value }}">
+      {% endfor %}
+      <label class="page-subtitle" style="display:flex; gap:8px; align-items:center; margin:0 0 10px;">
+        <input type="checkbox" name="understood" required>
+        I have read the units above and want them created.
+      </label>
+      <button type="submit" class="btn btn-primary">
+        Create {{ preview.figures.areas }} unit{{ '' if preview.figures.areas == 1 else 's' }}
+        and {{ preview.figures.rooms }} room{{ '' if preview.figures.rooms == 1 else 's' }}
+      </button>
+    </form>
   </div>
 {% endif %}
 {% endblock %}

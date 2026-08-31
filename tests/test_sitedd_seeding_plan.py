@@ -670,15 +670,24 @@ class ThePreviewScreenTests(unittest.TestCase):
         self.assertIn("Findings preserved", tpl)
         self.assertIn("findings_preserved", tpl)
 
-    def test_the_template_has_no_apply_button(self):
+    def test_the_template_HAS_an_apply_button_now(self):
+        """REPLACES `test_the_template_has_no_apply_button`, deliberately.
+
+        That test pinned a TEMPORARY state -- the write was merged before
+        anything could reach it, on purpose -- and it is inverted rather
+        than deleted so the change is visible in one place. What it was
+        really protecting is that nothing applies by accident, and that
+        property moved into the gates: a checkbox, a figure check on the
+        server, and the rendered-state token.
+        """
         from pathlib import Path
         import re
         tpl = (Path(sdb.__file__).parents[1] / "templates" / "tools"
                / "site_dd_seed_preview.html").read_text(encoding="utf-8")
         markup = re.sub(r"\{#.*?#\}", " ", tpl, flags=re.S)
-        for word in ("Apply", "Confirm seed", "Create units"):
-            with self.subTest(word=word):
-                self.assertNotIn(word, markup)
+        self.assertIn("site_dd.seed_apply", markup)
+        self.assertIn("expect_", markup)
+        self.assertIn("preview.state_field", markup)
 
     def test_the_route_writes_nothing(self):
         """An area count before and after a full preview."""
