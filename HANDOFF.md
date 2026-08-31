@@ -454,103 +454,100 @@ and never `|title`.
 
 ## Blocked on Michelle
 
-Nothing below should be started without an answer. Each has been
-investigated; none has been built.
+**Rebuilt 2026-08-31 from what she has actually said** — the feedback
+table (`feedback #1`, `#2`, `#3`), her answers recorded in
+`deal_analyzer_math` and `investor_notes`, and her six answers below —
+rather than from the previous version of this list. **Two items came off
+because she had already answered them and nobody had re-read her
+words**, which is the whole reason this section was rebuilt rather than
+edited.
 
-**1. Measured-quantity collection in the Site DD UI.** *Highest value.*
-Inspectors do not record areas or lengths on the walk, so every
-rate-priced item — the expensive ones — is unpriceable. This is what
-turns the capex export from empty into real numbers. The question that
-decides the design: **do inspectors measure on the walk, and with what?**
-A tape measure per room implies one UI; a single unit square-footage from
-the rent roll implies a very different one.
+Each item says what it is derived from, so the next reader knows what to
+distrust. Nothing below should be started without an answer.
 
-**2. Rent-roll upload — scope is contradictory.** Her Site DD document
-says *"upload rent roll to know number of units."* Her in-app feedback
-asked for **bedroom derivation from unit type and occupancy mapping**.
-Those are materially different asks — the first is a fraction of the
-second, which is a two-to-three session build. **This discrepancy is
-unresolved and is a direct question to her.**
+### 1. Measured-quantity collection in the Site DD UI
 
-> **HALF OF THIS IS NO LONGER BLOCKED, corrected 2026-08-31.** The
-> sample-file half is closed: the Oxford Pointe ResMan roll arrived and
-> parses completely — 152 units, six layouts, **77 of them 2 bed / 1.5
-> bath** — so the headline feature has its test case and was built.
-> **The larger ask has since shipped in full**: parser (Part 68),
-> planning and preview (Parts 70–71), the write (Part 75), the route
-> (Part 77), and the first real seed into assessment 21. Bedroom
-> derivation and occupancy mapping are live.
->
-> **What is still genuinely hers is ONE question, not two.** *Which
-> assessment does a roll seed into when a property is re-walked?* — that
-> is the whole of it.
->
-> The other half — whether one upload should feed both Site DD and
-> Underwriting — **was investigated in Part 83 and does not need her.**
-> The two tools want opposite write semantics from the same bytes
-> (replace versus never-delete), nothing joins a scenario to an
-> assessment but a property-label string, and no Underwriting scenario
-> has ever held this file. See *One rent roll, two tools*.
+**Still open, and narrower than it was.** Inspectors do not record areas
+or lengths, so a rate-priced item cannot be totalled. **The scope pricing
+of Part 81 removed most of the sting**: naming the job — `paint` at
+$637.50 per room — prices a line without any measurement, which is what
+an inspector can actually do standing in the room.
 
-**3. Site DD property header** (name, vintage, address, building count,
-optional sqft).
+What is left needing a measurement is now a short list rather than "the
+expensive ones": `walls_ceiling` with no scope or with `repair_and_paint`,
+and `parking_paving`. **The question for her is unchanged and still
+unasked: do inspectors measure on the walk, and with what?** A tape
+measure per room implies one UI; a square footage from the rent roll
+implies a very different one.
 
-> **NARROWER THAN THIS SAYS, corrected 2026-08-31.** She named the fields
-> herself in feedback row 2, and `07e746e` then added `vintage`,
-> `building_count`, `property_sqft` and `name` to `deals` — **which is
-> the shape decision this entry says is hers to make, made and shipped.**
-> *Revised cost estimates* has said so all along: *"now small … a form
-> block and a display block"*. What is genuinely still open is only
-> whether the fields live on the DEAL (as built) or want a record of
-> their own when a property has no deal. Nothing is blocked on her to
-> build the form.
+*Derived from: her "don't worry about calculating paint" (Part 28 audit),
+and the reference table's rate entries.*
 
-Only `property_label` is displayed; the four columns exist and **nothing
-writes or reads them** — there is **no properties table anywhere** in the
-product,
-and the 12-property registry is assembled at request time from Deal Dive,
-Underwriting and Site DD labels. Three shapes were proposed
-(per-assessment columns / fields on a property record / a walk-date
-snapshot with visible disagreement). It is a judgment call and was left
-to her. The failure mode to avoid: per-assessment columns mean retyping
-everything on re-inspection and two rows silently disagreeing about the
-build year.
+### 2. Which assessment a re-walk seeds into
 
-**4. Notetaker sections.** Renaming Operations → Property Update.
+A rent roll belongs to a property; an assessment belongs to a property
+and a date. Seeding into a fresh assessment and into one somebody has
+already walked are different risks, and the first real seed deliberately
+took the fresh case (assessment 21). **The reconcile handles the walked
+case and is tested; what is unanswered is which she would want.**
 
-> **THREE QUARTERS OF THIS IS DONE, corrected 2026-08-31.** Capital
-> Improvements is already **CapEx Update** and **Next Steps** already
-> exists, in `investor_notes_synth.SECTIONS`. Feedback row 3 item 4 is
-> her own list of the sections she wants — *property update, financial
-> update, market update, community events, next steps* — and four of the
-> five match the code exactly. **The only gap is Operations, which she
-> calls Property Update.** She does not mention Legal Update anywhere in
-> the feedback table; that ask came from elsewhere and should not be
-> attributed to her writing.
+*Derived from `docs/site-dd-rentroll-seeding.md` §6 and the Part 76
+decision. The other half of this question — should one upload feed both
+Site DD and Underwriting — was investigated in Part 83 and does NOT need
+her: the two tools want opposite write semantics from the same bytes.*
 
-The remaining rename is still not display-only. **Proven not display-only**: `build_instructions()`
-interpolates `s['name']` straight into the prompt, so a rename changes
-1,377 characters of what is sent to the API. `cache_key()` hashes
-`prompt_version`, not the prompt text, so renaming without bumping the
-version would serve results generated under the old headings. One change,
-and it costs real OpenAI spend against the **$60/month** budget.
-Separately: the update page renders `section.name` from the **stored**
-JSON, so existing updates keep old headings regardless.
+### 3. Per-account data — who may see what
 
-~~**5. Investor Report — four asks nobody transcribed.**~~ **READ IN FULL
-2026-08-31 AND THE PART 84 SUMMARY OF IT WAS WRONG.** Three of the four
-were built — the description removed, a notetaker card added to that very
-page, the Word export shipped in `9e8fdc5` — and the code carries
-comments quoting her words. **What was missing was the record, not the
-reading.** The one genuinely unbuilt piece is small: an "add a
-property/deal" affordance on the Investor Report page itself, since both
-mechanisms exist elsewhere. See *The feedback table, read in full*.
-**Nobody has told her any of it landed**, which is the part still owed.
+> *"Data should be per-account, not site-wide, with a way to link accounts
+> and share specific deals."*
 
-~~**6. Refi fee base.**~~ **CLOSED.** She answered — split the bank's
-point out as its own line — and it shipped. Recorded here rather than
-deleted because this list was read forward for two weeks with it still
-on it.
+**Genuinely untouched and now more pressing than when it was written**,
+because a second person can log in: Beckett's account has existed since
+2026-08-27 and every logged-in user still sees every deal, scenario,
+assessment and report. Three questions, all hers: who is an account,
+does sharing mean full access or read-only, and what happens to what
+already exists.
+
+*Derived from her own sentence, verbatim, and re-checked 2026-08-31: no
+`user_id`, `owner_id`, `account_id`, `tenant_id` or `created_by` column
+exists in any of the twelve databases.*
+
+### 4. The plan upgrade for volume backups
+
+Her account and her bill. Re-verified 2026-08-31 with a working
+credential: plan `HOBBY`, `maxBackupsCount` **0**. The application-level
+snapshot and the batch undo are the whole of the recovery story and do
+not depend on this — see known-issue 3.
+
+*Derived from the Railway API, read today.*
+
+---
+
+### What came OFF this list, and why it matters more than the removal
+
+**Notetaker sections — never blocked on her.** She wrote the list herself
+in `feedback #3` on 2026-08-16: *property update, financial update,
+market update, community events, next steps*. Four already matched, CapEx
+Update and Next Steps were already built, and the last gap — Operations →
+**Property Update** — shipped in Part 86. She had also already declined
+Legal Update in as many words, and this list carried it for weeks anyway.
+
+**Site DD property header — she made the decision this entry called
+hers.** She named the fields in `feedback #2`; `07e746e` then put
+`vintage`, `building_count`, `property_sqft` and `name` on `deals`, which
+IS the shape decision. *Revised cost estimates* has said "now small — a
+form block and a display block" the whole time. **Two statements about
+one item, one of them stale, and the stale one was in the list people
+read.** What remains is a build, not a question: the columns exist and
+nothing writes or reads them.
+
+**Refi fee base — answered on 2026-08-18** and shipped; removed in Part
+84.
+
+**The Investor Report asks — three of four were already built** and the
+fourth shipped in Part 86. What is owed there is not a decision from her.
+**It is somebody telling her they landed**, which no list and no script
+will do.
 
 ---
 
