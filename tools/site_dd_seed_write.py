@@ -30,6 +30,43 @@ THE THREE PROPERTIES, IN THE ORDER THEY MATTER
    commit lands and the response never reaches the browser, the user
    retries; without the batch id that second run reports "152 reused, 0
    created", which is correct and reads exactly like nothing happened.
+
+── A HALF THAT SHIPPED ALONE. IT IS FINISHED; IT IS NOT WIRED. ─────────
+
+**NOTHING CALLS `apply_seed()` OR `undo_seed()`.** That is deliberate and
+it is not "unfinished": both are built, tested and merged, and the write
+was merged on purpose without a way to reach it, so that the first real
+seed is a decision somebody makes rather than a button that already
+exists. See HANDOFF, *Decision: the first real seed goes into a FRESH
+assessment*.
+
+**The other half is a route.** `site_dd.seed_preview` renders what a seed
+would do and writes nothing; what is missing is the POST that applies the
+previewed plan, and a path that reaches `undo_seed()` for an assessment
+that carries a batch. The preview already computes the plan and the
+reconcile the write needs, so wiring it is a route and a template, not a
+redesign.
+
+**NO SWEEP COVERS THIS MODULE, so nothing will remind anybody.**
+`tests/test_dead_readers.py` walks `tools/*_db.py` only, and gates on
+`READER_PREFIXES` — `apply_seed` and `undo_seed` match neither the glob
+nor the prefixes. `tests/test_route_reachability.py` sees routes, and
+there is no route here to see. This is the sixth instance of the dead-path
+shape and the first found in a module whose consequence is a 1,046-row
+write, which is why it is written here rather than only in a document.
+
+**IS IT SAFE TO WIRE AS IT STANDS? Yes — and know what wiring means.**
+Unlike `site_dd_costs.to_capex_lines()`, this has not drifted behind
+anything: it is current, it is the only implementation, and its tests run
+against the same reconcile the preview renders. What it does NOT need is a
+correctness fix before use. What it DOES need is that whoever connects it
+understands the button they are creating: **one press writes 152 areas
+and 894 rooms**, roughly 350x and 900x anything this platform has held,
+into the database carrying Michelle's live walk, with no platform backup
+behind it (known-issues 3). The confirmation step is therefore part of
+the wiring, not a nicety — it must name the figures, and the write must
+stay gated on the rendered-state token this module already checks.
+────────────────────────────────────────────────────────────────────────
 """
 
 from __future__ import annotations
