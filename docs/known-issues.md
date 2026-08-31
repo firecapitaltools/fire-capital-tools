@@ -214,17 +214,25 @@ or measured rather than inferred:
 **Why it is not settled.** Nothing has changed and nothing here can
 change it.
 
-> **NOT RE-VERIFIED on 2026-08-31, and that is recorded rather than
-> glossed.** The Part 84 audit tried to re-run the reads above and the
-> GraphQL API answered `Not Authorized` on `me` itself — this project's
-> own documented signature of a stale credential, not of an entitlement
-> boundary — with a token whose recorded expiry was still eighteen
-> minutes away, and `railway status` did not change it although the CLI
-> works. **So the call says nothing either way about the plan**, and
-> inferring "still zero" from a failed request would be the Part 74 error
-> pointing the other way. What is observable without the API: `/data/backups`
-> contains only files this application wrote, and no platform backup has
-> appeared. The entry stands; the check wants a working credential.
+> **RE-VERIFIED 2026-08-31, and the entry stands unchanged.** Read with a
+> working `me`:
+>
+>     workspace.plan                          HOBBY
+>     subscriptionPlanLimit.volumes:
+>         maxBackupsCount                     0
+>         maxBackupsUsagePercent              0
+>         maxSizeMB                        5000
+>
+> **The Part 84 attempt failed for a reason that was not the one recorded,
+> and the correction is the more useful half.** It read `Not Authorized`
+> on `me` and matched that to this project's documented stale-token
+> signature. The token was not stale: the CLI's config now carries
+> `user.accessToken`, and `user.token` — the field the script read — is
+> `null`, so the request went out as `Bearer None`. A refreshed token
+> failed identically, which should have been the tell.
+>
+> See HANDOFF, *A recorded failure signature makes the wrong cause the
+> obvious one*.
 
 **Cost if wrong.** Total, unrecoverable loss of every deal, scenario,
 assessment and uploaded file, with no platform-level recovery of any kind.

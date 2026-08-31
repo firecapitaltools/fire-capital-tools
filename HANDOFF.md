@@ -2703,8 +2703,18 @@ GraphQL query returns `Not Authorized` -- not `401`, not `expired`, just
 Not Authorized on every field including `me`. This cost real time: it
 presents as "our token lacks the scope for this", and the natural next
 move is to go hunting for a permissions fix that does not exist.
-`railway status` refreshes it. Check expiry before concluding anything
-about access:
+`railway status` refreshes it.
+
+> **AND A THIRD CAUSE PRODUCES THE IDENTICAL RESPONSE, learned 2026-08-31
+> at the cost of one wrong diagnosis: NO TOKEN AT ALL.** The CLI config
+> now carries the credential in **`user.accessToken`**, and **`user.token`
+> is `null`** — so a script reading the old field sends `Bearer None` and
+> is denied on every field, exactly like a stale one. **Read
+> `accessToken`.** And before concluding anything from a denial, print
+> what you are sending: the response cannot distinguish these three
+> causes and the request can.
+
+Check expiry before concluding anything about access:
 
     python -c "import json,pathlib,datetime as d; u=json.loads((pathlib.Path.home()/'.railway'/'config.json').read_text())['user']; print(d.datetime.fromtimestamp(int(u['tokenExpiresAt'])))"
 
@@ -4634,6 +4644,61 @@ habit, not code**: read the feedback table at the start of a run. Three
 rows, one query. The generated section is worth building because the
 habit has now failed once in a way that cost two weeks — but if only one
 of the two happens, the habit is worth more than the script.
+
+---
+
+## A recorded failure signature makes the wrong cause the obvious one
+
+**This file says: a stale Railway token presents as `Not Authorized` on
+every field including `me`, and `railway status` refreshes it.** That is
+true, it was expensive to learn, and it is exactly why the next failure
+was misdiagnosed.
+
+Part 84 tried to re-verify known-issue 3, got `Not Authorized` on `me`,
+recognised the signature, ran `railway status`, got the same answer, and
+concluded *"cannot verify — stale credential"*. **The token was not
+stale.** The CLI's config now stores `user.accessToken`; `user.token` —
+the field the script read — is `null`. The request went out as
+`Bearer None`.
+
+### The tell was there and was read past
+
+A refreshed token failed **identically**. The recorded signature says
+staleness denies everything and an entitlement boundary denies one thing;
+nothing in it covers *a credential that is absent*, and absent-credential
+looks precisely like stale-credential from the outside. So the entry that
+should have narrowed the diagnosis widened it instead: it supplied a
+ready cause that fit, and the cheap check — **print the token you are
+about to send** — was never run because the question felt answered.
+
+> **THE SHAPE: a documented failure signature is a hypothesis with
+> unearned authority.** It arrives already tested, already paid for, and
+> phrased as an identification rather than a possibility. The failure it
+> describes and the failure in front of you can share every observable
+> and differ entirely in cause.
+>
+> **The discriminator is always the same and always cheap: check the
+> INPUT, not the response.** Not "is the token stale" but "what am I
+> actually sending". One `print` would have shown `Bearer None`.
+
+**Same family as the entitlement error of Part 74, inverted.** There, a
+listing was read as a capability and the fix was to exercise the write.
+Here a denial was read as a known cause and the fix was to look at the
+request. Both are cases of reasoning from the response when the question
+was about the call.
+
+### What it cost, and what it did not
+
+Nothing, in the end: the audit recorded the entry as *unchecked* rather
+than as confirmed, which was the right call under a wrong diagnosis and
+is the reason this is a footnote rather than an incident. **Recording "I
+could not verify this" is what made the mistake cheap.** An audit that
+had written "still zero backups, verified" would have been wrong twice
+and traceable never.
+
+Known-issue 3 now reads with a working `me`: plan `HOBBY`,
+`maxBackupsCount` **0**, volume cap 5,000 MB. The entry stands exactly as
+written.
 
 ---
 
