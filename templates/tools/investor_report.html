@@ -47,6 +47,45 @@
   <a href="{{ url_for('investor_notes.index') }}" class="btn btn-secondary">Open Notetaker</a>
 </div>
 
+{#
+  ADD A PROPERTY WITHOUT LEAVING THIS PAGE.
+
+  Michelle: "i need ability to add a new property/deal", written from
+  this screen. Both mechanisms already existed and neither was here --
+  Deal Dive makes deals, the notetaker makes name-only properties -- so
+  what was missing was the affordance, not the feature.
+
+  IT SAYS WHAT IT MAKES, AND SAYS WHAT IT DOES NOT.
+
+  A property name is something meeting notes can be matched against. A
+  deal has an address, a market, a scenario and a waterfall. Blurring
+  them is exactly how assessment 11's "Nabob Hill" ended up as a twelfth
+  property registry entry that resolves to no deal, so this form names
+  the difference on the screen rather than leaving it to be discovered.
+#}
+<div class="card">
+  <div class="scorecard-section-title">Add a property</div>
+  <p class="page-subtitle" style="margin:8px 0 12px;">
+    Creates a <strong>property name</strong> — enough to match meeting notes
+    against, and an empty Underwriting scenario waiting for numbers.
+    <strong>This is not a deal.</strong> A deal has an address and its own
+    record: make one in
+    <a href="{{ url_for('deal_dive.index') }}">Deal Dive</a> when the property
+    becomes one you are underwriting.
+  </p>
+  <form method="POST" action="{{ url_for('investor_notes.add_property') }}"
+        style="display:grid; grid-template-columns: 2fr auto; gap:12px; align-items:end;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="return_to" value="investor_report">
+    <div class="form-group" style="margin-bottom:0;">
+      <label class="form-label" for="new_property_label">Property name</label>
+      <input class="form-input" type="text" id="new_property_label"
+             name="property_label" maxlength="120" placeholder="Oxford Pointe">
+    </div>
+    <button type="submit" class="btn btn-secondary">Add property</button>
+  </form>
+</div>
+
 <!-- ── Deal picker ────────────────────────────────────────────────────── -->
 <div class="card">
   <div class="scorecard-section-title">Choose a Deal</div>
