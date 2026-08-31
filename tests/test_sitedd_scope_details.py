@@ -306,12 +306,25 @@ class ExistingFindingsMeanTheDefaultJobTests(unittest.TestCase):
         self.assertEqual(line["unit"], refcosts.UNIT_SQFT)
         self.assertIsNone(line["total"])
 
-    def test_a_scope_detail_does_not_change_the_price_yet(self):
-        """COST_BY_DETAIL carries no new entries: this branch ships the
-        capture, not the figures. Step 5 is where prices move."""
-        for value, _ in bank.every_item()["walls_ceiling"]["options"]:
-            with self.subTest(value=value):
-                self.assertEqual(self.line(value)["unit_cost"], 5.75)
+    def test_a_scope_detail_now_moves_the_price_where_one_was_researched(self):
+        """WAS `does not change the price yet`. Step 5 landed, and this
+        is the assertion it changed -- stated as the two cases rather
+        than as one number, because they are different answers:
+
+        * `paint` has a researched per-ROOM figure, so the line stops
+          being a rate and starts totalling;
+        * `repair_and_paint` has none -- the drywall half spans $60 to
+          $2,000 -- so it falls back to the item rate exactly as before.
+        """
+        paint = self.line("paint")
+        self.assertEqual(paint["unit_cost"], 637.50)
+        self.assertEqual(paint["unit"], refcosts.UNIT_EACH)
+        self.assertFalse(paint["is_rate"])
+
+        both = self.line("repair_and_paint")
+        self.assertEqual(both["unit_cost"], 5.75)
+        self.assertEqual(both["unit"], refcosts.UNIT_SQFT)
+        self.assertTrue(both["is_rate"])
 
     def test_the_item_is_still_a_rate(self):
         self.assertTrue(self.line(None)["is_rate"])

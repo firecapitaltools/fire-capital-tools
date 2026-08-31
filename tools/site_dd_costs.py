@@ -195,7 +195,10 @@ def reference_hint(finding: dict[str, Any],
         "unit_label": refcosts.UNIT_LABELS.get(ref.unit, ref.unit),
         "note": ref.note,
         "sources": ", ".join(ref.sources),
-        "researched_on": refcosts.RESEARCHED_ON,
+        # The ENTRY's date, not the table's: the scope figures were read
+        # on a later day than the original 36, and saying otherwise on
+        # the capture screen would be a small fabrication of provenance.
+        "researched_on": getattr(ref, "dated", refcosts.RESEARCHED_ON),
         # True when a person has already typed a figure here, so the page
         # can say "yours is being used instead of" rather than "this will
         # be used".

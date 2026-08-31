@@ -81,12 +81,37 @@ class OneSourceOfTruthForTheRatesTests(unittest.TestCase):
                 entry = refcosts.COST_BY_DETAIL[("flooring", material)]
                 self.assertEqual(entry.unit_cost, rate)
 
-    def test_and_nothing_else_has_been_added_yet(self):
-        """This step ships the MECHANISM, not the research. A new price
-        here is a budget change and belongs in its own run with the
-        figures in front of Michelle."""
+    def test_the_scope_entries_are_exactly_the_researched_ones(self):
+        """WAS `nothing else has been added yet`, which pinned the state
+        between shipping the mechanism and doing the research. The
+        research landed in Part 81, so the assertion becomes the list --
+        an entry appearing here without a source and a note is a budget
+        change nobody reviewed, which is the thing that test was really
+        protecting against.
+        """
         non_flooring = {k for k in refcosts.COST_BY_DETAIL if k[0] != "flooring"}
-        self.assertEqual(non_flooring, set())
+        self.assertEqual(non_flooring, {
+            ("walls_ceiling", "paint"),
+            ("toilet", "replace_seat"),
+            ("tub_shower", "resurface"),
+            ("entry_door", "paint"),
+            ("entry_door", "repair_door"),
+            ("entry_door", "replace_hardware"),
+            ("dryer_vent", "clean"),
+            ("dryer_vent", "install"),
+        })
+
+    def test_every_scope_entry_carries_sources_a_note_and_a_date(self):
+        """The no-fabricated-authority rule, as an assertion rather than
+        a habit."""
+        for key, entry in refcosts.COST_BY_DETAIL.items():
+            if key[0] == "flooring":
+                continue
+            with self.subTest(key=key):
+                self.assertTrue(entry.sources, "no source named")
+                self.assertGreater(len(entry.note), 80, "no stated arithmetic")
+                self.assertTrue(entry.researched_on, "no research date")
+                self.assertGreater(entry.unit_cost, 0)
 
     def test_the_entries_keep_the_item_key_not_the_detail(self):
         """A flooring line is still a flooring line."""
