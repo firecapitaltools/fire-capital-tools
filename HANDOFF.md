@@ -5036,6 +5036,155 @@ hoped for.
 
 ---
 
+## The other eleven: what they hold, and why "re-importable" is thinner than it sounds
+
+**Read read-only 2026-08-31.** All twelve databases total **1.09 MB**.
+The whole volume is 5.9 MB of 4,838. Nothing here is a capacity problem
+and it never has been.
+
+| database | KB | what is in it |
+|---|---|---|
+| `site_dd.db` | 184 | 5 assessments, 154 areas, 895 rooms, **31 findings** |
+| `underwriting.db` | 108 | 10 scenarios, 109 expense lines, 92 unit lines, 4 capex lines |
+| `fire_metrics.db` | 508 | 343 cities, 1,444 search aliases, **36 AI city summaries** |
+| `market_data_cache.db` | 84 | **14 RentCast rows**, and the usage counters (19 / 40) |
+| `investor_report.db` | 48 | 1 investor, typed |
+| `investor_notes.db` | 40 | 9 property aliases |
+| `deal_dive.db` | 20 | 2 deals, 3 file references |
+| `scorecard_pro_history.db` | 20 | 36 months of KPI history |
+| `feedback.db` | 16 | **3 rows in Michelle's own words** |
+| `rent_comps.db` | 16 | 3 comps |
+| `app_settings.db` | 12 | **1 row: the grading bands she set** |
+| `openai_usage.db` | 12 | 3 rows of spend against the $60/month budget |
+| *`users.json`* | 0.25 | Beckett's account |
+| *`/data/uploads`* | 2,150 | 52 files |
+
+### Ranked by irreplaceability, which is not size and is not importance
+
+**Typed by a person and existing nowhere else — expensive.**
+`feedback.db` is the sharpest case in the whole set: three rows Michelle
+typed once, in an app, with no copy anywhere, and Parts 85–86 spent two
+runs discovering they contained four unbuilt requests and the answer to
+two questions we had been calling blocked. Sixteen kilobytes.
+`app_settings.db` is one row — the grading bands `{green 0, yellow 5,
+orange 15}` — and losing it would not error, it would silently grade
+deals against defaults. `underwriting.db`'s scenario assumptions,
+`investor_report.db`'s investor, `investor_notes.db`'s nine aliases and
+`deal_dive.db`'s two deals are all typed. **`site_dd.db` is mixed**: the
+31 findings are Michelle's walk and irreplaceable; the 1,049 seeded rows
+are re-importable in ninety seconds from a file we have.
+
+**Paid for — expensive in a different currency.**
+`market_data_cache.db` holds 14 RentCast rows, each a call against a
+50/month cap: losing them is **28% of a month's quota** to rebuild. But
+the worse loss in that file is the two counter rows — `rentcast_usage=19`,
+`google_places=40` — because losing a *counter* does not cost a call, it
+costs the ability to know what has been spent, and the gate that refuses
+at cap reads from it. `openai_usage.db` is the same shape against the
+$60/month budget. `fire_metrics.db` is mostly free to rebuild from
+government sources by clicking refresh — **except its 36 city summaries,
+which are OpenAI output**, so a rebuild spends real money.
+
+**Derived and cheap — with a condition that matters more than the
+category.** `scorecard_pro_history.db` (36 months) and `rent_comps.db`
+(3 rows) are re-derivable, and the seeded 1,049 Site DD rows are
+re-importable.
+
+> **"Re-importable" is true only because `/data/uploads` still holds the
+> inputs — and uploads have no snapshot either.** The scorecard history
+> is rebuildable from a P&L that lives on the same volume; the seeded
+> areas are rebuildable from a rent roll that does not (it was
+> deliberately never stored) and exists only in somebody's Downloads
+> folder. **A volume-level loss takes the derived data and its sources
+> together, so the "cheap" column is cheap only against the failures that
+> lose one database.** For the failure everybody actually fears, there is
+> no cheap column.
+
+## The mechanism generalises perfectly. The trigger does not exist.
+
+**Re-confirmed after seeding and five migrations**, every one of the
+twelve: `journal_mode=delete`, `synchronous=2` (FULL), `page_size=4096`,
+`integrity_check=ok`, no `-wal` or `-journal` sidecars anywhere. That is
+the configuration that made the Site DD rehearsal trustworthy, and it
+still holds for all of them.
+
+**And it was run rather than argued.** `VACUUM INTO` on all twelve, into
+a scratch directory on the container, with a content fingerprint of every
+table on each side:
+
+```
+12/12 content-identical
+16 ms for all twelve databases
+uploads.tar.gz 1.38 MB
+TOTAL 2.45 MB, whole run 0.2 s
+```
+
+So a complete snapshot of everything this platform holds is **2.45 MB and
+a fifth of a second**, against 4,816 MB free. There is no cost argument
+against doing it. **The reason it does not exist is that there is nowhere
+to hang it.**
+
+### There is no scheduler, and that is a design fact rather than a gap
+
+Checked: no cron, no APScheduler, no Celery, no timer thread. The only
+long-running work in the platform is the FIRE Metrics refresh, and it is
+a **subprocess started by an admin clicking a button** — its own docstring
+explains why it is a process and not a thread. The one piece of
+recurring-looking machinery is human-triggered.
+
+**The Site DD snapshot exists because a 1,046-row write existed to hang
+it off, not because Site DD is special.** `apply_seed` is the only place
+in this application where one action changes a database enough to justify
+a copy first, and the snapshot is a line inside it. Nothing else has a
+write of that shape: the other eleven are written a form at a time.
+
+## What we can do without the plan upgrade
+
+**1. A manual `snapshot everything` command — worth having, and it is not
+ceremony.** The argument is not that operators are disciplined. It is
+that **this project has already wanted it three times in two weeks** and
+improvised it each time: a bespoke `VACUUM INTO` script before the first
+real seed, ad-hoc reads before deleting 158 branches, and again before
+moving six snapshot files. A named command would have been used on all
+three occasions, and each improvised script was a chance to get the
+`mode=ro` wrong.
+
+It is one module, it is 0.2 seconds, and its honest description is *"run
+this before you do something you are not sure about"*. **What it must
+never be described as is cover.**
+
+**2. What genuinely needs a scheduler: everything else.** Periodic
+snapshots, retention across time, a restore point for a day nobody
+touched anything — all of it needs something to fire without a person,
+and this platform has no such thing. Inventing one is a bigger change
+than it looks: a process manager, a failure mode when it does not run,
+and a new thing that can wake up and write to `/data` unattended.
+
+**3. The one automation available without a scheduler, flagged and not
+recommended today.** Railway restarts the container on every deploy, and
+there have been 61 deploys since 27 August — so a snapshot at startup
+would fire roughly twice a day for free, at exactly the moment risk is
+highest, with no timer. **It is still automation**: it writes to `/data`
+on every boot, and a hook that can raise is a hook that can stop the app
+starting. That trade is a decision, not a side effect of this run.
+
+## The honest conclusion
+
+**Extending the snapshot to the other eleven is worth doing as a manual
+command and is not worth automating before Michelle answers.** The
+mechanism is proven, the cost is nil, and the missing piece is a trigger
+that only a scheduler or a human can supply.
+
+**And the thing to guard against is the reason this run exists.** A
+snapshot mechanism nobody triggers reads as cover in a runbook while
+covering nothing — this project has already found a partial defence being
+cited as a whole one (`save_expenses`, *"a partial defence is more
+dangerous than none, because it is the one people cite"*). So the runbook
+now says what has **no** cover, in as many words, before it says what
+does.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
