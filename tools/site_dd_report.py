@@ -132,6 +132,7 @@ def build_report(path, assessment: dict[str, Any], items: dict[str, dict[str, An
         ax = fig.add_axes([0.10, 0.14, 0.82, 0.40])
         names = [c["name"] for c in cats]
         left = [0] * len(cats)
+        drawn = 0
         for state in cond.CONDITIONS:
             widths = [c["counts"][state] for c in cats]
             if not any(widths):
@@ -140,10 +141,29 @@ def build_report(path, assessment: dict[str, Any], items: dict[str, dict[str, An
                     color=cond.CONDITION_COLOURS[state], alpha=0.88,
                     label=cond.CONDITION_LABELS[state])
             left = [a + b for a, b in zip(left, widths)]
+            drawn += 1
         ax.invert_yaxis()
         ax.set_xlabel("Items by condition")
         ax.grid(axis="x", alpha=0.18)
-        ax.legend(loc="lower right", fontsize=7.5, frameon=False, ncol=5)
+        # A LEGEND FOR NOTHING IS WHAT THE WARNING WAS.
+        #
+        # `matplotlib` prints "No artists with labels found to put in
+        # legend" when this is called on an axis where no bar was drawn,
+        # and no bar is drawn when every state count is zero -- an
+        # assessment nobody has walked yet. It is not noise to suppress:
+        # the page was drawing an empty legend box under an empty chart,
+        # and the warning was describing that correctly.
+        #
+        # NOT "on every Site DD PDF", which is how this was recorded. A
+        # populated report has never warned; measured both ways rather
+        # than assumed. What made it reachable in earnest is seeding --
+        # assessment 21 is 152 units and zero findings, so its report is
+        # exactly this case.
+        if drawn:
+            ax.legend(loc="lower right", fontsize=7.5, frameon=False, ncol=5)
+        else:
+            ax.text(0.5, 0.5, "Nothing assessed yet", transform=ax.transAxes,
+                    ha="center", va="center", fontsize=10, color=MUTED)
         for i, c in enumerate(cats):
             if not c["assessed_count"]:
                 ax.text(0.1, i, "not assessed", va="center", fontsize=8, color=MUTED)
