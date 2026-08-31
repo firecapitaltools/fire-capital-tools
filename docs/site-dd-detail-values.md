@@ -1,5 +1,81 @@
 # Detail values for scope of work — design
 
+> # IMPLEMENTED. All six steps shipped, 2026-08-19 → 2026-08-31.
+>
+> **This document is now a record of a decision, not a plan.** Read it
+> that way: the reasoning is why the thing looks as it does, and where
+> the built thing differs from the written one, the difference is marked
+> in place and summarised here.
+>
+> | § | what shipped |
+> |---|---|
+> | 1 | `detail` carries the scope. Unchanged. |
+> | 2 | Options on the six condition items. **The three appliance items went a different way — see below.** |
+> | 3 | GFCI: still out of scope, still correct. |
+> | 4 | `for_item(item_key, detail)` generalised, flooring folded in. **Plus `UNPRICED_DETAIL`, which the sketch here did not have and needed.** |
+> | 5 | No migration, no backfill. Assessment 11 verified unmoved at every step. |
+> | 6 | Grouping key and label both shipped — **the label by composition, not by the suffix recommended here.** |
+> | 7 | All five steps done. Step 5's figures landed in Part 81. |
+>
+> ### Three places where the built thing differs from the written one
+>
+> **1. `appliance_disposal`, `washer` and `dryer` are priced by
+> CONDITION, not by detail.** §2's table lists them among the nine with a
+> scope distinction — *Jammed* vs *Not Working*, *Service* vs *Replace* —
+> and that reading of Paresh's form is right. What it missed is that our
+> three items are `KIND_CHOICE` and their `detail` column already holds
+> PRESENCE: present, hookup only, not there. Giving them a scope detail
+> would have been the collision §1 says cannot happen — one column, two
+> meanings, one item. `CONDITION_COSTS` keyed on `(item, condition)` is
+> what shipped, and it needed no schema and no form change, because the
+> room form was already rendering a condition picker AND a presence
+> picker for all three. That was checked by rendering the form rather
+> than by reading it.
+>
+> **2. `UNPRICED_DETAIL` is not in this document's design and the design
+> was wrong without it.** §4's sketch has one fallback where there are
+> two cases: an UNRECOGNISED detail should get the item's price, and a
+> RECOGNISED one we declined to price must get nothing. Without the
+> distinction, concrete flooring would have acquired the general
+> $6.50/sqft. Corrected in place in §4 and built in Part 62. **Sharpened
+> again in Part 82**: the set is now derived from its reasons, so a pair
+> cannot be declined without a written sentence, because a decline with
+> no sentence reached the budget as *"no cost was recorded on this
+> finding"* — blaming the inspector for a decision the table made.
+>
+> **3. The label composes rather than suffixes.** §6 recommends appending
+> the detail's label to whatever base wins. What shipped is
+> `_line_label(item_key, instance_label, labels, scope_label)`, which
+> composes the three parts — `Toilet — Powder room (Replace seat)` — so
+> an instance name and a scope can both be present without either
+> swallowing the other. See C2, which caught this while building
+> repeatable items.
+>
+> ### One prediction in §6 that did not hold
+>
+> *"`UNPRICED` loses `closet` and `dryer_vent` once their details are
+> priced."* It kept both, and the reason is worth having: a finding can
+> record the item with NO scope, and that finding still needs an answer.
+> `dryer_vent`'s entry now reads as *"this finding does not say which
+> job; record the scope and both are priced"*, which is a different
+> sentence from the one it had and a different job from the one §6
+> imagined. `closet` keeps its entry outright — nothing published prices
+> a rod or a shelf.
+>
+> ### What the argument got right, and the direction it got wrong
+>
+> The case made throughout here is **under-pricing**: a rate item that
+> can never be totalled because nobody will measure a room. That is real,
+> and `walls_ceiling` + `paint` at $637.50 per room is the fix.
+>
+> **The live exposure was the reverse.** With the picker shipped and the
+> figures not, a scope resolved to its ITEM's price — so `toilet` +
+> `replace_seat` priced at $600, the whole toilet, and `entry_door` +
+> `tighten_hardware` at $1,450. An expensive item lending its price to a
+> cheap job, which this document never considers. Nobody recorded either,
+> so nothing moved; the window was open between Part 63 and Part 81. See
+> HANDOFF, *A picker is cheaper than a price table*.
+
 **Design only. No schema change, no migration, no code. Written 2026-08-19
 against master at `805bb9d`.**
 
@@ -458,6 +534,26 @@ design works with zero of them present on day one** — a `(item, detail)`
 pair with no entry falls back to the item-level price, which is exactly
 today's behaviour.
 
+> **DONE, 2026-08-31, and it was eight entries rather than fourteen.**
+> Eight scope figures and three condition figures shipped in Part 81, each
+> with named sources, the ranges, the arithmetic and its own research
+> date — the module constant was NOT bumped, because that would have
+> asserted all 36 originals were re-verified that day.
+>
+> **Six of the fourteen were declined rather than researched, and the
+> declines are the honest half:** `closet` gets nothing at any scope (the
+> nearest published figures price a CURTAIN rod, or shelving per linear
+> foot, which reintroduces the measurement a scope exists to avoid);
+> `walls_ceiling` + `repair_and_paint` falls back to the item rate (the
+> drywall half spans $60 to $2,000); `entry_door` + `tighten_hardware` is
+> in `UNPRICED_DETAIL`, because falling back would price a screwdriver
+> visit as a new door. `replace_toilet`, `replace_tub` and `replace_door`
+> are absent on purpose — the item figure IS that job's price.
+>
+> **"Falls back to the item-level price" is right for an unrecognised
+> pair and dangerous for a declined one**, which is the correction
+> already marked above and the reason `UNPRICED_DETAIL` exists.
+
 ---
 
 ## 5. Existing findings with no detail stay valid — by construction
@@ -609,9 +705,28 @@ Three reasons to prefer this over a `Detail` column:
   a figure the sheet meant to disclose and did not. That is a disclosure
   obligation, not a nicety — the sheet exists so a number in the budget
   can be traced.
+
+  > **This was right and it was missed anyway.** The figures shipped in
+  > Part 81 and the sheet was not extended until Part 82, so for one
+  > merge a line priced at $637.50 was traceable to nothing. The flooring
+  > materials had been in the same position since Part 62. All sixteen
+  > scope, material and condition entries are on the sheet now, with
+  > their sources and derivation, and the declined pairs are on the "Not
+  > priced" sheet beside them.
+  >
+  > Worth noting how it was found: not by re-reading this paragraph, but
+  > by walking a seeded unit on paper and reading the output.
 - **`UNPRICED`** loses `closet` and `dryer_vent` once their details are
   priced, and their reasons — currently arguing that the item has no
   canonical job — become the explanation of why they needed details.
+
+  > **It kept both.** A finding can record the item with no scope at all,
+  > and that finding still needs an answer. `dryer_vent`'s reason was
+  > rewritten rather than removed — it now says the scope decides and
+  > names both figures — and `closet` keeps its entry outright because
+  > nothing published prices a rod or a shelf. The prediction was that
+  > pricing a detail retires the item's reason; what actually happens is
+  > that it changes what the reason is FOR.
 
 ---
 
@@ -639,6 +754,13 @@ Three reasons to prefer this over a `Detail` column:
 Steps 1–4 are safe with no researched figures at all. Step 5 is where the
 budget changes, and it should be a separate decision with the numbers in
 front of Michelle.
+
+> **All five are done. Step 5 shipped in Part 81 and Part 82**, as two
+> merges — the eight scope figures, then the three condition figures —
+> with the numbers, their sources and their arithmetic in the report
+> before either merged. What it changed in production: **nothing**. No
+> finding recorded before that day carries a scope, so no line moved. The
+> figures apply from the next walk onward.
 
 ---
 
@@ -807,6 +929,10 @@ what a finding costs.
 5. Research `COST_BY_DETAIL`. **Demoted** — still valuable, no longer
    urgent, and still a separate decision with the numbers in front of
    Michelle.
+   > **Done 2026-08-31.** And the demotion was wrong about the urgency,
+   > for a reason nobody had in view: with step 2 shipped and step 5 not,
+   > a recorded scope resolved to its item's price. The gap between the
+   > two was the window in which `replace_seat` cost $600.
 
 **Nothing here changes the size of the work or its shape.** The design was
 written to be robust to exactly this kind of drift — §5's "existing
