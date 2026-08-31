@@ -128,13 +128,31 @@ case (a) cannot reverse, because reuse leaves no trace.
 Use SQLite's own `VACUUM INTO` or the backup API rather than a file copy,
 so the snapshot is consistent rather than a copy of a file mid-write.
 
-**c. Ask Jasper to turn on Railway volume backups.**
+**c. ~~Ask Jasper to turn on Railway volume backups.~~ NOT AVAILABLE.**
 
-Not a code change and not blocking, but it is the only layer that
-survives the container, and it currently does not exist. **Recommend
-enabling a daily schedule before the first real seed.** One person, one
-setting, and it is the difference between "we can restore `/data`" and
-"we cannot".
+> **Corrected 2026-08-30.** This said the backup capability existed and
+> was merely unconfigured, and that enabling it was one person and one
+> setting. **Both were wrong.** The workspace is on the **Hobby** plan,
+> whose `subscriptionPlanLimit.volumes.maxBackupsCount` is **0**;
+> `volumeInstanceBackupCreate` returns `Not Authorized` with a fresh
+> token while every read succeeds. It is a billing decision on Michelle's
+> account, not a setting. See known-issue 3.
+
+**So layers (a) and (b) are not a supplement to infrastructure backups.
+They are the only rollback that exists.** Nothing outside this
+application can put `/data` back, today or after a bad seed, and that
+raises the bar on both:
+
+* the `seed_batch` undo must be exact, because there is no second chance
+  behind it;
+* the pre-write snapshot is **mandatory, not advisable** — it is the only
+  layer that recovers a wrong *reuse*, which leaves no batch marker to
+  delete.
+
+**This does not block the seeding work.** Both layers are ours, cost
+nothing, and do not depend on the plan. What gates the seed is that a
+restore from the snapshot has actually been performed once — see
+`docs/site-dd-restore-runbook.md`. An untested snapshot is a belief.
 
 ---
 

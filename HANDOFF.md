@@ -3064,6 +3064,95 @@ absence is *explained*, not that it is *announced identically everywhere*.
 
 ---
 
+---
+
+## A schema lists what the platform supports, not what your account may call
+
+Railway's GraphQL API defines `volumeInstanceBackupCreate`,
+`volumeInstanceBackupRestore`, `volumeInstanceBackupLock` and
+`volumeInstanceBackupScheduleUpdate`. Introspection shows all four, with
+argument names and descriptions. `volumeInstanceBackupList` and
+`volumeInstanceBackupScheduleList` both answer successfully and return
+`[]`.
+
+**From that I concluded the capability existed for this volume, was
+simply unconfigured, and that switching it on was one person and one
+setting.** It was reported that way, approved on that basis, and acted on
+in the following run.
+
+**It was wrong.** The workspace is on the **Hobby** plan:
+
+    subscriptionPlanLimit.volumes.maxBackupsCount   0
+
+Zero backups are permitted. `volumeInstanceBackupCreate` returns **`Not
+Authorized`** — with a token refreshed sixty seconds earlier, while
+`volumeInstanceBackupList`, `volumeInstanceBackupScheduleList` and `me`
+all returned normally in the same script.
+
+### Two readings, and the optimistic one was taken
+
+An empty list had two meanings and both were available from the start:
+
+| reading | implication |
+|---|---|
+| *configured to zero* | a setting nobody has turned on |
+| *not permitted* | a plan boundary, not a setting |
+
+Nothing in the response distinguishes them. **An empty result is not
+evidence of an empty configuration** — it is equally consistent with a
+capacity of zero, and a list endpoint has no way to say which.
+
+The same trap sits in the schema itself. **Introspection describes the
+API, not the caller's entitlement.** A mutation appearing in
+`__schema.mutationType` means the platform implements it for somebody, and
+says nothing about whether this token may invoke it. There is no
+per-account schema.
+
+### One call settled it, and it should have been the first one
+
+    READ  volumeInstanceBackupList          -> OK
+    READ  volumeInstanceBackupScheduleList  -> OK
+    READ  me                                -> OK
+    WRITE volumeInstanceBackupCreate        -> DENIED (Not Authorized)
+
+Reads and the write in one script with one fresh token. That is the whole
+experiment, it costs one request, and it distinguishes the two readings
+immediately. **The general rule this file already carries — *before
+claiming what a mechanism does, run it* — applies to permissions exactly
+as it applies to parsers.** A capability is not established by being
+listed; it is established by being exercised.
+
+### The stale-token trap sits in front of it, and both were live
+
+The first denial WAS staleness — the token was 21 hours expired, and this
+file's own note says a stale token presents as `Not Authorized` on every
+field including `me`. Refreshing it was right. **But refreshing it and
+retrying the same mutation would have produced the same message for a
+completely different reason**, and stopping at "still denied, so it must
+be the token" would have been just as wrong in the other direction.
+
+What separated them was running reads and the write *together after the
+refresh*. Staleness denies everything; an entitlement boundary denies one
+thing. **The discriminator is not retrying — it is a control that should
+succeed.**
+
+### What survived, and why the distinction matters
+
+Everything in the same reconnaissance that was **read or measured** held
+up, and it is worth marking which is which:
+
+| claim | how it was obtained | still true |
+|---|---|---|
+| a backup covers the whole volume | every mutation keyed on `volumeInstanceId` | yes |
+| restore is in place, no undo exists | argument descriptions, and no reverse mutation | yes |
+| backups are metered as `BACKUP_USAGE_GB` | the `MetricMeasurement` enum plus a usage query | yes |
+| all twelve DBs are `journal=delete`, `synchronous=FULL` | run on the container | yes |
+| **the capability was available to us** | **inferred from a listing** | **no** |
+
+Four measured, one inferred, and the inferred one was the only one that
+was wrong. That is not a coincidence and it is the entry.
+
+
 ## When a positive control passes, doubt the instrument first
 
 A positive control is supposed to fail. That is its whole function: break

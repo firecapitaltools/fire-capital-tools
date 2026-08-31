@@ -160,49 +160,77 @@ failure would arrive inside a number nobody reads closely any more.
 
 ---
 
-## 3. There is no restore point for the /data volume
+## 3. Volume backups are unavailable on the Hobby plan
 
 **Opened** 2026-08-30 · **Severity** high · **Status** open
 
+> **Retitled and corrected 2026-08-30.** This opened as *"there is no
+> restore point for the /data volume"*, on the finding that the backup
+> API returned empty lists and the mutations existed. **That reading was
+> wrong in its cause.** Backups are not merely unconfigured — they are
+> **not permitted on this plan**, and the fix is a billing decision on
+> Michelle's account rather than a setting anyone here can flip. See the
+> HANDOFF entry on schema-versus-entitlement.
+
 **What is believed.** If production data were lost or corrupted, it could
-be restored.
+be restored from a platform backup.
 
-**What is actually known.** It could not. Checked read-only against the
-Railway API on 2026-08-30:
+**What is actually known.** It could not, and it cannot be arranged
+without a plan change. Read from the Railway API on 2026-08-30 with a
+fresh token:
 
-    volumeInstanceBackupList(/data)          -> 0 backups
-    volumeInstanceBackupScheduleList(/data)  -> 0 schedules
+    workspace.plan                            HOBBY
+    subscriptionPlanLimit.volumes:
+        maxBackupsCount                       0
+        maxBackupsUsagePercent                0
 
-Both queries **succeeded** and returned empty lists. This is not a
-permissions failure and not an unsupported plan: the capability exists for
-this volume and nothing is configured. The mutations
-`volumeInstanceBackupCreate`, `volumeInstanceBackupRestore` and
-`volumeInstanceBackupScheduleUpdate` are all exposed to Jasper's account,
-so enabling it needs one person and one setting.
+    volumeInstanceBackupList(/data)           0
+    volumeInstanceBackupScheduleList(/data)   0
+    volumeInstanceBackupCreate(...)           Not Authorized
 
-The volume holds all twelve databases -- including `site_dd.db` with
-Michelle's assessment 11, and `users.json`.
+**`maxBackupsCount: 0`.** The plan permits zero. Reads succeed and return
+empty because there are none and there can be none; the create mutation is
+refused. Available tiers are `FREE`, `HOBBY`, `PRO`.
 
-**Why it is not settled.** Nothing has been enabled. Every recovery this
-project has performed worked by deleting a scratch row it had just
-created, which is a rollback available only because the write was one
-row we could name.
+The volume holds all twelve databases — `site_dd.db` with Michelle's
+assessment 11, and `users.json`.
 
-**Cost if wrong.** Total and unrecoverable loss of every deal, scenario,
-assessment and uploaded file. The seeding work about to land writes 152
-areas and 894 rooms in one operation -- 350x the areas this platform has
-ever held -- and a wrong result there has no external undo.
+**What still stands from the earlier reconnaissance**, because it was read
+or measured rather than inferred:
+
+* A backup covers the **whole volume**, not a database — every operation
+  is keyed on `volumeInstanceId`.
+* Restore is **in place** and there is **no undo** in the API surface.
+* Backups are metered as `BACKUP_USAGE_GB`; the project's month-to-date
+  figure is `0`, and the per-GB rate has not been read.
+* Every database on the volume is `journal=delete`, `synchronous=FULL`,
+  which is the configuration under which a crash-consistent snapshot
+  recovers to the last committed transaction.
+
+**Why it is not settled.** Nothing has changed and nothing here can
+change it.
+
+**Cost if wrong.** Total, unrecoverable loss of every deal, scenario,
+assessment and uploaded file, with no platform-level recovery of any kind.
 
 **How to close it.**
 
-1. In the Railway dashboard, enable a backup schedule on the
-   `fire-capital-tools-volume` volume. Daily is the obvious default.
-2. Confirm it appears: `volumeInstanceBackupScheduleList` returns one.
-3. Wait for the first backup and confirm `volumeInstanceBackupList`
-   returns it, with a size in the right order of magnitude (~142 MB).
-4. Record here the frequency, the retention, and **who can restore** --
-   the last one matters at 2am and is the part people discover late.
-5. Do **not** test a restore against production. If a restore is ever
-   rehearsed, rehearse it onto a separate volume.
+1. **Decide whether to upgrade the workspace to `PRO`.** This is
+   Michelle's account and her bill. It is a question for her, not an
+   action for us.
+2. Confirm the per-GB rate for `BACKUP_USAGE_GB` from Railway's pricing
+   page first, so the number given to her is read rather than recalled.
+3. If upgraded: enable a schedule, take one manual backup immediately,
+   and **lock** it so retention cannot expire it.
+4. Then rehearse a restore — onto a separate volume, never over
+   production — and record who can perform one.
+
+**What does NOT depend on this.** The application-level rollback for the
+seeding work — a `seed_batch` column and a pre-write `VACUUM INTO`
+snapshot — is entirely within our control, costs nothing, and does not
+require the plan change. **Rehearsed 2026-08-30** -- on a scratch database and again on a copy
+of real production content, source opened `mode=ro` and never written.
+The runbook is `docs/site-dd-restore-runbook.md`. **The seeding work is
+gated on that rehearsal, which has now passed, and not on this entry.**
 
 ---
