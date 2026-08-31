@@ -88,6 +88,26 @@ before the first real seed (`site_dd.before-first-seed.20260831-033837.db`)
 and one taken by `apply_seed` itself before each of the two writes into
 assessment 21.
 
+**NOTHING PRUNES THEM.** `take_snapshot()` writes and never deletes, and
+no other code touches this directory. Every seed adds one, and each is a
+copy of the whole database, so they grow as the data does. A retention
+rule is proposed in HANDOFF (*Snapshots accumulate and nothing prunes
+them*) and is **not built**: keep 30 days and at least the newest ten,
+never the newest one, and only ever consider files matching
+`site_dd.seed-*.db` — so anything taken by hand is exempt by
+construction.
+
+**`site_dd.before-first-seed.20260831-033837.db` is not to be deleted.**
+It is the only copy of the state before the largest write this platform
+has made, and known-issue 3 means there is nothing behind it.
+
+**And six snapshots do NOT live here**, which is the sentence above being
+wrong rather than a space problem: `deal_dive.db.pre_part14`,
+`deal_dive.db.pre_stepd`, `investor_notes.db.pre_part14`,
+`underwriting.db.pre_part14`, `underwriting.db.pre_stepd` and
+`site_dd.db.pre_part14` sit beside their databases in `/data`. Somebody
+following this runbook in a hurry would not find them.
+
     ls -la /data/backups/
 
 ### Verify the snapshot BEFORE relying on it

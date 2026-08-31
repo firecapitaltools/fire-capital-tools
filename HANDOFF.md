@@ -3622,6 +3622,134 @@ six hours. Verified after the run: zero files for assessment 21 remained.
 
 ---
 
+## Assessment 21, and why its honest name does not go in the label
+
+**Assessment 21 is the first real seed: Oxford Pointe, 152 units, 894
+rooms, batch `seed-20260831-034600-0c16c9`, no findings, status `draft`,
+inspector `seed import`.** It exists because the write was tested on real
+data, and Michelle has not asked for it.
+
+**Recommendation: keep it.** The data is correct, it is the property she
+will walk, and deleting it means doing the whole thing again later — with
+the added cost that the *next* run would be the first one, again, with
+nothing learned carried forward. The undo is proven on this exact batch,
+so "keep" is reversible in a way that "delete and redo" is not.
+
+**But the honest name does not belong in `property_label`, and that is
+worth stating because it is the obvious place to put it.**
+`site_dd_assessments.property_label` is read by `investor_notes.py` as a
+source of **property identities** — `SELECT DISTINCT property_label FROM
+site_dd_assessments` builds the registry the notetaker matches against.
+A label reading "Oxford Pointe (TEST)" would put a test marker into a
+registry that has nothing to do with seeding, and the same shape has
+already happened once: assessment 11's label created a twelfth registry
+entry nobody intended.
+
+So the provenance goes in **`overall_notes`**, which is displayed and
+editable on the assessment page and is read by nothing else.
+
+### And adding that note is not free, which was worth measuring first
+
+`site_dd.save` is the property-scope route, and it is one of the eleven
+full-collection-rewrite routes. Measured on a fresh assessment rather
+than assumed:
+
+```
+findings before:                        0
+findings after a notes-only save:      32     all with condition = NULL
+```
+
+`_posted_instances()` returns `{1} ∪ existing ∪ posted`, so a save that
+carries nothing but `overall_notes` still writes **a row for every
+property-scope checklist item**. On assessment 21 that turns "no findings"
+into thirty-two blank ones — and the next seed preview of that assessment
+would then correctly report **"32 findings preserved"**, which is true and
+reads as though somebody had started walking it.
+
+**Nothing is lost by it** (the rows are empty and the checklist treats
+them as unanswered), and it is still the wrong way to attach one sentence
+of provenance. The note is better typed into the box by the person who
+owns the assessment, or written straight to `overall_notes`.
+
+**Status: not written yet.** A direct `UPDATE` on production was declined
+by this session's command policy, and the route costs the 32 rows above,
+so the sentence is recorded here and the write is a decision rather than
+a side effect.
+
+---
+
+## Snapshots accumulate and nothing prunes them
+
+**Established rather than assumed: `take_snapshot()` writes and never
+deletes, and no other code path touches `/data/backups` at all.** The only
+sweeper in the seeding code is `_sweep_seed_pending()`, which clears held
+uploads out of the system temp directory and has nothing to do with
+snapshots.
+
+Measured on the volume, 2026-08-31:
+
+| | |
+|---|---|
+| volume | **5 GB**, 4.57 MB used across everything |
+| `/data/backups` | 3 files, **270 KB** |
+| `site_dd.db` after the seed | **188 KB** — so each future snapshot is at least that |
+| `/data/uploads` | 52 files, 2.1 MB |
+
+**A seed's snapshot is a copy of the whole database, so it grows with the
+data.** Once 152 units are actually walked — say thirty findings each —
+`site_dd.db` lands somewhere over a megabyte and every snapshot after
+that costs the same. Even at one seed a week for a year that is tens of
+megabytes against five gigabytes.
+
+**So this is not a space problem, and framing it as one gets the fix
+wrong.** It is a **legibility** problem, and it arrives much sooner: a
+directory holding fifty near-identical files named for batch ids is where
+somebody picks the wrong one at the worst possible moment. The runbook
+already insists on verifying a snapshot's contents before restoring it,
+which is exactly the step that gets skipped when there are fifty
+candidates and the volume is on fire.
+
+### The proposed rule, not built
+
+1. **Prune at write time, in `apply_seed`, right after the snapshot is
+   taken.** There is no scheduler in this platform and adding one for
+   this would be a worse trade than the problem. The seed is the only
+   thing that creates snapshots, so it is the honest place to bound them.
+2. **Keep everything from the last 30 days, and at least the newest 10
+   whichever way that falls.** Both, not either: a burst of ten seeds in
+   one afternoon must not evict a month of history, and a quiet year must
+   not leave one file.
+3. **Never delete the newest snapshot, whatever its age.** A rule that can
+   empty the directory is not a retention rule.
+4. **Only ever consider files matching `site_dd.seed-*.db`.** Anything a
+   person took by hand — `site_dd.before-first-seed.20260831-033837.db`,
+   which is the only copy of the state before the largest write this
+   platform has made — is exempt **by construction rather than by a list
+   somebody maintains**. See known-issue 3: there is nothing behind it.
+5. **Report what was pruned** in `apply_seed`'s result, the way it already
+   reports the snapshot it took. A deletion nobody sees is how the next
+   restore finds a gap it cannot explain.
+
+**A convention to adopt with it:** name deliberate, keep-forever
+snapshots `site_dd.keep-<what>.db`, so "do not delete this" is expressed
+in the filename instead of remembered. That is the same move as
+`seed_batch` — put the fact in the data, not in a person.
+
+### Five snapshots already live outside the convention
+
+`/data` holds `deal_dive.db.pre_part14`, `deal_dive.db.pre_stepd`,
+`investor_notes.db.pre_part14`, `underwriting.db.pre_part14`,
+`underwriting.db.pre_stepd` and `site_dd.db.pre_part14` — hand copies
+taken beside their databases rather than in `/data/backups`. They total
+about 385 KB and nothing prunes them either.
+
+**They matter less for their size than for what they do to the runbook.**
+§3 says snapshots live in `/data/backups/`, and for six files that is not
+true — somebody following it under pressure would not find them. Either
+move them in or say they exist; the sentence being wrong is the cost.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
