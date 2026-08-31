@@ -461,6 +461,37 @@ def parse_unit_type(text: Any) -> UnitLayout | None:
 def layouts_for_units(units: list[dict[str, Any]]) -> dict[str, Any]:
     """Every unit's layout, and every unit whose type string did not say.
 
+    ── A HALF THAT SHIPPED ALONE. NOTHING CALLS layouts_for_units. ──────
+
+    It was written as Underwriting's bed/bath derivation — the thing
+    Michelle asked for when she said *"if the unit type is available, then
+    the tool should automatically create 2 bedrooms"* — and Underwriting
+    never grew a screen for it. **Site DD then imported `parse_unit_type`
+    directly** and did its own grouping in `site_dd_seeding.plan_units`,
+    so the derivation is live and this wrapper is not.
+
+    **The other half is a unit mix by LAYOUT.** Underwriting's Unit Mix
+    table groups on the raw type string: Oxford Pointe shows **18 rows**
+    where the same file yields **6 layouts** — `2/1.5 RENOVATED`,
+    `2/1.5 RENOVATED W/D` and `2/1.5 CLASSIC` are three rows of one
+    layout. Both readings are right, and the second is the one that
+    answers "how many two-beds are there".
+
+    **Safe to wire as it stands**, with one thing to honour: it returns
+    `unreadable` separately and the caller must SHOW it. Dropping that
+    list is how a rent roll silently becomes 150 of 152, which is the
+    failure this project keeps finding and the reason the refusals are
+    returned rather than filtered.
+
+    **NEITHER SWEEP CAN SEE THIS.** `tests/test_dead_readers.py` globs
+    `tools/*_db.py` and gates on `READER_PREFIXES`; this module is
+    neither. `tests/test_route_reachability.py` needs a route. The claim
+    in this comment is kept honest by
+    `tests/test_waiting_halves.py`, which fails when a function marked
+    "nothing calls this" acquires a caller — so wiring it forces the
+    comment to be updated rather than left to mislead.
+    ────────────────────────────────────────────────────────────────────
+
     Returns the parsed rows and the refusals SEPARATELY rather than
     dropping the refusals or defaulting them. A rent roll whose types
     cannot be read should say so on the screen that imports it; a silent
