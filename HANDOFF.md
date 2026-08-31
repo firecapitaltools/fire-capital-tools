@@ -468,12 +468,16 @@ unresolved and is a direct question to her.**
 > (Part 77), and the first real seed into assessment 21. Bedroom
 > derivation and occupancy mapping are live.
 >
-> **What is still genuinely hers** is narrower and worth asking as its
-> own question rather than as this one: which assessment a roll should
-> seed into when a property is re-walked, and whether a Site DD seed
-> should also populate the Underwriting unit lines the same file already
-> feeds. Both are recorded under *what this design does not answer* in
-> `docs/site-dd-rentroll-seeding.md`.
+> **What is still genuinely hers is ONE question, not two.** *Which
+> assessment does a roll seed into when a property is re-walked?* — that
+> is the whole of it.
+>
+> The other half — whether one upload should feed both Site DD and
+> Underwriting — **was investigated in Part 83 and does not need her.**
+> The two tools want opposite write semantics from the same bytes
+> (replace versus never-delete), nothing joins a scenario to an
+> assessment but a property-label string, and no Underwriting scenario
+> has ever held this file. See *One rent roll, two tools*.
 
 **3. Site DD property header** (name, vintage, address, building count,
 optional sqft). Only `property_label` exists; the other four are
@@ -4129,6 +4133,116 @@ have caught it is the one this file already states for claims about code:
 to verify it*. For a claim about repository state, verifying it is one
 command — which makes carrying it forward unverified harder to excuse
 than the usual case, not easier.
+
+---
+
+## One rent roll, two tools: what they share and what they must not
+
+**Investigated 2026-08-31 against production and against the real Oxford
+Pointe file. No build.** The question was whether Michelle's remaining
+rent-roll question is small — *which assessment does a re-walk seed
+into* — or whether one upload should feed both tools. It is the small
+one, and here is why.
+
+### 1. Nothing in Underwriting holds this file
+
+Read read-only from production. **The only unit lines that exist are 92
+rows on scenario 4, Eagle Rock**, imported from
+`Eagle_Rock_Rent_Roll_May_2026.xlsx` and recorded on the scenario as
+`rentroll_source`.
+
+**Scenario 7 is called "Oxford Pointe" and holds no unit lines at all** —
+it is one of seven placeholders with no assumptions entered. So the
+Oxford Pointe roll has been through the Underwriting parser many times in
+testing and has **never been uploaded to a scenario**. The Site DD seed
+is the only place it has landed.
+
+That matters for the question as asked: there is no divergence in
+production today because only one of the two tools has ever held this
+file.
+
+### 2. The parses agree on this file and can disagree on the next one
+
+Both paths call the same `parse_rent_roll_workbook`, and on Oxford Pointe
+they produce the same 152 rows in the same order, with the same labels.
+Site DD then does three more things, and each is a place they part:
+
+| the file contains | Underwriting keeps | Site DD |
+|---|---|---|
+| `STUDIO` as a type string | the row | **refuses it** — no bed/bath to derive |
+| a lettered label `A1` | the row | **refuses it** — the 60% rule is unbuilt |
+| a status code not in the map | the row | **refuses it** rather than guess occupancy |
+| `226` and `226 W/D` as two rows | both rows | **refuses both** — one apartment, two rows |
+
+**All four measured, not reasoned.** Oxford Pointe triggers none of them,
+which is exactly the condition under which a divergence ships unnoticed.
+
+**And they already disagree about the unit mix on this file, correctly.**
+Underwriting groups on the raw type string and shows **18 rows**; Site DD
+derives `(beds, baths)` and gets **6 layouts**. Both are right — the type
+string carries finish and amenity (`2/1.5 RENOVATED W/D` versus
+`2/1.5 CLASSIC`), which is real information for rent and noise for
+counting rooms.
+
+### 3. They want opposite write semantics from the same bytes
+
+This is the finding that decides it.
+
+| | Underwriting | Site DD |
+|---|---|---|
+| write | `replace_unit_lines` — DELETE then INSERT | reconcile: reuse, append the shortfall, **never delete** |
+| why | the roll IS the current truth about rent | the walk is the truth about the building; the roll is a document about it |
+| the file | saved, and named on the scenario | held between preview and apply, then deleted |
+| keeps | rents, lease dates, market rents | none of them |
+| derives | nothing | layout, room set, occupancy, walk notes |
+| scoped to | a scenario | an assessment |
+
+**A shared upload route would have to pick one of those write
+semantics.** Replacing is right for rent and catastrophic for a walk;
+reconciling is right for a walk and wrong for rent, because a unit whose
+rent dropped must not "keep the surplus".
+
+**And there is nothing to hang a shared upload from.** The two are joined
+by the string "Oxford Pointe" and nothing else: no properties table, no
+`deal_id` on either row here. That table is itself blocked on Michelle,
+so a shared upload is downstream of a decision she has not made.
+
+### The proposal, which is smaller than a shared route
+
+**Do not build a shared upload, and do not cross-link the writes.** Build
+nothing until the properties question is answered. What is worth doing
+when something is:
+
+1. **A divergence check, not a shared parse.** If a Site DD assessment
+   and an Underwriting scenario for the same property both hold a rent
+   roll, the two should be able to say whether they agree on the unit
+   COUNT — which is the number Michelle asked for ("upload rent roll to
+   know number of units") and the one a refusal silently changes. Site DD
+   refusing three rows Underwriting kept means two screens disagree about
+   how big the property is, and nothing today would say so.
+2. **Say where the refusals went.** The seed preview names every refused
+   row already. The gap is that Underwriting has no idea any row was
+   refused, because it never sees the Site DD path.
+3. **Leave the file where it is.** Underwriting saving the upload and
+   Site DD deleting it are both correct for their own reasons, and
+   "share the stored file" is the shape that would quietly give Site DD a
+   durable copy of a document it deliberately does not keep.
+
+### One thing found on the way, worth its own line
+
+**`layouts_for_units()` is called by nothing but its own tests.** It was
+built in `underwriting_rentroll.py` to be Underwriting's bed/bath
+derivation; Site DD then imported `parse_unit_type` directly and built
+its own grouping. So the derivation Michelle asked for exists twice —
+once live inside `plan_units`, once dead in the parser module — and
+**neither sweep can see it**: `underwriting_rentroll.py` is not a
+`tools/*_db.py`, and `layouts_for_units` matches no reader prefix. Same
+blind spot as `site_dd_seed_write`, and the second instance of it in two
+weeks.
+
+It is a waiting half if Underwriting ever shows a bed/bath mix, and a
+leftover if it does not. That is a question for whoever builds the unit
+mix by layout, and the answer belongs in the file rather than here.
 
 ---
 
