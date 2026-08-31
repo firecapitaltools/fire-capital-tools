@@ -449,10 +449,70 @@ COST_BY_DETAIL: dict[tuple[str, str], ReferenceCost] = {
 #
 # So the two cases are separated explicitly rather than left to depend on
 # a falsy float.
-UNPRICED_DETAIL: frozenset[tuple[str, str]] = frozenset(
-    ("flooring", material) for material, rate in FLOORING_BY_TYPE.items()
-    if not rate
-)
+# WHY A DECLINED SCOPE WAS DECLINED, in the line's own words.
+#
+# UNPRICED_DETAIL says "do not fall back". It did not say WHY, and the
+# export has no item-level reason to fall back on when the ITEM is priced
+# and only the scope is not -- so the line printed "No cost was recorded
+# on this finding", which is a statement about the inspector rather than
+# about the research. Found by walking a seeded unit on paper and reading
+# the output, which is what that exercise is for.
+#
+# The same silence covered `flooring` + `concrete` from Part 62 onward:
+# the reason lives under the item key `concrete_flooring`, and a
+# `flooring` finding never looks there.
+UNPRICED_DETAIL_REASONS: dict[tuple[str, str], str] = {
+    ("entry_door", "tighten_hardware"): (
+        "Tightening hinges or a strike plate is an adjustment rather than "
+        "a job, and no source publishes a figure for it — a call-out "
+        "minimum would dominate anything they did publish. Deliberately "
+        "not priced at the item's $1,450, which is a new entry door."),
+    ("flooring", "concrete"): (
+        "Sealed and polished concrete range too widely to average, so this "
+        "material is deliberately not priced. It does NOT inherit the "
+        "general flooring rate, because that would be a researched-looking "
+        "figure for a job we declined to quote."),
+}
+
+
+# DEFINED BY ITS REASONS, so a decline cannot exist without one.
+#
+# This used to be built from "every flooring material with a zero rate",
+# and the reason text lived in a separate dict that nothing required to
+# agree with it. That is how a declined pair reached a budget saying "no
+# cost was recorded on this finding" -- blaming the inspector for a
+# decision this table made. A set and a dict that must agree, with
+# nothing making them, is two sources of truth.
+#
+# Now the decision IS the sentence: to decline a pair, write down why.
+# `_check_declines_have_reasons()` below closes the door the derivation
+# opened.
+UNPRICED_DETAIL: frozenset[tuple[str, str]] = frozenset(UNPRICED_DETAIL_REASONS)
+
+
+def _check_declines_have_reasons() -> None:
+    """Every zero-rate flooring material is a deliberate decline and must
+    say so. Runs at import, because the alternative failure is silent and
+    expensive: a material added with a 0.0 rate and no entry here falls
+    through to the general flooring figure, which is the Part 62 defect
+    exactly -- a researched-looking number for a job we declined to
+    quote.
+
+    It can only fire on a source edit, never on data, so it fails on a
+    developer's machine rather than in front of anybody.
+    """
+    missing = sorted(m for m, rate in FLOORING_BY_TYPE.items()
+                     if not rate and ("flooring", m) not in UNPRICED_DETAIL_REASONS)
+    if missing:
+        raise AssertionError(
+            f"flooring materials priced at 0.0 with no written reason: "
+            f"{missing}. A material with no rate is a decision not to "
+            f"price it, and a decision without a reason reaches the "
+            f"budget as 'no cost was recorded on this finding'. Add an "
+            f"entry to UNPRICED_DETAIL_REASONS.")
+
+
+_check_declines_have_reasons()
 
 # ── Scope pricing: the job, not just the item ────────────────────────────
 #
@@ -632,32 +692,6 @@ CONDITION_COSTS: dict[tuple[str, str], ReferenceCost] = {
         "range $100–430. The commonly replaced parts are the heating "
         "element, thermal fuse, belt and start switch.", "2026-08-31"),
 }
-
-# WHY A DECLINED SCOPE WAS DECLINED, in the line's own words.
-#
-# UNPRICED_DETAIL says "do not fall back". It did not say WHY, and the
-# export has no item-level reason to fall back on when the ITEM is priced
-# and only the scope is not -- so the line printed "No cost was recorded
-# on this finding", which is a statement about the inspector rather than
-# about the research. Found by walking a seeded unit on paper and reading
-# the output, which is what that exercise is for.
-#
-# The same silence covered `flooring` + `concrete` from Part 62 onward:
-# the reason lives under the item key `concrete_flooring`, and a
-# `flooring` finding never looks there.
-UNPRICED_DETAIL_REASONS: dict[tuple[str, str], str] = {
-    ("entry_door", "tighten_hardware"): (
-        "Tightening hinges or a strike plate is an adjustment rather than "
-        "a job, and no source publishes a figure for it — a call-out "
-        "minimum would dominate anything they did publish. Deliberately "
-        "not priced at the item's $1,450, which is a new entry door."),
-    ("flooring", "concrete"): (
-        "Sealed and polished concrete range too widely to average, so this "
-        "material is deliberately not priced. It does NOT inherit the "
-        "general flooring rate, because that would be a researched-looking "
-        "figure for a job we declined to quote."),
-}
-
 
 # The scope entries join the same two tables the flooring materials use,
 # so there is one lookup and one set of rules rather than a second
@@ -897,8 +931,18 @@ def for_item(item_key: str, detail: str | None = None,
     return REFERENCE_COSTS.get(item_key)
 
 
-def status(item_key: str) -> str:
-    """'priced' | 'unpriced' | 'not_a_cost_item' | 'unknown'."""
+def status(item_key: str, detail: str | None = None) -> str:
+    """'priced' | 'unpriced' | 'not_a_cost_item' | 'unknown'.
+
+    THE PAIR IS THE SUBJECT WHEN THERE IS ONE. `entry_door` is priced and
+    `entry_door` + `tighten_hardware` is not, and answering "priced" for
+    the second because the first is true is how a declined scope became
+    invisible to everything that asks this question.
+    """
+    if detail and (item_key, detail) in UNPRICED_DETAIL:
+        return "unpriced"
+    if detail and (item_key, detail) in COST_BY_DETAIL:
+        return "priced"
     if item_key in REFERENCE_COSTS:
         return "priced"
     if item_key in NOT_A_COST_ITEM:
@@ -908,16 +952,37 @@ def status(item_key: str) -> str:
     return "unknown"
 
 
-def reason(item_key: str) -> str:
+def reason(item_key: str, detail: str | None = None) -> str:
+    """Why there is no figure. The PAIR's reason wins where there is one,
+    for the same reason `status()` consults it: the decision belongs to
+    whatever declined, not to whatever noticed the absence."""
+    if detail:
+        pair = UNPRICED_DETAIL_REASONS.get((item_key, detail))
+        if pair:
+            return pair
     return UNPRICED.get(item_key) or NOT_A_COST_ITEM.get(item_key) or ""
 
 
-def unpriced_report(labels: dict[str, str] | None = None) -> list[dict[str, Any]]:
-    """The list that goes to Michelle, sorted for reading."""
+def unpriced_report(labels: dict[str, str] | None = None,
+                    detail_labels: dict[tuple[str, str], str] | None = None
+                    ) -> list[dict[str, Any]]:
+    """The list that goes to Michelle, sorted for reading.
+
+    DECLINED SCOPES BELONG ON IT. This listed items only, so the sheet
+    whose whole job is "what has no researched figure" omitted every pair
+    we had deliberately declined -- and their items appear on the PRICED
+    sheet, because the item is priced. Somebody reading both sheets would
+    conclude the scope was covered.
+    """
     labels = labels or {}
-    return sorted(
-        ({"key": k, "label": labels.get(k, k), "reason": v}
-         for k, v in UNPRICED.items()),
-        key=lambda r: r["label"].lower())
+    detail_labels = detail_labels or {}
+    rows = [{"key": k, "label": labels.get(k, k), "reason": v}
+            for k, v in UNPRICED.items()]
+    for (item_key, detail), why in UNPRICED_DETAIL_REASONS.items():
+        item = labels.get(item_key, item_key)
+        scope = detail_labels.get((item_key, detail), detail)
+        rows.append({"key": f"{item_key} / {detail}",
+                     "label": f"{item} — {scope}", "reason": why})
+    return sorted(rows, key=lambda r: r["label"].lower())
 
 
