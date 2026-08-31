@@ -83,6 +83,10 @@ destroys an inspector's work to correct ours is not an undo:
 
 `/data/backups/site_dd.<label>.<timestamp>.db` on the volume. The
 pre-write snapshot taken by the seeding run is named for its batch id.
+As of 2026-08-31 there are three, all 90,112 bytes: one taken by hand
+before the first real seed (`site_dd.before-first-seed.20260831-033837.db`)
+and one taken by `apply_seed` itself before each of the two writes into
+assessment 21.
 
     ls -la /data/backups/
 
@@ -132,15 +136,25 @@ instruction, so it is the sharpest check available:
 
 | | |
 |---|---|
-| whole-database fingerprint, 2026-08-30 | `(38, 'df9226d2379e7bef')` |
-| *superseded by the `seed_batch` migration* | ~~`(38, '1d980444f657b0bb')`~~ |
+| whole-database fingerprint, 2026-08-31 | `(1085, '687e30e37f036e32')` |
+| *before the first Oxford Pointe seed* | ~~`(39, 'bedad2a7023d64a2')`~~ |
+| *before the `seed_batch` migration* | ~~`(38, '1d980444f657b0bb')`~~ |
 | assessment 11's findings | `(23, 'f6451ecb366f6ab4')` |
 
-The whole-database figure moves whenever anything legitimately changes — it
-moved on 2026-08-30 when the additive `seed_batch` migration ran, and the
-old value comes back exactly when that column is projected out of the
-computation, which is how the move was confirmed rather than assumed;
-assessment 11's does not and should not.
+The whole-database figure moves whenever anything legitimately changes. It
+moved on 2026-08-30 when the additive `seed_batch` migration ran — the old
+value comes back exactly when that column is projected out of the
+computation, which is how that move was confirmed rather than assumed —
+and again on 2026-08-31 when assessment 21 was seeded with 152 units and
+894 rooms. **Assessment 11's does not and should not**, and it did not
+move through any of it.
+
+**A note on re-seeding, because the arithmetic invites a wrong
+expectation.** Undoing a seed returns the whole-database figure to its
+pre-seed value *exactly* — that is the check, and it was run on
+production on 2026-08-31. Re-seeding afterwards produces a THIRD value,
+not the first one: row ids and `created_at` differ. Do not read that as a
+failed restore.
 
 ---
 

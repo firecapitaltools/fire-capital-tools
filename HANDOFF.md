@@ -3495,6 +3495,133 @@ about which ones are allowed.
 
 ---
 
+## The first real seed: 152 units and 894 rooms, written and undone and written again
+
+**2026-08-30/31. Assessment 21, "Oxford Pointe", created fresh for this.
+Production, through the routes, with the real ResMan file
+(`Rent Roll (11).xls`, 189,440 bytes, sha256 `345d5c84f47b7e54`).**
+
+This is the largest write this platform has ever made — before it, every
+area in Site DD across all assessments was **2** and every room was **1**.
+
+| | |
+|---|---|
+| areas created | **152** |
+| rooms created | **894** |
+| rows carrying the batch id | **all of them** — 0 areas and 0 rooms with `seed_batch IS NULL` |
+| findings created | **0** |
+| findings anywhere, before and after | **31** |
+| assessment 11 | `f6451ecb366f6ab4`, unchanged through every step |
+| status split | 134 occupied / 18 vacant — the file's own Property Occupancy total |
+| notes written | two: `Rent roll status: UE` on 217, `Notice to vacate 2026-08-13` on 640 |
+| whole-database fingerprint | `(39, 'bedad2a7023d64a2')` → `(1085, '687e30e37f036e32')` |
+| detail page at full scale | **15 ms, 228 KB** for 152 area cards |
+
+**Every figure on the screen matched the write.** The preview said 152
+units, 894 rooms, 0 preserved, 0 refused, and the button said *"Create
+152 units and 894 rooms"*; the database agreed on all four. That is not a
+coincidence — the apply re-parses the file, re-reconciles it and refuses
+if what it computes differs from what the screen displayed.
+
+### The round trip was exercised on the real thing, not on a copy
+
+The undo ran from the assessment page and the database came back to
+`(39, 'bedad2a7023d64a2')` — **the pre-seed fingerprint exactly**, not
+"consistent with" it. Then it was seeded again: 152 and 894 once more,
+under a new batch id, 31 findings still untouched.
+
+**Note what the second seed's fingerprint does NOT do: return to the
+first seed's value.** Row ids and `created_at` differ, so
+`687e30e37f036e32` is a third value and that is correct. The check that
+means something is the *undo* returning to the pre-seed value exactly;
+expecting a re-seed to reproduce a prior fingerprint would be expecting
+the database to forget that anything happened.
+
+**The platform's only rollback is application-level** — Hobby plan,
+`maxBackupsCount: 0`, known-issue 3 — so exercising it once where it
+matters was the point of doing this rather than believing it. Three
+snapshots now sit on the volume: one taken by hand before anything
+(`site_dd.before-first-seed.20260831-033837.db`) and one taken by
+`apply_seed` itself before each of the two writes.
+
+### Why a fresh assessment, restated now that it has run
+
+The decision was recorded before the seed and it held up for the reason
+given: **into an empty assessment there is nothing to wrongly reuse.**
+`reuse_count` was 0, every one of the 1,046 rows carries a batch id, and
+the undo therefore reached all of it. A wrong *reuse* — the one failure
+that leaves no batch marker and needs the snapshot — was not merely
+unlikely here, it was unavailable.
+
+---
+
+## A CSRF failure looks exactly like an authentication failure
+
+The first attempt at the seed posted the rent roll to the preview and got
+back **302 to `/login`**. The obvious reading is that the login bypass had
+not taken — and it is wrong. `app.errorhandler(CSRFError)` flashes
+*"Your session expired. Please log in again."* and redirects to the login
+page, so a POST with no CSRF token is answered exactly like a POST from a
+stranger.
+
+The fix was to do what a browser does: **GET the page first and post the
+token it rendered.** That is also the more faithful test, since it
+exercises the form the user actually gets.
+
+**The general shape is one this file already knows in another costume:** a
+stale Railway token presents as `Not Authorized` on every field, and the
+natural next move is to hunt for a permissions problem that does not
+exist. Same here — one status code, two completely different causes, and
+the discriminator is a control that should succeed: a GET that renders,
+or a second POST that carries the token. **When a failure names a
+plausible cause, check that the named cause is the one that fired.**
+
+---
+
+## Wiring a waiting half, and what the comment on it should say afterwards
+
+`apply_seed` and `undo_seed` shipped merged and unreachable on purpose,
+carried the Part 37 waiting-half comment for exactly one merge, and were
+wired in the next. The comment did not survive as written, and should
+not have: **a waiting-half notice that outlives its wiring is worse than
+none**, because it tells the next reader a feature is unreachable when it
+is reachable. What replaced it says where the callers are, and keeps the
+one clause that is still true — **neither sweep covers this module**, so
+if the apply panel is ever deleted from the template nothing automated
+will notice the module has gone dark again. `tests/test_sitedd_seed_route.py`
+is what would fail, because it harvests the form out of the rendered page
+instead of posting to a URL it typed.
+
+### The three gates, and why three
+
+Each answers a different way of being wrong, and no one of them covers
+another:
+
+| gate | the failure it catches |
+|---|---|
+| **the held upload** | the apply is reading a different file from the one previewed |
+| **the rendered-state token** | the assessment changed between preview and apply — two tabs, two people |
+| **the figures** | file and world both fine, and the plan means something other than what the screen said |
+
+The third is the one that would not exist without asking what the other
+two miss. It is also the cheapest: five integers in hidden fields,
+compared against the same five re-derived at write time, and **nothing is
+written on a disagreement** — one of them is wrong about production, and
+which one matters more than resolving it automatically.
+
+**The preview now keeps the uploaded file, and that reverses a documented
+decision.** It used to throw the bytes away, on the argument that storing
+a file for a write nobody has approved is exactly the side effect that
+screen exists to avoid. That argument is still right about *durable*
+storage and it cannot survive an approve-then-write flow: a browser
+cannot re-post a file it was given, so the alternative is asking the
+person to choose the file a second time — which invites them to choose a
+different one. The bytes go to the system temp directory under a random
+id, are deleted whether the apply writes or refuses, and are swept after
+six hours. Verified after the run: zero files for assessment 21 remained.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
@@ -3517,14 +3644,14 @@ regression of this one. Do not spend further time reconciling it.
   It was rebased and re-verified; the blocker is the fee-base
   double-count described above.
 - **Five merged branches can be deleted** once you are comfortable.
-- **`site_dd_seed_write` is merged and has no caller.** Nothing in
-  `tools/site_dd.py` routes to `apply_seed()` or `undo_seed()`, which is
-  deliberate — the write is merged but not run, and no real assessment has
-  been seeded. **It is a waiting half and does not yet carry the
-  waiting-half comment**, and neither sweep can see it: it is not a
-  `tools/*_db.py` module and `apply_seed` matches no reader prefix. So
-  nothing will remind anybody. The other half is a POST route behind the
-  preview screen, plus the fresh-assessment decision recorded above.
+- **The seed is wired and has been run once.** `site_dd.seed_apply` and
+  `site_dd.seed_undo` reach `apply_seed()` and `undo_seed()`; assessment
+  **21** holds the first real seed, 152 units and 894 rooms under batch
+  `seed-20260831-034600-0c16c9`. **Neither sweep covers
+  `site_dd_seed_write`** — not a `tools/*_db.py` module, no reader prefix,
+  POST-only routes — so if the apply panel is ever removed from the
+  template, `tests/test_sitedd_seed_route.py` is the only thing that
+  fails.
 - **A cosmetic warning** on every Site DD PDF report:
   `site_dd_report.py:146 UserWarning: No artists with labels found to put
   in legend`. Harmless, noisy, unfixed.
