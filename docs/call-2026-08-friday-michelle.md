@@ -54,7 +54,7 @@ Whatever gets decided, there is not much to migrate.
 | Scorecard history | 36 monthly rows |
 | Investors | 1 |
 | Properties in the notetaker list | 12 shown, **11 actual** — see §3 |
-| RentCast lookups used | 18 of 50 |
+| RentCast lookups used | 19 of 50 *(re-read 2026-08-31; resets 09-01)* |
 
 </details>
 

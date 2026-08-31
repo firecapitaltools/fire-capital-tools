@@ -4889,6 +4889,95 @@ closed — closing it means making them skip, and that is his call.
 
 ---
 
+## The nineteenth RentCast lookup, and what the counter cannot tell you
+
+**Read read-only 2026-08-31, before the month rolls over.** The counter
+says **19 of 50** for `2026-08`; the cache holds **14 rows**. Those two
+numbers are not reconcilable, and the reason is in the code rather than
+in the data.
+
+### The most recent lookup
+
+| | |
+|---|---|
+| when | **2026-08-28T14:22:27** |
+| address | **1120 Jackson Street, San Francisco, CA** — deal 2's building |
+| zip supplied | **none** |
+| cache key written | `1120 jackson street san francisco ca` |
+| result | a full payload: 15 comparables, `property` resolved by RentCast |
+| `subject_override` | **present and `None`** |
+
+**It did not use the size override.** `subject_override` is written
+unconditionally — `{"bedrooms": bedrooms} if bedrooms is not None else
+None` — so `None` means *RentCast resolved the subject itself*, which is
+the whole point of storing it. **This row is the only one of the fourteen
+that carries the key at all**, which dates it as the first lookup made by
+post-Part-46 code, and simultaneously says the feature was not used.
+
+So the honest answer to "did the size override finally land in anger" is
+**no: the code path runs and has never been given a value.**
+
+### It came through the standalone search box, not the deal
+
+Deal 2 stores `zip = '94133'`, and the deal path passes it. The
+zip-less key is the signature of the **Rent Comps standalone box**, which
+takes free text whenever no `deal_id` is supplied.
+
+**And that cost a paid call on a building already in the cache.** The
+2026-08-07 row for the same building is keyed `… san francisco ca 94133`.
+Run against the real function:
+
+```
+normalize_address_key('1120 Jackson Street','San Francisco','CA','94133')
+  -> '1120 jackson street san francisco ca 94133'
+normalize_address_key('1120 Jackson Street','San Francisco','CA','')
+  -> '1120 jackson street san francisco ca'
+```
+
+**This is the address-key family again, from the opposite direction to
+the Part 39 fix.** That one truncated a ZIP+4 down to five digits so a
+deal's key would match its own cached row. This is a zip that is *absent
+entirely*, which forms a shorter key that misses the row that has one.
+**It is not obviously fixable**: falling back from one key to the other
+would merge `100 Main St, Springfield, IL 62701` with
+`100 Main St, Springfield, IL 62703`, which is the collision the suffix
+rule exists to prevent. Recorded rather than fixed.
+
+### Who made it is not knowable, and that is worth saying
+
+The hypothesis was that this was Kaia re-testing. **Nothing in the
+application records who makes a lookup** — there is no actor column on
+the cache and no per-account scoping anywhere, so a lookup made through
+the shared admin login is indistinguishable from any other. `users.json`
+holds exactly one signup account, Beckett's; Kaia has none, so if she
+tested she did it as admin.
+
+**If somebody wants to know what she saw, the only instrument is asking
+her.** That is not a gap to close with code today — per-account data is
+already on Michelle's list and would answer it as a side effect.
+
+### The five lookups that left no trace
+
+19 increments, 14 rows. `_record_rentcast_call()` fires **immediately
+after the request returns and before the status is checked** — its own
+comment says *"a request reached RentCast's server either way — counts
+against quota"*, which is right, because RentCast bills the request and
+not the answer.
+
+So an increment produces a row only when the call succeeded AND the key
+was new. The other five are some mixture of **404s, transport errors and
+force-refreshes** — a force refresh on an existing key updates
+`fetched_at` in place rather than adding a row. **Nothing distinguishes
+them after the fact**, and the counter is the authority on spend while
+the cache is the authority on content. They answer different questions
+and were never meant to agree.
+
+> **A usage counter and a result cache do not reconcile, and a run that
+> expects them to will find a discrepancy that is not there.** Five is
+> the expected gap today, not a symptom.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
