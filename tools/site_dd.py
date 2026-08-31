@@ -395,10 +395,11 @@ def _seed_read_state(assessment_id: int):
     with db.get_connection() as conn:
         areas = db.list_areas(conn, assessment_id)
         rooms_by_area = {a["id"]: db.list_rooms(conn, a["id"]) for a in areas}
-        # EVERY row, not only the answered ones. This showed
-        # `area_finding_count` and promised to preserve 2 on an
-        # assessment holding 23 -- see area_finding_rows().
-        findings_by_area = {a["id"]: db.area_finding_rows(conn, a["id"])
+        # WHAT SOMEBODY PUT THERE -- not answered-only, which promised
+        # to preserve 2 on an assessment holding 23, and not every row,
+        # which counts the ones a page materialises just by being saved.
+        # See the note above `area_findings_with_content()`.
+        findings_by_area = {a["id"]: db.area_findings_with_content(conn, a["id"])
                             for a in areas}
     return areas, rooms_by_area, findings_by_area
 
