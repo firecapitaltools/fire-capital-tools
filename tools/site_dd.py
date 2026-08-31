@@ -171,6 +171,46 @@ def new_assessment():
 
 # ── Detail / checklist ───────────────────────────────────────────────────
 
+# SITE DD LITE IS A VIEW, NOT A MODE.
+#
+# Michelle settled the design herself: *"the normal tool should be fine if
+# we make it toggleable enough"* — vacant units and common areas only.
+# Read as written that is a FILTER ON WHAT IS SHOWN, and everything
+# follows from taking it literally:
+#
+#   * nothing about what is recorded changes, so there is no second
+#     vocabulary, no `assessment.mode`, no migration and no way for two
+#     screens to disagree about one walk;
+#   * an inspector can switch mid-walk, which a mode chosen at creation
+#     could not allow;
+#   * the exports, the seeding, the undo and the rollups all key off the
+#     assessment and never see this at all.
+#
+# The alternative — a separate assessment type — was never what she asked
+# for and would have made "walked the vacants" and "walked the property"
+# two records of one visit.
+LITE = "lite"
+
+
+def _lite_area(area: dict) -> bool:
+    """Is this area in the Lite walk?
+
+    Vacant units, every common area, and **any area whose status nobody
+    has stated**.
+
+    THE LAST ONE IS A DECISION AND IT GOES THE SAFE WAY. A NULL status is
+    not "occupied" — it is nobody having said. Excluding it would hide an
+    area from the walk list on the strength of missing data, which is the
+    absent-read-as-a-value failure this codebase has now had in three
+    directions. Including it costs an inspector two seconds to skip;
+    excluding it means a unit nobody ever walks. Production holds one such
+    area today (assessment 6, "Untitled").
+    """
+    if area.get("kind") == db.AREA_COMMON:
+        return True
+    return area.get("status") in (db.AREA_VACANT, None)
+
+
 @site_dd_bp.route("/assessment/<int:assessment_id>")
 @login_required
 def detail(assessment_id):
@@ -206,8 +246,34 @@ def detail(assessment_id):
     for p in photos:
         photos_by_item.setdefault(p.get("item_key") or "", []).append(p)
 
+    # THE FILTER APPLIES TO THE LIST AND TO NOTHING ELSE.
+    #
+    # `summary` above is property scope — area_id and room_id both NULL —
+    # so it cannot follow this by construction, and each area's own
+    # rollup is computed from that area's rooms. **A completion
+    # percentage that meant "complete for the units I am looking at"
+    # would be a fabricated number**, and the way to be sure of that is
+    # that every figure on this page is computed before the filter is
+    # applied, from data the filter never touches.
+    view = (request.args.get("view") or "").strip().lower()
+    if view != LITE:
+        view = ""
+    shown = ([r for r in area_rollups if _lite_area(r["area"])]
+             if view == LITE else area_rollups)
+
     return render_template(
         "tools/site_dd_detail.html",
+        view=view,
+        lite_view=LITE,
+        # Counted from the unfiltered set, always. A filtered view that
+        # hides its own scope is how somebody concludes a walk is done.
+        area_total=len(area_rollups),
+        area_shown=len(shown),
+        lite_units=sum(1 for r in shown if r["area"].get("kind") == db.AREA_UNIT),
+        lite_common=sum(1 for r in shown if r["area"].get("kind") == db.AREA_COMMON),
+        lite_unstated=sum(1 for r in shown
+                          if r["area"].get("kind") == db.AREA_UNIT
+                          and r["area"].get("status") is None),
         assessment=assessment,
         deal=_deal_for(assessment["deal_id"]),
         categories=cl.CATEGORIES,
@@ -221,7 +287,7 @@ def detail(assessment_id):
         photos=photos,
         photos_by_item=photos_by_item,
         summary=summary,
-        areas=areas, area_rollups=area_rollups,
+        areas=areas, area_rollups=shown,
         seed_batches=seed_batches,
         area_kinds=db.AREA_KINDS, area_statuses=db.AREA_STATUSES,
         # The ACCESSORS, not the raw maps.

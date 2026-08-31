@@ -136,6 +136,39 @@
     separately, room by room, in whatever order the floor plan flows.
   </p>
 
+  {#
+    SITE DD LITE — Michelle: "the normal tool should be fine if we make it
+    toggleable enough", vacant units and common areas only.
+
+    A view filter, not a mode: nothing recorded changes, and every figure
+    on this page is computed before it is applied. The scope line is not
+    decoration — a filtered list that does not say what it is hiding is
+    how somebody decides a walk is finished.
+  #}
+  <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:12px;">
+    <a href="{{ url_for('site_dd.detail', assessment_id=assessment.id) }}#units"
+       class="btn {{ 'btn-primary' if not view else 'btn-ghost' }}">Everything</a>
+    <a href="{{ url_for('site_dd.detail', assessment_id=assessment.id, view=lite_view) }}#units"
+       class="btn {{ 'btn-primary' if view else 'btn-ghost' }}">Vacant &amp; common only</a>
+    <span class="stat-box-sub">
+      {% if view %}
+        Showing <strong>{{ area_shown }} of {{ area_total }}</strong> —
+        {{ lite_units }} unit{{ '' if lite_units == 1 else 's' }},
+        {{ lite_common }} common area{{ '' if lite_common == 1 else 's' }}.
+        {%- if lite_unstated %}
+          {{ lite_unstated }} of them ha{{ 's' if lite_unstated == 1 else 've' }} no status
+          recorded and {{ 'is' if lite_unstated == 1 else 'are' }} shown rather than assumed
+          occupied.
+        {%- endif %}
+        {%- if not lite_common %}
+          This assessment has no common areas — a rent-roll import creates units only.
+        {%- endif %}
+      {% else %}
+        All {{ area_total }} area{{ '' if area_total == 1 else 's' }}.
+      {% endif %}
+    </span>
+  </div>
+
   {% if area_rollups %}
     {% for r in area_rollups %}
       <div style="display:flex; align-items:center; gap:10px; border-bottom:1px solid #e5e7eb;">
@@ -160,7 +193,15 @@
       </div>
     {% endfor %}
   {% else %}
-    <p class="page-subtitle" style="margin:0 0 12px;">No units added yet.</p>
+    {% if view and area_total %}
+      <p class="page-subtitle" style="margin:0 0 12px;">
+        None of this assessment's {{ area_total }} area{{ '' if area_total == 1 else 's' }} is
+        vacant or a common area, so there is nothing in this view. That is an answer, not an
+        empty page — every unit here is recorded as occupied.
+      </p>
+    {% else %}
+      <p class="page-subtitle" style="margin:0 0 12px;">No units added yet.</p>
+    {% endif %}
   {% endif %}
 
   {#
