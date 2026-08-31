@@ -4774,6 +4774,75 @@ because a status column has room for `vacant` and no room for *why*.
 
 ---
 
+## The two node failures: they PASS with node, measured rather than assumed
+
+**Known-issue 2 says the two deployed errors are environmental and that
+nobody has demonstrated it.** Step 1 of its own close procedure is *"run
+those two tests in an environment where `node` is on the PATH"*. That was
+never done because nobody had one.
+
+**This machine has one — `node v24.13.1` — and both tests pass:**
+
+```
+tests.test_fire_metrics_ai_summary.FireMetricsAISummaryTests
+  test_frontend_cre_runtime_success_payload_and_stale_overlap_do_not_fallback_to_failure
+  test_frontend_overview_and_cre_are_single_authority_runtime_matrix
+Ran 2 tests in 0.118s  ->  OK
+```
+
+**So the explanation is confirmed rather than merely plausible: they are
+environmental, not defects.** That is step 2 of the entry reached, and it
+took one command that had been available the whole time.
+
+### What the container actually has
+
+Read on the deployed image: **no `node`, no `npm`**, Python 3.13.15 under
+`mise`, and **no `nixpacks.toml` in the repo** — so Railway is
+auto-detecting a Python application from `requirements.txt` and building
+accordingly. Adding node is therefore not a flag; it is introducing a
+build configuration file that does not exist today.
+
+### The three options, and what each costs
+
+| | what it does | cost | what it buys |
+|---|---|---|---|
+| **1. Add node to the image** | `nixpacks.toml` naming a node provider alongside python | a build file for the whole app; ~50–90 MB of image; slower builds on every deploy, forever | the two tests **run and pass** on the container, so the frontend harness is exercised where the app is deployed |
+| **2. Skip when node is absent** | `shutil.which("node")` guard, `self.skipTest` | one line in each test, in Beckett's module | the deployed suite reads **green**, and a third failure is visible the instant it appears |
+| **3. Leave it** | nothing | every run needs a human to confirm the count is still exactly two | nothing |
+
+**Option 2 loses nothing that is currently gained.** Today those tests do
+not run on the container — they *error*, having never executed a line of
+the harness. Skipping them there is a change in how the absence is
+reported, not in what is tested; and the coverage they provide is real
+wherever node exists, which now includes a developer machine.
+
+**Option 1 is the only one that increases coverage**, and it buys running
+a JavaScript harness on a Python container that serves the JavaScript as
+a static file. Whether that is worth a permanent build dependency is a
+judgement about Beckett's module, not about this suite.
+
+### Why the status quo is the one option with a hidden cost
+
+*"FAILED (errors=2)"* has been the expected outcome of every deployed run
+for weeks. **A constant that everybody knows is a constant nobody
+re-derives**, and the check that keeps it honest — *is it still exactly
+two, and still those two?* — is a human reading a number at the end of a
+90-second run. That is precisely the check that gets skipped on the day
+something else is going wrong, which is the day it matters.
+
+The entry already says this: *"two permanently red tests train everyone
+to read `FAILED (errors=2)` as success, and a third genuine failure would
+arrive inside a number nobody reads closely any more."* This run adds the
+missing half of it: **the tests are fine, so the only thing standing
+between here and a green suite is one line in a file that belongs to
+somebody else.**
+
+**Nothing was changed.** The image is untouched, Beckett's tests are
+untouched, and known-issue 2 is updated with the measurement rather than
+closed — closing it means making them skip, and that is his call.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
