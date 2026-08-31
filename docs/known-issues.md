@@ -144,9 +144,25 @@ and the total is bookkeeping where the two is the invariant. Run
 `railway ssh "python -m unittest discover -s tests -t ."` and read the
 error count, not the total.
 
-**Why it is not settled.** "Needs node" is the standing explanation and
+**Why it is not settled.** ~~"Needs node" is the standing explanation and
 it fits, but the assertion has been taken on trust rather than
-demonstrated — nobody has installed `node` and watched them pass.
+demonstrated — nobody has installed `node` and watched them pass.~~
+
+> **DEMONSTRATED 2026-08-31. Step 1 of the procedure below was run and
+> both tests PASS** on a machine with `node v24.13.1`, in 0.118s. So the
+> explanation is confirmed: they are environmental, not defects.
+>
+> **What remains is step 2, and it is not ours to take.** Making them
+> skip rather than error is one line in each test, in Beckett's module,
+> and it is what turns the deployed suite green so a third failure is
+> visible immediately. The alternative — adding node to the image — needs
+> a `nixpacks.toml` this repo does not have, costs ~50–90 MB and slower
+> builds forever, and buys running a JavaScript harness on a Python
+> container. Both options and their costs are in HANDOFF, *The two node
+> failures*.
+>
+> The entry stays **open** because the thing it asks for has not been
+> done; what changed is that the uncertainty in it is gone.
 
 **Cost if wrong.** Low, but corrosive: two permanently red tests train
 everyone to read `FAILED (errors=2)` as success, and a third genuine
