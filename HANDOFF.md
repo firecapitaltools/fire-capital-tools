@@ -4564,6 +4564,79 @@ The reading happened; the paperwork did not.
 
 ---
 
+## Making feedback visible: what a mechanism can and cannot do here
+
+**The reader was built. The page was built. The sweep that found the
+reader is one of this project's instruments. And the contents of row 3
+still took two weeks to reach a list.** So the question is what, if
+anything, would have changed that — and the honest answer starts with
+what the failure actually was.
+
+### It was not that nobody looked
+
+Row 3's items 1 and 2 were built, and the code quotes her words. **What
+never happened was the transcription**: no list, no open item, no "she
+asked for this and it landed" anywhere a planning conversation would find
+it. A notification saying *"1 unread feedback item"* would have fired,
+been read, and led to exactly what already happened.
+
+**So the honest answer to "what mechanism fixes this" is: none of the
+obvious ones**, because the obvious ones all address a failure to read,
+and reading is the part that worked.
+
+### The three candidates, and what each is actually worth
+
+| candidate | what it fixes | verdict |
+|---|---|---|
+| an unread flag / count on the admin page | nothing here — the page was opened and acted on | **no** |
+| a count on the dashboard, where somebody already looks | prompts a first read sooner | **marginal** — it would have saved hours, not the two weeks |
+| **HANDOFF's open list generated FROM the table** | the actual failure: an item that exists in the DB but in no list | **this one** |
+
+### The proposal, and its shape matters more than its size
+
+**A generated section, not a maintained one.** A small script — or a test
+that writes its output — reads `feedback.db` and emits one line per row:
+the date, the tool, the first line of the message, and **whether anything
+in the repo cites that row's id**. It is pasted into HANDOFF under a
+marker, wholesale, every time it is regenerated. Nobody edits it.
+
+Three properties, each earned by a failure already recorded here:
+
+1. **Derived, not maintained.** The summary-inheritance entry says a
+   consolidated list should say what it was derived from and be
+   regenerated rather than edited. A hand-transcribed feedback section
+   would become a fourth source of truth and go stale exactly like the
+   branch table did.
+2. **It links back to the row.** The failure mode is not "we forgot she
+   said it", it is "we did it and nobody could tell". So the generated
+   line asks the repo whether it mentions `feedback #3` — a commit
+   message, a comment, a HANDOFF entry — and marks the row **unclaimed**
+   when nothing does. That is the check the two weeks needed, and it is
+   the same shape as the waiting-half claim test: assert the sentence we
+   already wrote is still true.
+3. **It cannot be satisfied by reading.** An unread flag is cleared by a
+   glance. An unclaimed row stays unclaimed until somebody writes down
+   what was decided, which is the act that was missing.
+
+**Cost: an afternoon.** A reader, a formatter, a marker in HANDOFF, and a
+test that fails when the marker's contents disagree with the table.
+
+### What it does not fix, said plainly
+
+**It cannot make anybody tell Michelle.** Three of her four Investor
+Report asks are live and she has never been told, and no script produces
+that email. The generated section would have shown *"row 3 — 4 items —
+unclaimed"* in every planning conversation for two weeks, which is enough
+to have caused the question. It is not enough to have answered it.
+
+**And it is worth being clear that the cheap version of this is a
+habit, not code**: read the feedback table at the start of a run. Three
+rows, one query. The generated section is worth building because the
+habit has now failed once in a way that cost two weeks — but if only one
+of the two happens, the habit is worth more than the script.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
