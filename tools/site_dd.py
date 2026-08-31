@@ -554,10 +554,16 @@ def seed_apply(assessment_id):
     finally:
         held.unlink(missing_ok=True)
 
+    # The pruning is said out loud when it happened. A snapshot that
+    # disappeared silently is the one somebody goes looking for later.
+    pruned = result.get("pruned_snapshots") or []
+    pruned_note = (f" {len(pruned)} snapshot(s) outside the retention window "
+                   f"were removed: {', '.join(pruned)}." if pruned else "")
     flash(f"Seeded {result['created_areas']} units and "
           f"{result['created_rooms']} rooms from the rent roll. "
           f"Import {result['batch']}; nothing already recorded was changed. "
-          f"A snapshot was taken first at {result['snapshot']}.", "success")
+          f"A snapshot was taken first at {result['snapshot']}.{pruned_note}",
+          "success")
     return redirect(url_for("site_dd.detail", assessment_id=assessment_id))
 
 

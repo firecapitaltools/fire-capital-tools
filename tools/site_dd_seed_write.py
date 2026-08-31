@@ -68,6 +68,7 @@ from __future__ import annotations
 import datetime
 import secrets
 import sqlite3
+import time
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +76,40 @@ from tools import rendered_state
 from tools import site_dd_db as sdb
 
 SNAPSHOT_DIR = "backups"
+
+# ── Retention ────────────────────────────────────────────────────────────
+#
+# Every seed takes a snapshot and nothing ever deleted one, so the
+# directory grew without bound. **The problem this bounds is legibility,
+# not space** -- 5 GB against a snapshot the size of the database is not
+# a capacity question for years, but fifty near-identical files named for
+# batch ids is where somebody restores the wrong one at the worst
+# possible moment. The runbook's "verify the snapshot before relying on
+# it" step is exactly what gets skipped when there are fifty candidates.
+#
+# BOTH RULES, NOT EITHER. Ten seeds in one afternoon must not evict a
+# month of history, and a quiet year must not leave a single file.
+SNAPSHOT_KEEP_DAYS = 30
+SNAPSHOT_KEEP_COUNT = 10
+
+# ONLY FILES THIS CODE WROTE ARE EVER CONSIDERED FOR DELETION.
+#
+# `take_snapshot` names its files `site_dd.<batch>.db`, and a batch id
+# always begins `seed-`. So a snapshot somebody took by hand cannot match
+# this pattern, and is therefore exempt **by construction rather than by
+# an exclusion list somebody has to maintain** -- an exclusion list is a
+# thing to forget, and the file it protects is the one that matters most.
+# `site_dd.before-first-seed.20260831-033837.db` is the state before the
+# largest write this platform has made, and there is no platform backup
+# behind it (known-issues 3).
+SNAPSHOT_PRUNE_GLOB = "site_dd.seed-*.db"
+
+# THE CONVENTION FOR A DELIBERATE KEEP: name it `site_dd.keep-<what>.db`.
+# It does not match the glob above either -- nothing does except this
+# code's own output -- but a name that says "keep" puts the intent in the
+# filename instead of in somebody's memory, which is the same move as
+# `seed_batch` itself.
+SNAPSHOT_KEEP_PREFIX = "site_dd.keep-"
 
 
 class SeedRefused(Exception):
@@ -118,6 +153,55 @@ def take_snapshot(batch: str, db_path: Path | None = None) -> Path:
     return dest
 
 
+
+def prune_snapshots(db_path: Path | None = None,
+                    now: float | None = None) -> list[str]:
+    """Delete seed snapshots that are both old and surplus. Returns the
+    names it removed, oldest first.
+
+    THE THREE GUARANTEES, in the order they are enforced:
+
+    1. **Only `site_dd.seed-*.db` is a candidate.** Anything else in the
+       directory -- a hand-taken snapshot, a `keep-` file, a stray copy
+       of another database -- is never looked at again after the glob.
+    2. **The newest survives whatever its age.** A retention rule that
+       can empty the directory is not a retention rule, and a single
+       ancient snapshot is precisely the case where it would.
+    3. **A file must be BOTH older than the window AND outside the count
+       to go.** Either alone keeps it.
+
+    Housekeeping never fails a seed: a file that cannot be removed is
+    left where it is and simply not reported, because losing the write
+    to tidy up would invert the priorities completely.
+    """
+    base = Path(db_path or sdb.get_db_path())
+    folder = base.parent / SNAPSHOT_DIR
+    if not folder.is_dir():
+        return []
+
+    now = time.time() if now is None else now
+    cutoff = now - SNAPSHOT_KEEP_DAYS * 86400
+
+    # Newest first. mtime is the fact; the name is the tie-break so two
+    # snapshots written in the same second still order deterministically.
+    candidates = sorted(
+        (p for p in folder.glob(SNAPSHOT_PRUNE_GLOB) if p.is_file()),
+        key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+
+    removed: list[str] = []
+    for index, path in enumerate(candidates):
+        if index < max(SNAPSHOT_KEEP_COUNT, 1):      # rule 2 rides on the 1
+            continue
+        if path.stat().st_mtime >= cutoff:
+            continue
+        try:
+            path.unlink()
+        except OSError:
+            continue
+        removed.append(path.name)
+    return sorted(removed)
+
+
 def already_seeded(conn, assessment_id: int) -> list[str]:
     """Batch ids that have already written into this assessment.
 
@@ -146,6 +230,11 @@ def apply_seed(assessment_id: int, plan: dict[str, Any],
     """
     batch = batch or new_batch_id()
     snapshot = take_snapshot(batch)
+    # Immediately after, and before anything is written: the seed is the
+    # only thing that creates snapshots, so it is the honest place to
+    # bound them. There is no scheduler in this platform and adding one
+    # for a directory listing would be a worse trade than the problem.
+    pruned = prune_snapshots()
 
     created_areas = created_rooms = 0
     with sdb.get_connection() as conn:
@@ -180,6 +269,9 @@ def apply_seed(assessment_id: int, plan: dict[str, Any],
     return {
         "batch": batch,
         "snapshot": str(snapshot),
+        # Reported, not silent. A deletion nobody sees is how the next
+        # restore finds a gap it cannot explain.
+        "pruned_snapshots": pruned,
         "created_areas": created_areas,
         "created_rooms": created_rooms,
         "reused_areas": reconcile["reuse_count"],
