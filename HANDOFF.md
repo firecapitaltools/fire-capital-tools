@@ -3823,16 +3823,75 @@ counts as content.
 
 The blanking direction destroys information and is caught by looking for
 *absence*: a value that used to be there is gone. This direction creates
-information and is invisible to that check — nothing is missing, the
-counts only ever go up, and every row it writes is defensible. It is the
-same mechanism, `_posted_instances()`, read from the other end, and a
-reader who has internalised "post complete forms" has no reason to expect
-it.
+information and is invisible to that check. It is the same mechanism,
+`_posted_instances()`, read from the other end, and a reader who has
+internalised "post complete forms" has no reason to expect it.
 
-**The check that finds it: count the rows a save creates, not just the
-ones it changes.** Three POSTs and a `COUNT(*)` settled this, and the
-same three lines would settle it for any other route built on the same
-helper.
+**That invisibility is general enough to have its own entry, and the
+method with it — see [A failure that CREATES is
+invisible](#a-failure-that-creates-is-invisible-to-every-check-that-finds-one-that-destroys).**
+
+---
+
+## A failure that CREATES is invisible to every check that finds one that destroys
+
+**Every instrument this project has built for write hazards looks for
+absence.** The blanking audit asks what a POST omits. The rendered-state
+token asks whether a row that existed has stopped existing. The
+fingerprint asks whether content changed. Snapshot verification asks
+whether the counts look like the world you expect — *"if findings are
+zero and they should not be, that snapshot is the wrong one."* Every one
+of them is tuned to notice something missing.
+
+**A route that materialises rows trips none of them, and it is not
+subtle — it is sixty rows from three saves that said nothing.**
+
+| | destroying | creating |
+|---|---|---|
+| what you look for | a value that was there and is gone | nothing; the row is new |
+| the counts | go down | **only ever go up** |
+| any single row | plainly wrong | **defensible in isolation** — unanswered, not false |
+| the user's experience | "where did my note go" | nothing at all |
+| the fingerprint | moves, and you go looking | moves, and it looks like ordinary use |
+
+The last row is the one that matters here. A content fingerprint that
+moved after a save is *expected* to move after a save. Nothing about the
+signal says the movement was rows nobody asked for.
+
+### The method, and it generalises past this route
+
+> **Count the rows a save CREATES, not only the ones it changes.** Three
+> POSTs and a `COUNT(*)`.
+
+That is the whole instrument:
+
+```
+start                              0 findings
+after a notes-only property save  32
+after an empty unit save          42
+after an empty room save          60
+```
+
+**It costs nothing and it works on any route**, because it needs no
+knowledge of the route's semantics — only a before, an empty post, and an
+after. Any route built on `_posted_instances()` will answer it the same
+way; so will one nobody has thought about yet, which is the point.
+
+**Why it had to be a number rather than a reading.** The code is not
+hiding anything: `_posted_instances()` returns `{1} ∪ existing ∪ posted`
+and says so in its docstring, in a file that has been read closely many
+times across this project. It was read as *"an item absent from the POST
+is written back with `condition=None`"* — true, and about the blanking
+direction — and the same sentence describes rows being conjured for items
+nobody has ever touched. **Reading told us the mechanism; only counting
+told us the consequence.**
+
+**And it belongs next to the positive-control rule rather than under it.**
+A positive control asks *does my instrument fire when something is
+wrong*. This asks the earlier question: *is my instrument pointed at the
+only direction things can go wrong in*. An instrument that has never
+returned a difference has not been tested — and an instrument that can
+only ever detect subtraction has not been aimed.
 
 ---
 
