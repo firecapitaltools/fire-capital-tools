@@ -592,6 +592,47 @@ SCOPE_UNPRICED: frozenset[tuple[str, str]] = frozenset({
     ("entry_door", "tighten_hardware"),
 })
 
+# ── Pricing keyed on CONDITION, for items whose detail means something else ──
+#
+# THE COLUMN IS ALREADY SPOKEN FOR. `appliance_disposal`, `washer` and
+# `dryer` are KIND_CHOICE items whose `detail` holds PRESENCE -- present,
+# hookup only, not there. Adding a scope detail to them would be the
+# collision the design says cannot happen, because one column would carry
+# two meanings for one item.
+#
+# CHECKED BY RENDERING THE FORM, not assumed: the room page shows a
+# condition picker AND a presence picker for all three, and a save writes
+# both. So "present, and it needs repairing" is a real recorded state --
+# which is exactly what WORK_OPTIONS means when it says `present` defers
+# to the condition recorded beside it.
+#
+# So the job is named by the CONDITION here: repair is a service call,
+# replace is a new machine. Only `repair` needs an entry -- `replace`
+# falls back to the item figure, which is the price of the machine, and
+# `absent` / `hookup_only` reach the budget through their detail with no
+# condition at all and get the same figure for the same reason.
+CONDITION_COSTS: dict[tuple[str, str], ReferenceCost] = {
+    ("appliance_disposal", "repair"): _c(
+        "appliance_disposal", 202.50, UNIT_EACH, ("Angi", "HomeGuide"),
+        "Angi's stated average $230; HomeGuide $100–250 (mid $175). Mean "
+        "of the two. Clearing a jam alone is $75–150; motor, wiring or "
+        "leak repairs reach $300–450, at which point replacement at $375 "
+        "is the cheaper answer and the line should say so.", "2026-08-31"),
+
+    ("washer", "repair"): _c(
+        "washer", 220.00, UNIT_EACH, ("Angi",),
+        "Angi's stated average for a washing-machine repair, range "
+        "$180–250. Single source. Minor fixes run to $75 and complex "
+        "ones past $700; against a $925 replacement, a quoted repair "
+        "over roughly $400 is worth questioning.", "2026-08-31"),
+
+    ("dryer", "repair"): _c(
+        "dryer", 200.00, UNIT_EACH, ("Angi",),
+        "Angi $100–300 average; midpoint. Single source, wider reported "
+        "range $100–430. The commonly replaced parts are the heating "
+        "element, thermal fuse, belt and start switch.", "2026-08-31"),
+}
+
 # The scope entries join the same two tables the flooring materials use,
 # so there is one lookup and one set of rules rather than a second
 # mechanism that behaves almost the same.
@@ -761,8 +802,8 @@ NOT_A_COST_ITEM: dict[str, str] = {
 
 # ── Lookup ───────────────────────────────────────────────────────────────
 
-def for_item(item_key: str, detail: str | None = None
-             ) -> ReferenceCost | None:
+def for_item(item_key: str, detail: str | None = None,
+             condition: str | None = None) -> ReferenceCost | None:
     """The researched cost for one item, or None.
 
     None covers all three of "unpriced", "not a cost item" and "unknown
@@ -777,6 +818,11 @@ def for_item(item_key: str, detail: str | None = None
     written for a single case: a detail selecting between prices for one
     item key. Flooring is now one set of entries in COST_BY_DETAIL like
     any other, and nothing here names it.
+
+    THE THIRD ARGUMENT IS THE CONDITION, and it exists because three
+    items had nowhere to put a scope. `appliance_disposal`, `washer` and
+    `dryer` answer in `detail` with their PRESENCE, so the job they need
+    is named by the condition beside it. See CONDITION_COSTS.
 
     The unit comes back with the cost, which is why this matters more
     than it looks. A manual figure's unit can be overridden by the
@@ -793,6 +839,19 @@ def for_item(item_key: str, detail: str | None = None
         specific = COST_BY_DETAIL.get(key)
         if specific is not None:
             return specific
+
+    # THEN THE CONDITION, FOR ITEMS WHOSE DETAIL MEANS SOMETHING ELSE.
+    #
+    # A washer's detail is its presence, so the job it needs is named by
+    # its condition instead: repair is a service call, replace is a new
+    # machine. Detail wins where both exist, because a detail names a job
+    # directly while a condition only implies one -- and no item is in
+    # both tables today, so the precedence is stated rather than relied
+    # on.
+    if condition:
+        by_condition = CONDITION_COSTS.get((item_key, condition))
+        if by_condition is not None:
+            return by_condition
 
     # An unrecognised detail falls back to the item's own figure, which is
     # the right default: it is the price of the job the item ordinarily

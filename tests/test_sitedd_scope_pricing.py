@@ -185,6 +185,60 @@ class RemovingAFigureMakesTheLineUnpricedTests(unittest.TestCase):
             line_for(finding("walls_ceiling", detail="paint"))["unit_cost"], 637.50)
 
 
+class TheThreeAppliancesArePricedByConditionTests(unittest.TestCase):
+    """Their detail carries PRESENCE, so the job is named by the
+    condition beside it. Verified by rendering the form in
+    test_sitedd_scope_details; here it is the arithmetic."""
+
+    def test_a_washer_that_needs_repair_is_a_service_call(self):
+        line = line_for(finding("washer", condition="repair", detail="present"))
+        self.assertEqual(line["unit_cost"], 220.00)
+
+    def test_a_washer_that_needs_replacing_is_a_machine(self):
+        line = line_for(finding("washer", condition="replace", detail="present"))
+        self.assertEqual(line["unit_cost"], 925.00)
+
+    def test_a_missing_washer_is_a_machine(self):
+        """No condition at all -- the work is implied by the presence
+        value, and the item figure is the right one."""
+        line = line_for(finding("washer", condition=None, detail="absent"))
+        self.assertEqual(line["unit_cost"], 925.00)
+
+    def test_a_hookup_with_no_machine_is_also_a_machine(self):
+        line = line_for(finding("washer", condition=None, detail="hookup_only"))
+        self.assertEqual(line["unit_cost"], 925.00)
+
+    def test_the_dryer_and_the_disposal_behave_the_same_way(self):
+        self.assertEqual(
+            line_for(finding("dryer", condition="repair", detail="present"))["unit_cost"],
+            200.00)
+        self.assertEqual(
+            line_for(finding("dryer", condition="replace", detail="present"))["unit_cost"],
+            925.00)
+        self.assertEqual(
+            line_for(finding("appliance_disposal", condition="repair",
+                             detail="present"))["unit_cost"], 202.50)
+        self.assertEqual(
+            line_for(finding("appliance_disposal", condition="replace",
+                             detail="present"))["unit_cost"], 375.00)
+
+    def test_the_presence_detail_is_not_touched(self):
+        """The Part 62 collision, checked rather than argued: pricing by
+        condition must leave the detail column meaning presence."""
+        row = costs.apply_reference(
+            finding("washer", condition="repair", detail="present"), None)
+        self.assertEqual(row["detail"], "present")
+
+    def test_no_condition_priced_item_also_has_a_detail_entry(self):
+        """The precedence between the two tables is stated in for_item.
+        Nothing relies on it today, and this fails the moment something
+        does -- at which point the rule needs a test of its own rather
+        than an assumption."""
+        overlap = ({k[0] for k in refcosts.CONDITION_COSTS}
+                   & {k[0] for k in refcosts.COST_BY_DETAIL})
+        self.assertEqual(overlap, set())
+
+
 class NothingRecordedBeforeTodayMovesTests(unittest.TestCase):
     """The migration story, and assessment 11 is the live case."""
 
