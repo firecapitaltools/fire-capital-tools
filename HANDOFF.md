@@ -4701,6 +4701,79 @@ written.
 
 ---
 
+## An inference that becomes indistinguishable from a fact the moment it is stored
+
+**Assessment 21 holds 18 vacant units. Every one of them is vacant
+because a cell was blank.** The preview rendered that honestly — `unit
+118 … (no status) → vacant` — so the conclusion stayed contestable on
+the screen where somebody approved it. **The stored value is `vacant`.**
+
+Checked rather than assumed, 2026-08-31: of the 152 seeded areas, **two**
+carry a note (`Rent roll status: UE`, `Notice to vacate 2026-08-13`) and
+**none of the 18 vacant ones does.** `_notes_for()` writes a note only
+when a status was *stated* and is not `C`; a blank status is falsy, so
+the inferred ones fall through it.
+
+### So: does it matter?
+
+**Not to the inspector, and that is the honest answer to the question as
+asked.** Somebody standing at the door of unit 118 does not need to know
+why the tool thinks it is vacant. They are about to find out by opening
+it, which is the cheapest verification available and needs no UI. If it
+is occupied, the inference is falsified by their being there.
+
+**It matters to the next rent roll.** After the seed, a *stated* vacancy
+and an *inferred* one are byte-identical, and the file is not kept — the
+preview holds it only between preview and apply. So the judgement is
+irreversible and invisible: if a future export's blanks mean something
+else (a different system, a partial file, a column that moved), eighteen
+units would say `vacant` with nothing anywhere recording that anybody
+decided it. **The evidence is strong; the record of having weighed it is
+absent.**
+
+### The proposal: a note, not a column
+
+**1. No provenance column.** A `status_source` would need a vocabulary
+everywhere status appears — the Lite filter, the area card, the label
+map, the exports — and it would change no action anywhere. The three-way
+evidence (four empty tenancy columns, two agreeing summary sections) is
+strong enough that hedging every display is the wrong trade.
+
+**2. Write the note at seed time, in the mechanism that already carries
+exactly this kind of fact.** One branch in `_notes_for()`:
+
+    Vacant inferred: the rent roll gave no status, and no lease, move-in
+    or rent for this unit.
+
+No schema change, no migration, no new vocabulary, and it lands on the
+area card where the person who later asks *"why does this say vacant?"*
+will be looking. It is the same answer §1.3 of the seeding design gave
+for NTV and UE — *"a real fact with nowhere structured to live"* goes in
+the notes.
+
+**3. Do not backfill the existing 18 silently.** The population is
+exactly identifiable — `seed_batch = 'seed-20260831-034600-0c16c9'` and
+`status = 'vacant'` — so it is one `UPDATE` against 18 rows. That is a
+production write on Michelle's data to add a sentence, and it should be
+a decision rather than a side effect of a run about something else.
+
+**4. Nothing changes in the Lite view.** Its job is to say which areas to
+walk, and both kinds of vacancy are walked identically.
+
+### The general shape, which is why this is written down
+
+**A screen that shows its reasoning does not preserve it.** The preview
+was built deliberately to keep the inference visible — *"the preview is
+exactly where that conclusion should remain visible and contestable"* —
+and it does, for as long as the screen is open. The write flattens it,
+because a status column has room for `vacant` and no room for *why*.
+
+> **When a screen is the only place an inference is visible, the
+> inference does not survive the save.** Either the reasoning goes into
+> the record or it is gone at the moment of the click that mattered.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
