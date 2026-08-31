@@ -5,10 +5,16 @@ section that matches.**
 
 > # BEFORE ANYTHING ELSE: WHAT THIS RUNBOOK DOES NOT COVER
 >
-> **This document covers `site_dd.db` and nothing else.** If what you have
-> lost is not Site DD, the honest answer is that there is no snapshot of
-> it, and you should learn that here rather than by reading three
-> sections and finding no instructions.
+> **Nothing in this platform snapshots itself except `site_dd.db`, and
+> only when a seed is applied.** The table is what exists on a day nobody
+> typed anything. If what you have lost is not Site DD, the honest answer
+> is that there is probably no snapshot of it, and you should learn that
+> here rather than by reading three sections and finding no instructions.
+>
+> **§0a can change that in 0.37 seconds, but only going forward** — a set
+> taken today does not help with something lost yesterday. The repair
+> procedures in §1–§3 are Site DD's; §0a and its restore direction are
+> every database's.
 >
 > | | snapshot exists? |
 > |---|---|
@@ -33,9 +39,12 @@ section that matches.**
 > hang.
 >
 > **What that is NOT is a cost problem.** Measured 2026-08-31: a
-> `VACUUM INTO` of all twelve databases is content-identical, takes
-> **16 ms**, and the whole set plus a gzipped copy of `uploads` and
-> `users.json` is **2.45 MB** against 4,816 MB free.
+> `VACUUM INTO` of all twelve databases is content-identical and takes
+> **16 ms**; a complete real set including `uploads` and `users.json`
+> measured **3.22 MB in 0.37 s** against 4,816 MB free. (An earlier
+> estimate here said 2.45 MB. That was measured against a scratch copy
+> and the real uploads tar is larger — the figure that counts is the one
+> from a real run.)
 >
 > **AND THERE IS NOW A COMMAND FOR IT — §0a.** `python -m
 > tools.snapshot_all` covers every row in this table in 0.37 seconds.
