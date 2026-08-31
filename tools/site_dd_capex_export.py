@@ -357,7 +357,8 @@ def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = 
                 rate_phrase = (f"Researched reference rate "
                                f"${described['cost']:,.2f} "
                                f"{refcosts.UNIT_LABELS.get(unit, unit)} "
-                               f"(national average, {refcosts.RESEARCHED_ON})")
+                               f"(national average, "
+                               f"{getattr(ref, 'dated', refcosts.RESEARCHED_ON)})")
             else:
                 rate_phrase = (f"Inspector's rate ${described['cost']:,.2f} "
                                f"{refcosts.UNIT_LABELS.get(unit, unit)}")

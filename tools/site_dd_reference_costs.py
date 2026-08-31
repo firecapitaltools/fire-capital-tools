@@ -171,16 +171,28 @@ class ReferenceCost:
     unit: str
     sources: tuple[str, ...]
     note: str = ""
+    # WHEN THIS FIGURE WAS READ, when that is not the table's own date.
+    #
+    # Empty means RESEARCHED_ON, which is when the original 36 were
+    # researched. The scope entries below were read on a later date, and
+    # bumping the module constant to cover them would assert that all 36
+    # had been re-verified that day -- a claim nobody made, arriving
+    # through a one-line edit. So the date travels with the entry.
+    researched_on: str = ""
+
+    @property
+    def dated(self) -> str:
+        return self.researched_on or RESEARCHED_ON
 
     @property
     def provenance(self) -> str:
         return (f"Researched average of {len(self.sources)} contractor-estimate "
-                f"sources ({', '.join(self.sources)}), {RESEARCHED_ON}. "
+                f"sources ({', '.join(self.sources)}), {self.dated}. "
                 f"National average, not a quote.")
 
 
-def _c(key, cost, unit, sources, note=""):
-    return ReferenceCost(key, cost, unit, tuple(sources), note)
+def _c(key, cost, unit, sources, note="", researched_on=""):
+    return ReferenceCost(key, cost, unit, tuple(sources), note, researched_on)
 
 
 # ── The table ────────────────────────────────────────────────────────────
@@ -442,6 +454,150 @@ UNPRICED_DETAIL: frozenset[tuple[str, str]] = frozenset(
     if not rate
 )
 
+# ── Scope pricing: the job, not just the item ────────────────────────────
+#
+# Researched 2026-08-31, the same way the original 36 were: published
+# contractor-estimate pages, each figure the mean of the midpoints of the
+# ranges the sources give (or of their own stated averages), with the
+# arithmetic written out so a reader can check it rather than take it.
+#
+# WHAT THIS FIXES IS NOT UNDER-PRICING. IT IS AN EXPENSIVE ITEM LENDING
+# ITS PRICE TO A CHEAP JOB. Before these entries, a `toilet` finding
+# scoped `replace_seat` priced at $600 -- the whole toilet -- and
+# `entry_door` scoped `tighten_hardware` priced at $1,450. Nobody has
+# recorded either yet, so nothing in production moves; the exposure was
+# waiting for the first inspector to use the picker.
+#
+# WHERE A SCOPE HAS NO SOURCE IT IS NOT HERE, and that is the honest
+# outcome rather than a gap: `closet` has no published figure for
+# replacing a rod or a shelf, and the nearest sources price a CURTAIN rod
+# or shelving per linear foot, which would reintroduce the measurement
+# this whole feature exists to avoid.
+SCOPE_COSTS: dict[tuple[str, str], ReferenceCost] = {
+
+    # THE ONE THAT TURNS UNTOTALLABLE INTO TOTALLABLE.
+    #
+    # walls_ceiling is $5.75 per square foot and no route records a floor
+    # area, so the item can never be totalled -- Michelle: "don't worry
+    # about calculating paint, we just need to determine the conditions".
+    # Naming the job is something an inspector does standing in the room;
+    # measuring the walls is not. So this entry is per ROOM, and it is the
+    # argument for the whole feature.
+    ("walls_ceiling", "paint"): _c(
+        "walls_ceiling", 637.50, UNIT_EACH, ("HomeGuide", "Angi"),
+        "PER TYPICAL ROOM, not per square foot, and that is the point of "
+        "this entry. HomeGuide $350–850 per room (mid $600); Angi $400–950 "
+        "for a 12x12 room (mid $675). Mean of midpoints. ASSUMES A ROOM OF "
+        "ROUGHLY 100–250 SQ FT, walls only. A larger room, or a ceiling "
+        "included, is more -- this is a typical-room figure and a "
+        "different kind of number from $600 for a toilet, which is a "
+        "thing rather than a space.", "2026-08-31"),
+
+    # A seat is tens of dollars fitted; a toilet is $600. This is the pair
+    # the checklist comment named when the option set was written.
+    ("toilet", "replace_seat"): _c(
+        "toilet", 156.00, UNIT_EACH, ("Homewyse",),
+        "Homewyse install-a-toilet-seat national average $118–194 per "
+        "seat; midpoint. Single source, so treat as indicative -- the "
+        "same caveat the item-level toilet figure carries.", "2026-08-31"),
+
+    # Reglazing is a few hundred; replacement is a demolition.
+    ("tub_shower", "resurface"): _c(
+        "tub_shower", 479.00, UNIT_EACH, ("Angi", "HomeGuide"),
+        "Angi's stated average $483 (up to $1,000); HomeGuide $350–600 "
+        "for a standard tub (mid $475). Mean of the two. A CLAWFOOT OR "
+        "ORNATE TUB is $400–1,400 and is not what this covers.",
+        "2026-08-31"),
+
+    ("entry_door", "paint"): _c(
+        "entry_door", 269.50, UNIT_EACH, ("Homewyse",),
+        "Homewyse paint-an-exterior-door national average $177–362 per "
+        "door; midpoint. Single source. HomeGuide's INTERIOR door and "
+        "frame figure is far lower at $75–150 -- this item is the entry "
+        "door, so the exterior figure is the applicable one and the "
+        "difference is stated rather than averaged away.", "2026-08-31"),
+
+    ("entry_door", "repair_door"): _c(
+        "entry_door", 700.00, UNIT_EACH, ("Angi",),
+        "Angi's exterior-door repair range $350–1,050; midpoint. Single "
+        "source. Angi's ALL-DOORS average is $250 ($50–700), which is "
+        "dominated by interior doors; an entry door is solid or steel "
+        "with multiple locks and latches, which is why the exterior "
+        "figure is the one used.", "2026-08-31"),
+
+    ("entry_door", "replace_hardware"): _c(
+        "entry_door", 265.75, UNIT_EACH, ("Homewyse", "Angi"),
+        "Homewyse lockset replacement $237–456 (mid $346.50); Angi "
+        "professional deadbolt installation, most homeowners $70–300 "
+        "(mid $185). Mean of midpoints. A SMART LOCK is a different "
+        "purchase and is not covered.", "2026-08-31"),
+
+    # The item is UNPRICED precisely because it conflated these two jobs.
+    # The scope picker separates them, so both can now be priced -- which
+    # is this feature converting an unpriceable item into a priced line
+    # rather than merely refining one.
+    ("dryer_vent", "clean"): _c(
+        "dryer_vent", 138.75, UNIT_EACH, ("Angi", "HomeGuide"),
+        "Angi's stated average $145 (most jobs $100–200); HomeGuide "
+        "$80–185 (mid $132.50). Mean of Angi's average and HomeGuide's "
+        "midpoint. A ROOF-EXIT VENT is $150–250 and a long duct run "
+        "more.", "2026-08-31"),
+
+    ("dryer_vent", "install"): _c(
+        "dryer_vent", 385.33, UNIT_EACH, ("Angi", "Homewyse", "HomeGuide"),
+        "Angi replacement $140–600 (mid $370); Homewyse install $192–380 "
+        "per vent (mid $286); HomeGuide new ducting through an exterior "
+        "wall $200–800 (mid $500). Mean of three midpoints. THE THREE "
+        "SOURCES DESCRIBE SLIGHTLY DIFFERENT JOBS -- replacing an "
+        "existing vent is the cheap end, cutting a new run to the "
+        "outside is the expensive one -- and the swing factor is duct "
+        "length and whether it exits a wall or the roof.", "2026-08-31"),
+}
+
+# ── Scopes deliberately NOT priced ───────────────────────────────────────
+#
+# Every scope of every item above that is missing from SCOPE_COSTS falls
+# back to the item-level figure, and for most of them that is correct
+# because the item figure IS the price of that job:
+#
+#     toilet / replace_toilet     -> $600, the item, which is a toilet
+#     tub_shower / replace_tub    -> $3,275, the item, which is a tub
+#     entry_door / replace_door   -> $1,450, the item, which is a door
+#
+# Those three are absent ON PURPOSE and are listed here because "nobody
+# researched it" and "the item price is already right" look identical in
+# a table of what is present.
+#
+# walls_ceiling / repair_and_paint is absent for a different reason and
+# falls back to the $5.75/sqft item rate, unchanged: the paint half is
+# researched above, and the drywall half spans $60 for a hairline crack
+# to $2,000, with the published "average" ($609–612) describing whole-job
+# repairs rather than the patching that precedes a repaint. Adding the
+# two would produce a number wrong for nearly every real case. The
+# consequence is visible and worth knowing: on one walk, "paint only"
+# totals and "repair and paint" does not. That asymmetry is honest and it
+# closes the day a patch-before-paint figure exists.
+#
+# closet's three scopes are absent because nothing published prices them.
+# Its item entry is in UNPRICED, so they resolve to None either way; the
+# item's reason has been rewritten to say the scopes are now separated
+# and still unsourced.
+SCOPE_UNPRICED: frozenset[tuple[str, str]] = frozenset({
+    # RECOGNISED AND DECLINED, so it must NOT fall back. Tightening a
+    # strike plate is an adjustment, not a job: no source publishes a
+    # figure for it, a call-out minimum would dominate anything they did
+    # publish -- the same reasoning already recorded for outlets_switches
+    # -- and the fallback here is $1,450, which would price a screwdriver
+    # visit as a new entry door.
+    ("entry_door", "tighten_hardware"),
+})
+
+# The scope entries join the same two tables the flooring materials use,
+# so there is one lookup and one set of rules rather than a second
+# mechanism that behaves almost the same.
+COST_BY_DETAIL.update(SCOPE_COSTS)
+UNPRICED_DETAIL = UNPRICED_DETAIL | SCOPE_UNPRICED
+
 
 # ── Deliberately unpriced ────────────────────────────────────────────────
 #
@@ -483,8 +639,10 @@ UNPRICED: dict[str, str] = {
 
     # Plumbing / mechanical with no consistent public figure
     "dryer_vent": (
-        "Cleaning ($100–200) and re-ducting ($200–700+) are different jobs "
-        "and the checklist item does not distinguish them."),
+        "Cleaning and re-ducting are different jobs, and this finding does "
+        "not say which. RECORD THE SCOPE AND BOTH ARE PRICED: cleaning at "
+        "$138.75 and installing a vent at $385.33 — see the scope entries. "
+        "This reason applies only to a finding with no scope recorded."),
     "sump_pump": "No consistent published installed figure found.",
     "visible_leaks": (
         "A symptom, not a defined repair. The cost is whatever the leak "
@@ -537,9 +695,13 @@ UNPRICED: dict[str, str] = {
 
     # Interior extras with no published figure
     "closet": (
-        "No published figure. Repairing a closet spans rehanging a door, "
-        "replacing a rod and shelf, and rebuilding the whole thing, and no "
-        "source separates them."),
+        "No published figure, and the scope picker does not rescue it. The "
+        "checklist now separates replacing a rod, replacing shelves and "
+        "doing both — but no source prices those jobs: the nearest "
+        "published figures are for a CURTAIN rod ($164–420, a different "
+        "fitting) or shelving per linear foot ($21.67–33.48), which would "
+        "reintroduce the measurement a scope is meant to avoid. Checked "
+        "2026-08-31."),
     "walk_in_closet": (
         "As closet, and more so — a walk-in is joinery priced per job, with "
         "no published per-unit rate."),
@@ -631,6 +793,7 @@ def for_item(item_key: str, detail: str | None = None
         specific = COST_BY_DETAIL.get(key)
         if specific is not None:
             return specific
+
     # An unrecognised detail falls back to the item's own figure, which is
     # the right default: it is the price of the job the item ordinarily
     # means, and it is what every finding recorded before details existed
