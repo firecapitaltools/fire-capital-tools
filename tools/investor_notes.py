@@ -296,6 +296,16 @@ def add_alias():
     return redirect(url_for("investor_notes.index"))
 
 
+# The only places this form is offered from, by endpoint rather than by
+# path. Adding a caller means adding a line here, which is the point: the
+# set is closed and reading it tells you every page that can redirect
+# through this route.
+RETURN_TO = {
+    "notetaker": lambda: url_for("investor_notes.index") + "#properties",
+    "investor_report": lambda: url_for("investor_report.index"),
+}
+
+
 @investor_notes_bp.route("/notes/properties", methods=["POST"])
 @login_required
 def add_property():
@@ -323,10 +333,21 @@ def add_property():
     a property visible in one tool and unreachable from every other, and
     would then collide with the real record the moment one was made.
     """
+    # WHERE TO GO BACK TO, BY ENDPOINT NAME AND NEVER BY URL.
+    #
+    # Michelle asked for this affordance while standing on the Investor
+    # Report page, and sending her to the notetaker to add a name is the
+    # thing she was asking not to do. So the caller says where it came
+    # from -- as a KEY into a table here, not as a path -- because a
+    # `next` parameter that accepts a URL is an open redirect, and this
+    # form is reachable by anyone who can log in.
+    back = RETURN_TO.get((request.form.get("return_to") or "").strip(),
+                         RETURN_TO["notetaker"])()
+
     label = " ".join((request.form.get("property_label") or "").split())[:120]
     if not label:
         flash("A property needs a name.", "danger")
-        return redirect(url_for("investor_notes.index") + "#properties")
+        return redirect(back)
 
     with notes_db.get_connection() as conn:
         existing = {matching.normalize(e["label"]): e
@@ -335,7 +356,7 @@ def add_property():
     if already:
         flash(f"“{already['label']}” is already here — "
               f"add an alias to it rather than a second copy.", "warning")
-        return redirect(url_for("investor_notes.index") + "#properties")
+        return redirect(back)
 
     with underwriting_db.get_connection() as conn:
         scenario_id = underwriting_db.create_scenario(conn, {
@@ -346,10 +367,12 @@ def add_property():
             "name": "Placeholder — no assumptions entered",
         })
 
-    flash(f"Added “{label}”. It can be aliased now, and its Underwriting "
-          f"scenario is ready whenever you want to put numbers in it.",
+    flash(f"Added “{label}” as a property name. Meeting notes can be "
+          f"matched to it now, and its Underwriting scenario is ready "
+          f"whenever you want to put numbers in it. It is NOT a deal — "
+          f"a deal has an address and its own record in Deal Dive.",
           "success")
-    return redirect(url_for("investor_notes.index") + "#properties")
+    return redirect(back)
 
 
 @investor_notes_bp.route("/notes/aliases/<int:alias_id>/delete", methods=["POST"])
