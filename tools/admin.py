@@ -117,18 +117,41 @@ def _media_storage():
         out["volume_free"] = free
         out["volume_total_human"] = capture.human_bytes(total)
         out["volume_free_human"] = capture.human_bytes(free)
-        used_pct = ((total - free) / total * 100) if total else 0.0
+        # A MONITOR MUST NOT REPORT HEALTHY BECAUSE IT CANNOT SEE.
+        #
+        # This read `if total else 0.0`, and 0.0% used computes to
+        # "ok" -- so a volume whose size came back as zero produced a
+        # green panel saying there was plenty of room. That is the wrong
+        # failure direction for the one figure on this page whose job is
+        # to warn before something fills up.
+        #
+        # `statvfs` returning a zero block count on a live mount is not a
+        # state anybody has produced, so this is not a live defect. It is
+        # the direction that matters: an unreadable volume now says so.
+        used_pct = ((total - free) / total * 100) if total else None
         out["volume_used_pct"] = used_pct
-        out["level"] = ("critical" if used_pct >= STORAGE_CRITICAL_PCT
+        out["level"] = ("unknown" if used_pct is None
+                        else "critical" if used_pct >= STORAGE_CRITICAL_PCT
                         else "warn" if used_pct >= STORAGE_WARN_PCT else "ok")
+        if used_pct is None:
+            out["volume_reason"] = ("The volume reported a size of zero, so "
+                                    "how full it is cannot be worked out.")
         # How many more videos fit, which is the figure that actually
         # answers "should I worry".
         out["videos_remaining"] = int(free // capture.MAX_VIDEO_BYTES)
     except (OSError, AttributeError):
         # statvfs does not exist on Windows; local development shows the
         # media totals without the volume figures rather than nothing.
+        #
+        # "unknown", not "ok", for the same reason as above -- and this
+        # branch is the reachable one: every developer machine running
+        # Windows takes it, and it was reporting a healthy volume it had
+        # never looked at.
         out["volume_total"] = None
-        out["level"] = "ok"
+        out["volume_used_pct"] = None
+        out["level"] = "unknown"
+        out["volume_reason"] = ("The volume could not be read on this "
+                                "machine, so its usage is not reported.")
     out["max_video_mb"] = capture.MAX_VIDEO_BYTES // 1024 // 1024
     return out
 
