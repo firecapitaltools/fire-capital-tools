@@ -120,19 +120,42 @@ measured-quantity collection.
 
 ## Branches
 
-| branch | head | state |
-|---|---|---|
-| `uw-refi-cashout` | `13c2b7d` | **built, rebased, verified, HELD on a confirmed double-count.** See below. |
-| `notetaker-word-export` | `8bde934` | merged, can be deleted |
-| `dead-reader-sweep` | `df98c64` | merged, can be deleted |
-| `sitedd-rate-fix` | `8a874d4` | merged, can be deleted |
-| `sitedd-capex-links` | `a46bd36` | merged, can be deleted |
-| `route-reachability-sweep` | `bcccecd` | merged, can be deleted |
+> **ALL OF THIS TABLE WAS STALE, corrected 2026-08-31 while deleting
+> merged branches.** Every branch it lists is in master, `uw-refi-cashout`
+> included: `66b2d1e "Merge uw-refi-cashout: cash-out refinance with
+> capital return"`, 2026-08-18. The held tip it names, `13c2b7d`, is
+> reachable from nothing — its work went in under a rebased SHA
+> (`42bea44`, same subject line).
+>
+> **The blocker was answered, and the answer is in the code.**
+> `deal_analyzer_math` records her decision verbatim: *"let's go with
+> option (b) and split them out so the bank's fees are a separate line
+> item"*, so `refi_costs_pct` is third-party closing only and the
+> lender's point lives in `refi_bank_fee_pct` with its own form field and
+> help text. The acquisition side was then asked the matching question
+> and agrees.
+>
+> **Nothing was ever mispriced by it.** All ten production scenarios have
+> `refi_year` NULL — read read-only — so the double-count was resolved
+> before any real figure went through it.
+>
+> **This entry outlived the world by thirteen days and was repeated
+> forward at least twice**, most recently in a Part 82 report that
+> assembled the open list from this file. That is the report-to-prompt
+> propagation this document warns about, arriving through its own
+> summary. See *A branch record is a claim about the graph, and the graph
+> can be asked.*
+>
+> **The branch table is deleted rather than corrected.** A list of
+> branches and their states is a copy of something git already knows, and
+> it will go stale again the same way. `git branch --merged master` is
+> the answer, per branch, and it takes a second.
 
-### `uw-refi-cashout` — what it contains and what blocks it
+### `uw-refi-cashout` — what it contained and what blocked it
 
-**Rebased onto current master, fully re-verified, and HELD on a
-confirmed double-count.** Do not merge it as it stands.
+*Historical, kept because the definition below is the expensive part and
+would be rediscovered otherwise. **Merged 2026-08-18; the blocker was
+resolved by Michelle choosing option (b).***
 
 It implements Michelle's confirmed terms: excess refi proceeds to
 investors, a 1% GP capital transaction fee, payout order payoff → fees →
@@ -474,7 +497,10 @@ and it costs real OpenAI spend against the **$60/month** budget.
 Separately: the update page renders `section.name` from the **stored**
 JSON, so existing updates keep old headings regardless.
 
-**5. Refi fee base.** See above.
+~~**5. Refi fee base.**~~ **CLOSED.** She answered — split the bank's
+point out as its own line — and it shipped. Recorded here rather than
+deleted because this list was read forward for two weeks with it still
+on it.
 
 ---
 
@@ -4051,6 +4077,61 @@ figure that reaches a line without reaching the sheet defeats it silently.
 
 ---
 
+## A branch record is a claim about the graph, and the graph can be asked
+
+**`uw-refi-cashout` was recorded as built-but-held for thirteen days
+after it was merged.** The Branches table named a head, `13c2b7d`, that
+is reachable from no ref at all; the work went into master on 2026-08-18
+under a rebased SHA with the same subject line. *Open operational items*
+repeated the claim, *Blocked on Michelle* carried the blocker as item 5,
+and a Part 83 prompt restated it as a fact — *"uw-refi-cashout is
+unmerged and parked on the fee base"* — because it was assembling from
+this file.
+
+**Nothing was harmed.** The blocker was answered: Michelle chose to split
+the bank's point out of `refi_costs_pct`, the code records her words
+verbatim, and all ten production scenarios have `refi_year` NULL, so no
+figure ever went through the double-count.
+
+**It was found by branch hygiene, which is not where anybody would look
+for it.** The instruction was to verify merged status per branch rather
+than trust a list — and doing that turned up a branch the document said
+was unmerged sitting in `git branch --merged`.
+
+### Why this class of entry goes stale and the others do not
+
+Most of this file records **reasoning**: why a rule exists, what an
+argument missed, what a number means. Reasoning does not expire. A branch
+table records **state that something else owns**, and git updates its copy
+on every merge while the document's copy waits for somebody to remember.
+
+> **A document should not hold a second copy of state a tool already
+> holds.** Where it must — a fingerprint, a known-good value — the entry
+> says how to recompute it, so a reader can check rather than believe.
+> `git branch --merged master` is one command and it is never wrong.
+
+The table is deleted rather than corrected, because correcting it would
+have restarted the same clock.
+
+### The propagation, which is the part with teeth
+
+This is the report-to-prompt loop this file already warns about, arriving
+through **its own summary**. The Part 82 report assembled a consolidated
+open list by reading *Open operational items* and *Blocked on Michelle*,
+which is exactly what those sections are for — and both were wrong in the
+same way about the same branch, so the list inherited it, and the next
+prompt quoted the list back.
+
+**A summary assembled from a stale source is more convincing than the
+source**, because it looks like a fresh reading. The check that would
+have caught it is the one this file already states for claims about code:
+*before repeating a claim from an earlier report, attach an instruction
+to verify it*. For a claim about repository state, verifying it is one
+command — which makes carrying it forward unverified harder to excuse
+than the usual case, not easier.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
@@ -4069,10 +4150,19 @@ regression of this one. Do not spend further time reconciling it.
 ## Open operational items
 
 - **The repo is public.** `private: false`, 0 forks/stars/watchers.
-- **`uw-refi-cashout` is held on Michelle's answer**, not on staleness.
-  It was rebased and re-verified; the blocker is the fee-base
-  double-count described above.
-- **Five merged branches can be deleted** once you are comfortable.
+- ~~**`uw-refi-cashout` is held on Michelle's answer.**~~ **Merged
+  2026-08-18 and the answer arrived: she chose to split the bank's point
+  out of `refi_costs_pct`, and the code carries her words. No production
+  scenario has a refinance, so nothing was ever priced through the
+  double-count. Corrected 2026-08-31.**
+- **Branches are tidy as of 2026-08-31.** 158 merged locals and four
+  merged remotes deleted, each verified as an ancestor of master
+  individually rather than from a list. Two remotes survive because they
+  are genuinely unmerged: `origin/BeckettTest` (`5684301`) and
+  `origin/fire-metrics-standalone-latest` (`10f4334`, Capacitor iOS
+  scaffolding, 2026-08-28). The deleted remote SHAs are in the Part 83
+  report; any is restorable with
+  `git push origin <sha>:refs/heads/<name>`.
 - **Detail values is finished.** All six steps of
   `docs/site-dd-detail-values.md` have shipped and the document is marked
   implemented, with the three places the build differs from the design
