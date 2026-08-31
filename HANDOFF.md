@@ -3650,6 +3650,10 @@ editable on the assessment page and is read by nothing else.
 
 ### And adding that note is not free, which was worth measuring first
 
+*The general finding this came from now has its own entry —
+[Rule 2 in the other direction](#rule-2-in-the-other-direction-a-save-materialises-what-nobody-touched)
+— because it is about every scope, not about assessment 21.*
+
 `site_dd.save` is the property-scope route, and it is one of the eleven
 full-collection-rewrite routes. Measured on a fresh assessment rather
 than assumed:
@@ -3747,6 +3751,77 @@ about 385 KB and nothing prunes them either.
 §3 says snapshots live in `/data/backups/`, and for six files that is not
 true — somebody following it under pressure would not find them. Either
 move them in or say they exist; the sentence being wrong is the cost.
+
+---
+
+## Rule 2 in the other direction: a save MATERIALISES what nobody touched
+
+**The full-collection-rewrite hazard has always been described as
+blanking what a POST omits. It also does the opposite, and the opposite
+has never been written down.** A save that carries nothing at all still
+writes a row for every item in scope, because `_posted_instances()`
+returns `{1} ∪ existing ∪ posted` — instance 1 of every catalogue item is
+emitted whether the form mentioned it or not.
+
+Measured on a fresh assessment rather than reasoned about, one empty save
+per scope:
+
+```
+start                       0 findings
+after a notes-only property save     32     all condition = NULL
+after an empty unit save             42
+after an empty room save             60
+```
+
+**Sixty rows from three saves that said nothing.** Every one is honest —
+unanswered, not wrong — and nothing is lost by them. That is exactly why
+this is worth recording: there is no symptom, no error, and no incorrect
+value anywhere.
+
+### The consequence, which is on a screen where somebody approves a write
+
+The seeding preview reports **findings preserved** using
+`area_finding_rows()`, which counts every row rather than only the
+answered ones. That change was correct and was made for a good reason: an
+unanswered row can carry a note, a cost or a measurement, and *"preserved"
+means every row that survives*.
+
+But the two facts meet badly. **Rows are created by opening a page and
+saving it**, so an assessment nobody has really walked can report
+*"28 findings preserved"* — a true statement about rows that reads to a
+person as *work already done*. The number is not wrong; the word
+"findings" is doing more work than the data supports.
+
+**Both fixes were right and the tension is real**, which is the part to
+carry rather than a verdict:
+
+* counting only answered rows understated what a 152-unit write protects,
+  which is the wrong direction on an approval screen (Part 76);
+* counting every row overstates *effort*, because visiting a page creates
+  rows.
+
+**A proposal, not built: count rows carrying any content** — a condition,
+a note, a cost, a measure or a quantity — rather than all rows or only
+answered ones. That is the number that means "somebody put something
+here", it still protects the note-without-a-condition case that motivated
+the change, and it reads as zero on an assessment that has only been
+opened. It is one `WHERE` clause and it needs a decision about what
+counts as content.
+
+### Why this belongs beside the blanking rule and not inside it
+
+The blanking direction destroys information and is caught by looking for
+*absence*: a value that used to be there is gone. This direction creates
+information and is invisible to that check — nothing is missing, the
+counts only ever go up, and every row it writes is defensible. It is the
+same mechanism, `_posted_instances()`, read from the other end, and a
+reader who has internalised "post complete forms" has no reason to expect
+it.
+
+**The check that finds it: count the rows a save creates, not just the
+ones it changes.** Three POSTs and a `COUNT(*)` settled this, and the
+same three lines would settle it for any other route built on the same
+helper.
 
 ---
 
