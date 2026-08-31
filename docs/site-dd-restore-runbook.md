@@ -7,6 +7,13 @@ section that matches.**
 and `maxBackupsCount` is `0` — see known-issues entry 3. Everything below
 is application-level and is the whole of the recovery story.
 
+**And it stays worth having even if the plan changes**, which is not
+obvious and is worth one line: Railway's own documentation says
+*"restoring a backup will remove any newer backups you may have created
+after the backup you are restoring"*. A platform restore is destructive
+to the backup set as well as to the volume. A `VACUUM INTO` file sitting
+in `/data/backups` is not part of that set and survives it.
+
 **Rehearsed 2026-08-30**, in `tests/test_snapshot_restore_rehearsal.py`
 and once against a copy of real production content. It is not a plan; it
 has been done.
