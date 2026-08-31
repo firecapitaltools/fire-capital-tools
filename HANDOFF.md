@@ -5170,6 +5170,15 @@ starting. That trade is a decision, not a side effect of this run.
 
 ## The honest conclusion
 
+> **BUILT 2026-08-31 (Part 91): `python -m tools.snapshot_all`.** One
+> set of everything — twelve databases, `users.json`, the uploads — into
+> `/data/backups/keep-set-<when>/`, verified against source and refusing
+> rather than half-writing. **Run against production: 3.22 MB in 0.37s,
+> 12/12 fingerprints matching**, and the restore direction rehearsed on
+> `underwriting.db` rather than assumed to behave like Site DD.
+> **Nothing runs it**, which is the point and is said in the module, in
+> the report it prints and in the runbook.
+
 **Extending the snapshot to the other eleven is worth doing as a manual
 command and is not worth automating before Michelle answers.** The
 mechanism is proven, the cost is nil, and the missing piece is a trigger
@@ -5182,6 +5191,76 @@ cited as a whole one (`save_expenses`, *"a partial defence is more
 dangerous than none, because it is the one people cite"*). So the runbook
 now says what has **no** cover, in as many words, before it says what
 does.
+
+---
+
+## "Cheap to lose, we can re-import it" is a claim about the uploads directory
+
+**Three of the twelve databases are cheap to lose only because
+`/data/uploads` still holds their inputs, and uploads have no snapshot
+either.** `scorecard_pro_history`'s 36 months rebuild from a P&L that
+lives on the same volume; `rent_comps` rebuilds from a payload in
+`market_data_cache`, also on the same volume; the seeded Site DD rows
+rebuild from a rent roll.
+
+**So the cheap column is cheap against a failure that loses ONE
+database, and empty against a failure that loses the volume** — which is
+the failure everybody actually means when they say "no backups". A
+volume-level loss takes the derived data and its sources in the same
+instant, and every re-import path goes with them.
+
+> **Before writing "re-importable" against anything, say where from. If
+> the answer is a file on the same volume, the word is doing no work.**
+
+### The seeded rows are worse, and it is the one place with no path at all
+
+**1,049 of Site DD's rows — 152 areas and 894 rooms in assessment 21 —
+came from a rent roll that was DELIBERATELY never stored.** The preview
+holds the upload between preview and apply and deletes it either way,
+which was the right call and is still the right call: keeping a file for
+a write nobody has approved is the side effect that screen exists to
+avoid.
+
+The consequence is that those rows have **no re-import path on the
+platform**. The file exists in somebody's Downloads folder and nowhere
+else. Losing `site_dd.db` today loses Michelle's 31 findings *and* the
+seed, and only the findings could be reconstructed by a person.
+
+**That is not an argument for storing the roll.** It is an argument for
+the snapshot, which is now one command — and it is the concrete reason
+the command covers `uploads` as well as the databases rather than the
+databases alone.
+
+---
+
+## The startup hook: considered, declined, and here is the reason
+
+**Railway restarts the container on every deploy — 61 since 27 August —
+so a snapshot in `create_app()` would fire twice a day for free, at
+exactly the moment risk is highest, with no scheduler.** It is the only
+automation available to this platform without inventing one, and it is
+the obvious idea. It is recorded here so it is not rediscovered as
+obvious.
+
+**Declined, on the trade rather than the mechanism.** A startup hook that
+can raise is a hook that can stop the app booting, and this is a **single
+production service with no rollback**: one process, one container, one
+volume, deployed by pushing to master. Trading *"no automatic backups"*
+for *"the app does not start"* is a bad trade, and the failure it
+introduces is worse than the one it removes — an app that will not boot
+is an outage, while a missing snapshot is a risk.
+
+The obvious rebuttal is *"wrap it in try/except"*. That works and it
+weakens the thing to the point of not being worth having: a snapshot that
+silently does nothing when it fails is cover in the runbook and nothing
+on the disk, which is the failure this whole line of work exists to
+avoid. **A backup that can fail silently and a backup that can stop the
+service are the only two shapes on offer here**, and neither is better
+than a person typing one command.
+
+**What would change the answer:** a second service, or a deploy pipeline
+with a health gate that can roll back. Neither exists today, and both are
+much larger than the thing they would enable.
 
 ---
 

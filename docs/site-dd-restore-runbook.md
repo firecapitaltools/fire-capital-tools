@@ -35,8 +35,14 @@ section that matches.**
 > **What that is NOT is a cost problem.** Measured 2026-08-31: a
 > `VACUUM INTO` of all twelve databases is content-identical, takes
 > **16 ms**, and the whole set plus a gzipped copy of `uploads` and
-> `users.json` is **2.45 MB** against 4,816 MB free. If somebody decides
-> to snapshot everything, nothing about the volume argues against it.
+> `users.json` is **2.45 MB** against 4,816 MB free.
+>
+> **AND THERE IS NOW A COMMAND FOR IT — §0a.** `python -m
+> tools.snapshot_all` covers every row in this table in 0.37 seconds.
+> **The table still says "no", and that is deliberate**: it describes
+> what is protected on a day nobody types anything, which is every day
+> nobody types anything. The command changes what is possible, not what
+> happens automatically.
 
 **There is no platform backup.** The workspace is on Railway's Hobby plan
 and `maxBackupsCount` is `0` — see known-issues entry 3. Everything below
@@ -55,7 +61,59 @@ has been done.
 
 ---
 
-## §0 — Before you touch anything
+## §0a — Before you touch anything: take a set
+
+    railway ssh
+    cd /app && PYTHONPATH=/app python -m tools.snapshot_all
+
+**This is the first thing to do, before every procedure in this document
+and before anything you are unsure about.** It writes every database,
+`users.json` and the uploads into
+`/data/backups/keep-set-<timestamp>/`, verifies each copy against its
+source, and prints a fingerprint per file.
+
+**Measured on production, 2026-08-31: 3.22 MB in 0.37 seconds.** There is
+no reason to skip it for cost.
+
+**It refuses rather than half-writing.** If any database cannot be copied
+or any copy disagrees with its source, nothing is kept — so a set that
+exists is a set that was complete when it was made.
+
+### Verify a set before you rely on it
+
+    python -c "from tools.snapshot_all import verify_set;                print(verify_set('/data/backups/keep-set-<timestamp>'))"
+
+`sound: True` means every file still matches the fingerprint recorded
+when the set was written. **A snapshot nobody checked is the same belief
+in a different file** — and this takes a second.
+
+### Restoring from a set
+
+Copy the file back over the live one, exactly as §3 does for Site DD:
+
+    cp /data/backups/keep-set-<timestamp>/underwriting.db /data/underwriting.db
+
+**Rehearsed on `underwriting.db`, 2026-08-31, on a copy** — the Site DD
+rehearsal was the only restore anybody had ever done here, and it would
+have been a poor discovery that the others behave differently. Deleting
+a scenario and 109 expense lines moved the content fingerprint from
+`1d8667e24f8a8032` to `f53e1498d5f65325`; restoring the snapshot returned
+it to `1d8667e24f8a8032` **exactly**, with all ten scenarios and all 109
+expense lines back. Production was opened `mode=ro` throughout and was
+unchanged afterwards.
+
+> **THE COMMAND CHANGES WHAT IS POSSIBLE, NOT WHAT HAPPENS.** Nothing
+> runs it. There is still no scheduler, and the table above still
+> describes what is covered on a day nobody types anything. A set covers
+> everything — from the moment somebody runs it, and not before.
+
+---
+
+## §0 — The Site DD one, if a set is more than you want
+
+*§0a covers everything and takes 0.37 seconds, so prefer it. This is the
+single-database version, kept because it is what the rehearsal used and
+because it needs nothing but sqlite3.*
 
 > ### TAKE A SNAPSHOT FIRST, EVEN IF YOU ARE ABOUT TO RESTORE ONE.
 >
