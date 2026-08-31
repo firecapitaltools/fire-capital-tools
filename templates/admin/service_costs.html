@@ -348,7 +348,22 @@
       {% endif %}
     </div>
     <p class="page-subtitle" style="margin:0;">
-      {% if storage.level == 'critical' %}
+      {#
+        AN UNREADABLE VOLUME IS NOT A HEALTHY ONE.
+
+        This block used to have three outcomes and a fall-through, and
+        the fall-through was the reassuring sentence -- so a volume the
+        code could not read produced the same text as a volume with
+        plenty of room. The panel above is already hidden when there are
+        no figures; what was missing was saying WHY, rather than letting
+        silence read as fine.
+      #}
+      {% if storage.level == 'unknown' %}
+        <strong style="color:#ea580c;">Volume usage is unknown.</strong>
+        {{ storage.volume_reason }}
+        This is not a report that storage is fine &mdash; it is a report that
+        nothing here has looked.
+      {% elif storage.level == 'critical' %}
         <strong style="color:#b91c1c;">The volume is nearly full.</strong>
         Delete media from closed assessments, or move storage off the volume, before the next inspection.
       {% elif storage.level == 'warn' %}
