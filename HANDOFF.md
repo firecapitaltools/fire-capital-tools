@@ -493,8 +493,21 @@ unresolved and is a direct question to her.**
 > has ever held this file. See *One rent roll, two tools*.
 
 **3. Site DD property header** (name, vintage, address, building count,
-optional sqft). Only `property_label` exists; the other four are
-genuinely new — there is **no properties table anywhere** in the product,
+optional sqft).
+
+> **NARROWER THAN THIS SAYS, corrected 2026-08-31.** She named the fields
+> herself in feedback row 2, and `07e746e` then added `vintage`,
+> `building_count`, `property_sqft` and `name` to `deals` — **which is
+> the shape decision this entry says is hers to make, made and shipped.**
+> *Revised cost estimates* has said so all along: *"now small … a form
+> block and a display block"*. What is genuinely still open is only
+> whether the fields live on the DEAL (as built) or want a record of
+> their own when a property has no deal. Nothing is blocked on her to
+> build the form.
+
+Only `property_label` is displayed; the four columns exist and **nothing
+writes or reads them** — there is **no properties table anywhere** in the
+product,
 and the 12-property registry is assembled at request time from Deal Dive,
 Underwriting and Site DD labels. Three shapes were proposed
 (per-assessment columns / fields on a property record / a walk-date
@@ -503,9 +516,19 @@ to her. The failure mode to avoid: per-assessment columns mean retyping
 everything on re-inspection and two rows silently disagreeing about the
 build year.
 
-**4. Notetaker sections.** Renaming Operations → Property Update and
-Capital Improvements → CapEx Update, plus adding **Legal Update** and
-**Next Steps**. **Proven not display-only**: `build_instructions()`
+**4. Notetaker sections.** Renaming Operations → Property Update.
+
+> **THREE QUARTERS OF THIS IS DONE, corrected 2026-08-31.** Capital
+> Improvements is already **CapEx Update** and **Next Steps** already
+> exists, in `investor_notes_synth.SECTIONS`. Feedback row 3 item 4 is
+> her own list of the sections she wants — *property update, financial
+> update, market update, community events, next steps* — and four of the
+> five match the code exactly. **The only gap is Operations, which she
+> calls Property Update.** She does not mention Legal Update anywhere in
+> the feedback table; that ask came from elsewhere and should not be
+> attributed to her writing.
+
+The remaining rename is still not display-only. **Proven not display-only**: `build_instructions()`
 interpolates `s['name']` straight into the prompt, so a rename changes
 1,377 characters of what is sent to the API. `cache_key()` hashes
 `prompt_version`, not the prompt text, so renaming without bumping the
@@ -514,14 +537,15 @@ and it costs real OpenAI spend against the **$60/month** budget.
 Separately: the update page renders `section.name` from the **stored**
 JSON, so existing updates keep old headings regardless.
 
-**5. Investor Report — four asks nobody transcribed.** From her in-app
-feedback of 2026-08-16, found in the feedback table during the Part 84
-audit and never recorded until now: remove the top description; a section
-to upload all the notetaker reports for a timeframe; **the ability to add
-a new property/deal**; and a Word template for the individual updates.
-**Not blocked on her — blocked on us reading it.** The third overlaps
-item 3 above and is evidence about what she wants there. Nothing has been
-costed, refused or acknowledged.
+~~**5. Investor Report — four asks nobody transcribed.**~~ **READ IN FULL
+2026-08-31 AND THE PART 84 SUMMARY OF IT WAS WRONG.** Three of the four
+were built — the description removed, a notetaker card added to that very
+page, the Word export shipped in `9e8fdc5` — and the code carries
+comments quoting her words. **What was missing was the record, not the
+reading.** The one genuinely unbuilt piece is small: an "add a
+property/deal" affordance on the Investor Report page itself, since both
+mechanisms exist elsewhere. See *The feedback table, read in full*.
+**Nobody has told her any of it landed**, which is the part still owed.
 
 ~~**6. Refi fee base.**~~ **CLOSED.** She answered — split the bank's
 point out as its own line — and it shipped. Recorded here rather than
@@ -4460,6 +4484,83 @@ summary that does not say where it came from**, because that is what makes
 its inherited staleness invisible.
 
 The fix costs one sentence at the top.
+
+---
+
+## The feedback table, read in full and checked against the code
+
+**Three rows, read verbatim from production on 2026-08-31. Every item
+below was checked against the CODE, not against this file — this file is
+what missed them.**
+
+### Row 1 — Deal Analyzer, 2026-08-04
+
+> *"lookin good"*
+
+No ask. Recorded because a complete reading is the point.
+
+### Row 2 — Site DD, 2026-08-16 23:28, from assessment 11
+
+| her words | verdict |
+|---|---|
+| *"Swap out the condition summary for … Property name, Vintage, address, number of buildings, square footage - optional"* | **PARTLY BUILT, and the built part is invisible.** `deals` has `vintage`, `building_count`, `property_sqft` and `name` (`07e746e`). **Nothing writes them, nothing reads them, and no template renders any of them** — checked by grep. The Site DD header still shows `property_label` and a link. Columns without a form at one end or a display at the other. |
+| *"upload the rent roll from excel so that it automatically uploads all the unit info … # of total units; unit type; Occupied vs. Vacant"* | **BUILT.** Parser (Part 68), planning and preview (70–71), write (75), route (77), first real seed into assessment 21 (77). |
+| *"if the unit type is available, then the tool should automatically create 2 bedrooms"* | **BUILT.** `parse_unit_type` derives beds and baths; `plan_units` turns them into rooms. 152 units, six layouts, 894 rooms. |
+
+### Row 3 — Investor Report, 2026-08-16 23:39, from deal 2
+
+| her words | verdict |
+|---|---|
+| *"remove top description"* | **BUILT.** The subtitle is gone and `investor_report.html` carries a comment quoting her request and explaining that the invariants claim moved to the detail page rather than being dropped. |
+| *"add a section where i upload all the notetaker reports for a particular timeframe"* | **BUILT AS A CROSS-LINK.** That page now carries a "Meeting notes for these properties" card whose comment says she asked for it *"while standing on this page, because from here there was no way to know the notetaker existed"*. The timeframe half is real: `notes/generate` takes `property_key`, `start` and `end`. **Not built:** uploading several transcripts at once — it is one file and one date per upload. |
+| *"i need ability to add a new property/deal"* | **BUILT, TWICE.** `investor_notes.add_property` creates a property that exists only as a name; Deal Dive creates deals. **Neither is on the page she was standing on**, which is what she was asking for. |
+| *"i need a template created in word for the individual updates like property update, financial update; market update; community events; next steps"* | **BUILT (`9e8fdc5`).** `.docx` export, "Download Word" on the update page, sections chosen per export with no hardcoded default. |
+
+### So the finding from Part 84 was half right, and the half it got wrong matters
+
+**Row 3 was not unread.** Items 1 and 2 were read and acted on — the
+template comments quote her words. Item 4 was already built. What
+actually happened is narrower and more useful:
+
+> **The work was done in the code and never written into this document,
+> so every list assembled from this document was missing it.** The loss
+> was in the transcription, not in the reading.
+
+That is the mirror image of the summary-inheritance entry below: there, a
+stale document fed a summary that read as fresh; here, current code never
+reached the document at all. **Both are the same failure of a single
+direction of flow** — the repo knows, the document does not, and the
+lists are built from the document.
+
+### Two things she has already answered that this file still calls blocked
+
+**1. The notetaker section names.** *Blocked on Michelle* item 4 asks
+whether to rename Operations → Property Update and Capital Improvements →
+CapEx Update, and whether to add Legal Update and Next Steps. Row 3 item
+4 is **her own list of the sections she wants**: *property update,
+financial update, market update, community events, next steps*.
+
+The code today has **Operations, CapEx Update, Financial Update, Market
+Update, Community Events, Next Steps** — so four of her five match
+exactly, CapEx Update and Next Steps are already done, and the only gap
+is that she calls the first one **Property Update** and the code calls it
+**Operations**. She never mentions Legal Update; that came from somewhere
+else and should not be attributed to this row.
+
+**2. The property header fields.** *Blocked on Michelle* item 3 says the
+shape *"is a judgment call and was left to her"*. Row 2 named the fields,
+and `07e746e` then put them on `deals` — **which IS the shape decision,
+made and shipped.** *Revised cost estimates* already says so: *"Now
+small. The deals columns landed in `07e746e`. What remains is a form
+block and a display block."* **Two statements in this file, one of them
+stale**, which is the rules-stated-twice failure again.
+
+### Row 1 is the only row with nothing in it
+
+**Two of three rows contained actionable requests, and both were acted on
+in code without being recorded.** That is not a habit of ignoring
+feedback — it is a habit of not writing down what the feedback caused.
+The reading happened; the paperwork did not.
 
 ---
 
