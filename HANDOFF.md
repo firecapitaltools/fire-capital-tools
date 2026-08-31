@@ -4180,9 +4180,15 @@ regression of this one. Do not spend further time reconciling it.
   POST-only routes — so if the apply panel is ever removed from the
   template, `tests/test_sitedd_seed_route.py` is the only thing that
   fails.
-- **A cosmetic warning** on every Site DD PDF report:
-  `site_dd_report.py:146 UserWarning: No artists with labels found to put
-  in legend`. Harmless, noisy, unfixed.
+- ~~**A cosmetic warning** on every Site DD PDF report.~~ **FIXED
+  2026-08-31, and the description was wrong twice over.** It was not on
+  every PDF — only on an assessment where nothing has been assessed, so
+  no bar is drawn and there is nothing for the legend to label; a
+  populated report has never warned, measured both ways. And it was not
+  cosmetic: the page was drawing an empty legend box under an empty
+  chart, which the warning described accurately. Seeding is what made it
+  ordinary — assessment 21 is 152 units and no findings. The chart now
+  says "Nothing assessed yet" where the legend was.
 - **`GET /` , `/manifest.json`, `/service-worker.js`** are reachable via
   literal paths rather than `url_for`; the route sweep understands this.
   Three routes are allowlisted: `fire_metrics.debug_refresh` and the two
