@@ -253,13 +253,85 @@ change it.
 **Cost if wrong.** Total, unrecoverable loss of every deal, scenario,
 assessment and uploaded file, with no platform-level recovery of any kind.
 
+> ### THE RATE, READ 2026-08-31 — and the storage is not the cost
+>
+> Step 2 of the procedure below is done. **Backups are not priced
+> separately: they are billed as volume storage.**
+>
+> From `docs.railway.com/reference/backups`, verbatim:
+>
+> > *"You are only billed for the incremental size of the backup at a rate
+> > per GB / minutely, and invoiced monthly."*
+> >
+> > *"Backups are incremental and Copy-on-Write, we only charge for the
+> > data exclusive to them, that aren't from other snapshots or the volume
+> > itself."*
+>
+> and the rate, from `railway.com/pricing`:
+>
+> > *"Volumes | $0.00000006 per GB/s | $0.15 per GB"* (per month)
+>
+> Retention, same page: **Daily** kept 6 days, **Weekly** kept 1 month,
+> **Monthly** kept 3 months.
+>
+> **The arithmetic against this volume**, re-measured today rather than
+> recalled — `/data` is **5.9 MB used of 4,838 MB**, 0.12%:
+>
+> | | |
+> |---|---|
+> | one full copy, 0.0059 GB × $0.15 | **$0.0009 / month** |
+> | DAILY + MONTHLY = up to 9 snapshots, **if every one were a full copy** | **$0.008 / month** |
+> | realistically, incremental and copy-on-write on a volume that changes by a few hundred KB in a busy week | **less than that** |
+>
+> **Under one cent a month, and it stays under a cent until the volume
+> passes roughly 500 MB.** The seeding work — the largest write this
+> platform has made — moved `site_dd.db` by 88 KB.
+>
+> ### So the question to Michelle is not about backup storage
+>
+> It is **+$15/month**: Hobby is $5 and Pro is $20, each including usage
+> credit equal to its own fee, so the backup storage disappears inside
+> the credit entirely. The storage cost is a rounding error and the plan
+> is the whole of it.
+>
+> ### One thing that must NOT be asserted to her, and it is the Part 74 shape
+>
+> **Nothing published says Pro permits backups.** The plan comparison on
+> the pricing page does not mention backups at all, and the backups
+> documentation does not state per-plan limits. What we know is what our
+> own workspace reports: Hobby, `maxBackupsCount: 0`.
+> `subscriptionPlanLimit` is a field on *our* workspace and the API
+> exposes no way to read another plan's limits — checked by
+> introspection, the only plan-shaped queries are
+> `serviceInstanceLimits` and `serviceInstanceLimitOverride`.
+>
+> So *"upgrade to Pro and you get backups"* is **exactly the inference
+> that was wrong last time** — a capability read off a listing rather than
+> exercised. Ask Railway support, or treat the first backup after an
+> upgrade as the verification. **The ask is "$15/month, conditional on
+> Railway confirming Pro allows volume backups", not "$15/month for
+> backups".**
+>
+> ### And one operational fact that changes the runbook
+>
+> > *"Restoring a backup will remove any newer backups you may have
+> > created after the backup you are restoring."*
+>
+> Restore is destructive to the backup set as well as to the volume. That
+> is sharper than "restore is in place and there is no undo", and it is
+> the reason the application-level snapshot stays even if the plan
+> changes: a `VACUUM INTO` file is not deleted by a platform restore.
+
 **How to close it.**
 
 1. **Decide whether to upgrade the workspace to `PRO`.** This is
    Michelle's account and her bill. It is a question for her, not an
    action for us.
-2. Confirm the per-GB rate for `BACKUP_USAGE_GB` from Railway's pricing
-   page first, so the number given to her is read rather than recalled.
+2. ~~Confirm the per-GB rate for `BACKUP_USAGE_GB` from Railway's pricing
+   page first.~~ **DONE 2026-08-31 — see above. $0.15/GB-month, billed on
+   the incremental size only, which is under a cent a month for this
+   volume. The number to give her is $15/month for the plan, not a
+   storage figure.**
 3. If upgraded: enable a schedule, take one manual backup immediately,
    and **lock** it so retention cannot expire it.
 4. Then rehearse a restore — onto a separate volume, never over
