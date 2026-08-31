@@ -434,10 +434,23 @@ says *"upload rent roll to know number of units."* Her in-app feedback
 asked for **bedroom derivation from unit type and occupancy mapping**.
 Those are materially different asks — the first is a fraction of the
 second, which is a two-to-three session build. **This discrepancy is
-unresolved and is a direct question to her.** Also still blocked on a
-**2BD sample file**: the only real rent roll we have (Jackson, Appfolio)
-is 16 units all `1/1.00`, so the headline feature — derive two bedrooms
-from the unit type — has no test case.
+unresolved and is a direct question to her.**
+
+> **HALF OF THIS IS NO LONGER BLOCKED, corrected 2026-08-31.** The
+> sample-file half is closed: the Oxford Pointe ResMan roll arrived and
+> parses completely — 152 units, six layouts, **77 of them 2 bed / 1.5
+> bath** — so the headline feature has its test case and was built.
+> **The larger ask has since shipped in full**: parser (Part 68),
+> planning and preview (Parts 70–71), the write (Part 75), the route
+> (Part 77), and the first real seed into assessment 21. Bedroom
+> derivation and occupancy mapping are live.
+>
+> **What is still genuinely hers** is narrower and worth asking as its
+> own question rather than as this one: which assessment a roll should
+> seed into when a property is re-walked, and whether a Site DD seed
+> should also populate the Underwriting unit lines the same file already
+> feeds. Both are recorded under *what this design does not answer* in
+> `docs/site-dd-rentroll-seeding.md`.
 
 **3. Site DD property header** (name, vintage, address, building count,
 optional sqft). Only `property_label` exists; the other four are
@@ -3895,6 +3908,149 @@ only ever detect subtraction has not been aimed.
 
 ---
 
+## A picker is cheaper than a price table, so the window opens by default
+
+**Part 63 shipped the way to RECORD a scope. Part 81 shipped the way to
+PRICE one. Between those two merges the platform could record a
+distinction it would then price wrongly** — and not conservatively
+wrongly:
+
+| a finding recorded as | resolved to | which is |
+|---|---|---|
+| `toilet` + `replace_seat` | **$600** | the whole toilet, 3.8x the $156 job |
+| `entry_door` + `tighten_hardware` | **$1,450** | a new door, for tightening a screw |
+| `tub_shower` + `resurface` | **$3,275** | a replacement, for a reglaze |
+
+**Nothing was harmed. Nobody recorded a scope in that window**, which is
+why this is a sequencing lesson and not an incident. The window was real
+and it was open for eighteen parts.
+
+### The mechanism, which is what generalises
+
+The fallback rule is right: *an (item, detail) pair with no entry gets
+the item's price, because that is the price of the job the item
+ordinarily means.* It is the migration story, it is what keeps every
+pre-detail finding valid, and it is correct **for a detail nobody
+recognises**.
+
+It is not correct for a detail the form has just started offering.
+Shipping the picker turns "unrecognised" into "recorded and expected",
+and the fallback quietly changes meaning from *we have never seen this*
+to *we know exactly what this is and are pricing it as something else*.
+
+**And the asymmetry is structural rather than accidental: a picker is
+always cheaper than a price table.** An option set is a tuple of strings
+and an afternoon; a researched figure is sources, ranges, a midpoint, a
+date and a decision about whether the number is defensible. So the
+capture half will always be ready first, on every feature of this shape,
+and the default sequencing is the dangerous one.
+
+> **THE RULE: when the capture half of a feature ships before the pricing
+> half, decide explicitly what the un-priced values resolve to, and prefer
+> refusing to resolve them at all.**
+>
+> The options at the time were: ship the picker but leave the new values
+> out of the form until figures exist; ship both and accept the window; or
+> make an option with no figure resolve to `None` rather than to the item
+> — which is `UNPRICED_DETAIL`'s behaviour, and it existed by Part 62.
+> **Nobody chose. The window was a consequence of not deciding**, and that
+> is what makes it worth recording: the cheap fix was available the whole
+> time and no one was looking at the question.
+
+### The direction the design never considered
+
+`docs/site-dd-detail-values.md` argues, at length and correctly, from
+**under-pricing**: `walls_ceiling` carries a per-square-foot rate nobody
+can total because nobody will measure a room. The live exposure was the
+**reverse** — an expensive item lending its price to a cheap job — and the
+document does not raise the possibility anywhere.
+
+That is not a flaw in the reasoning; it is the reasoning being aimed at
+the case that prompted it. Same shape as *"fails on one property"*: the
+example that starts the work sets the direction everything after it is
+checked in. **When a design argues one direction of an error, check the
+other direction explicitly before shipping** — here it was one table of
+what each option resolves to today, and it took a minute.
+
+---
+
+## Where the reference figures come from, stated so it is not re-litigated
+
+**The 36 original entries, and the 11 added in Parts 81–82, come from the
+same place: published contractor-estimate pages, read one at a time, with
+the source, the stated range, the midpoint and the date written into the
+entry.** Angi, HomeGuide, Homewyse, HomeAdvisor, Fixr, This Old House.
+
+**This is not the scraping Michelle ruled out**, and the distinction is
+not a technicality:
+
+| | what she prohibited | what this is |
+|---|---|---|
+| shape | automated collection at scale | reading published pages, once |
+| when | a client, a scheduled fetch, a runtime query | at authoring time, by hand |
+| what lands in the repo | rows harvested from a site | a number, its sources, its arithmetic and its date |
+| what the module can do | reach a retailer | **nothing** — `site_dd_reference_costs.py` has no imports that could open a socket |
+
+The prohibition's own words are about *"data mining, robots, spiders, or
+similar data gathering and extraction tools"* — the city-data terms that
+prompted it — and about building the cost table by harvesting
+contractor-pricing sites. The structural guarantee is unchanged and is the
+thing to check if this is ever questioned: **no client, no scheduled
+fetch, no retailer queried at runtime or at any other time.**
+
+**What that leaves open, honestly:** every figure is a national average
+from consumer-facing estimate sites, which is a weaker claim than a quote
+and is labelled as one on every line and every sheet. RSMeans remains the
+named candidate for figures with a professional basis, and remains a paid
+API and a decision for Michelle. The narrowed no-scraping rule does not
+forbid it — *"a paid cost-data API is the direct answer to the
+reference-cost problem, not a breach of her instruction"*.
+
+---
+
+## Whatever declined to price something owns the sentence saying why
+
+**Third instance of one mechanism, and the third is what turned it from
+two bugs into a rule.**
+
+An unpriced line has to say why. That sentence was chosen by whatever
+NOTICED the absence — the export, looking up the ITEM — rather than by
+whatever MADE the decision. So:
+
+| where | what it said | what was true |
+|---|---|---|
+| the budget line | *"No cost was recorded on this finding"* | the reference table declined the scope; the inspector did nothing wrong |
+| the "Not priced" sheet | nothing at all | two pairs were deliberately declined and the sheet exists to list exactly that |
+| `status()` | `"priced"` | the item is priced; the pair is not |
+
+**The first was found by reading output**, not by reading code — walking a
+seeded unit on paper and looking at the "why" column. The second and third
+were found by asking, deliberately, whether the same mechanism had other
+outlets. It had two.
+
+> **THE FIX IS THAT THE REASON IS THE DEFINITION.** `UNPRICED_DETAIL` is
+> derived from `UNPRICED_DETAIL_REASONS`, so a pair cannot be declined
+> without a written sentence; an import-time check refuses a zero-rate
+> flooring material that has no entry. A set and a dict that must agree,
+> with nothing making them agree, is two sources of truth — and the one
+> that drifted was the one nobody reads.
+
+**The generalisation worth keeping is not about costs.** Any table of *"we
+decided not to"* is at risk of this shape, because the decision and its
+explanation are naturally written in different places: the decision where
+the code needs it, the explanation where a human will read it. **Make the
+explanation the thing the code consults**, and the two cannot come apart.
+
+And the related disclosure half, which the same audit turned up: the
+export's "Reference costs" sheet listed `REFERENCE_COSTS` only, so a line
+priced from `COST_BY_DETAIL` was traceable to nothing. **The flooring
+materials had been in that position since Part 62** — priced from a table
+the disclosure sheet did not contain, for twenty parts. The sheet exists
+so a number in a budget can be audited without leaving the file, and a
+figure that reaches a line without reaching the sheet defeats it silently.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
@@ -3917,6 +4073,15 @@ regression of this one. Do not spend further time reconciling it.
   It was rebased and re-verified; the blocker is the fee-base
   double-count described above.
 - **Five merged branches can be deleted** once you are comfortable.
+- **Detail values is finished.** All six steps of
+  `docs/site-dd-detail-values.md` have shipped and the document is marked
+  implemented, with the three places the build differs from the design
+  named at its head. Eleven researched figures — eight scope, three
+  condition — are live; `closet` at every scope,
+  `walls_ceiling`/`repair_and_paint` and `entry_door`/`tighten_hardware`
+  are deliberately unpriced with written reasons. **Nothing recorded
+  before 2026-08-31 changed price**, verified by diffing assessment 11's
+  export blob rather than by asserting it.
 - **The seed is wired and has been run once.** `site_dd.seed_apply` and
   `site_dd.seed_undo` reach `apply_seed()` and `undo_seed()`; assessment
   **21** holds the first real seed, 152 units and 894 rooms under batch
