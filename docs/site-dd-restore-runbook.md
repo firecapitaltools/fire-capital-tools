@@ -79,36 +79,81 @@ destroys an inspector's work to correct ours is not an undo:
 
 ## §3 — Second resort: restore the snapshot
 
-### Where snapshots live
+### Where snapshots live — TWO PLACES, and the second one is easy to miss
 
-`/data/backups/site_dd.<label>.<timestamp>.db` on the volume. The
-pre-write snapshot taken by the seeding run is named for its batch id.
-As of 2026-08-31 there are three, all 90,112 bytes: one taken by hand
-before the first real seed (`site_dd.before-first-seed.20260831-033837.db`)
-and one taken by `apply_seed` itself before each of the two writes into
-assessment 21.
+**1. `/data/backups/`.** This is where everything written from now on
+goes: `site_dd.<label>.db`, and the pre-write snapshot the seeding run
+takes for itself, named for its batch id. As of 2026-08-31 there are
+three, all 90,112 bytes — one taken by hand before the first real seed
+(`site_dd.before-first-seed.20260831-033837.db`) and one taken by
+`apply_seed` before each of the two writes into assessment 21.
 
-**NOTHING PRUNES THEM.** `take_snapshot()` writes and never deletes, and
-no other code touches this directory. Every seed adds one, and each is a
-copy of the whole database, so they grow as the data does. A retention
-rule is proposed in HANDOFF (*Snapshots accumulate and nothing prunes
-them*) and is **not built**: keep 30 days and at least the newest ten,
-never the newest one, and only ever consider files matching
-`site_dd.seed-*.db` — so anything taken by hand is exempt by
-construction.
+**2. `/data`, beside the live databases.** Six older snapshots were taken
+by hand as `<database>.pre_<something>` and never moved. **This sentence
+used to name only the first location, which made it false for six files
+— somebody following it in a hurry would not have found them.** They are
+listed in full below.
 
-**`site_dd.before-first-seed.20260831-033837.db` is not to be deleted.**
-It is the only copy of the state before the largest write this platform
-has made, and known-issue 3 means there is nothing behind it.
+    ls -la /data/backups/ ; ls -la /data/*.pre_*
 
-**And six snapshots do NOT live here**, which is the sentence above being
-wrong rather than a space problem: `deal_dive.db.pre_part14`,
-`deal_dive.db.pre_stepd`, `investor_notes.db.pre_part14`,
-`underwriting.db.pre_part14`, `underwriting.db.pre_stepd` and
-`site_dd.db.pre_part14` sit beside their databases in `/data`. Somebody
-following this runbook in a hurry would not find them.
+**Retention is enforced, since 2026-08-31.** `prune_snapshots()` runs
+inside `apply_seed`, immediately after the snapshot and before any write:
+it keeps everything from the last **30 days** and at least the **newest
+ten**, never deletes the newest whatever its age, and **only ever
+considers files matching `site_dd.seed-*.db`**. What it removed is
+returned in the result and named in the confirmation message.
 
-    ls -la /data/backups/
+**So a hand-taken snapshot cannot be pruned, by pattern rather than by an
+exclusion list.** `take_snapshot()` names its own output and a batch id
+always begins `seed-`, so nothing a person named can match the glob.
+`site_dd.before-first-seed.20260831-033837.db` — the only copy of the
+state before the largest write this platform has made, with no platform
+backup behind it (known-issue 3) — is safe for that reason and not
+because anybody remembered it.
+
+**Name a deliberate keep `site_dd.keep-<what>.db`.** It is exempt for the
+same structural reason as anything else non-matching; the point of the
+prefix is that the intent is legible in a directory listing instead of
+living in somebody's memory.
+
+### The six older snapshots, and what they actually hold
+
+Established 2026-08-31 by comparing every row against the live database,
+not by their filenames:
+
+| file | taken | bytes | holds anything the live database does not? |
+|---|---|---|---|
+| `deal_dive.db.pre_part14` | 2026-08-12 | 20,480 | no |
+| `deal_dive.db.pre_stepd` | 2026-08-12 | 20,480 | no — **byte-identical to the one above** |
+| `investor_notes.db.pre_part14` | 2026-08-17 | 40,960 | no |
+| `underwriting.db.pre_part14` | 2026-08-16 | 106,496 | no |
+| `underwriting.db.pre_stepd` | 2026-08-16 | 106,496 | no — **byte-identical to the one above** |
+| `site_dd.db.pre_part14` | 2026-08-17 | 90,112 | no |
+
+**Every row in every one of them is present in the live database and
+unchanged.** Four tables reported differing rows on the first pass —
+`deals`, `underwriting_scenarios`, `site_dd_areas`, `site_dd_rooms` — and
+the projection method (HANDOFF, *"Same rows, different hash"*) settled
+all four: recomputing the comparison over only the
+columns the snapshot actually has leaves **zero** rows differing. The
+differences are entirely columns added since (`vintage`,
+`property_sqft`, `building_count`, `name`; the nine `refi_*` and
+`loan_fee_pct`; `pets_present`, `pet_count`, `seed_batch`). Nothing was
+edited underneath them.
+
+**One real difference, in the safe direction:** `deal_files` holds 2 rows
+in the deal_dive snapshots and 3 live. The live database has *more*, not
+less.
+
+**Proposed, not done: move them into `/data/backups` under the keep
+convention** — `deal_dive.keep-pre_part14.db` and so on — which makes
+this section's first sentence true without a caveat, brings them under
+the documented location, and leaves them exempt from pruning by pattern.
+The two byte-identical pairs could then drop one copy each, taking six
+files to four. **Nothing was deleted or moved in the run that established
+this**, deliberately: the finding that they hold nothing unique is a
+reason to stop worrying about them, not a reason to act in the same
+breath as measuring.
 
 ### Verify the snapshot BEFORE relying on it
 
