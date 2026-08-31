@@ -156,6 +156,28 @@ class TheConcreteFlooringTrapTests(unittest.TestCase):
     def test_the_original_case_still_holds(self):
         self.assertIsNone(refcosts.for_item("flooring", "concrete"))
 
+    def test_the_line_says_WHY_it_was_declined(self):
+        """Found by walking a unit on paper and reading the output: the
+        line said "no cost was recorded on this finding", which blames
+        the inspector for a decision the reference table made. The item
+        is priced, so there was no item-level reason to fall back on."""
+        line = line_for(finding("entry_door", detail="tighten_hardware"))
+        self.assertIn("adjustment rather than a job", line["reason"])
+        self.assertNotIn("No cost was recorded", line["reason"])
+
+    def test_concrete_flooring_gets_its_reason_too(self):
+        """Same silence, open since Part 62: the reason lives under the
+        item key `concrete_flooring` and a `flooring` finding never looks
+        there."""
+        line = line_for(finding("flooring", detail="concrete"))
+        self.assertIn("declined to quote", line["reason"])
+
+    def test_positive_control_a_priced_item_with_no_detail_is_unaffected(self):
+        """The generic sentence is still right where it was right: an
+        item that is priced and simply has no figure on this finding."""
+        self.assertIn("No cost was recorded",
+                      capex._unpriced_reason("entry_door", None))
+
     def test_positive_control_an_UNRECOGNISED_detail_does_fall_back(self):
         """The other half of the same rule: a value nobody registered is
         not a decision to decline, so it gets the item's figure."""

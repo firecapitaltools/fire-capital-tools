@@ -428,7 +428,7 @@ def build_lines(findings: list[dict[str, Any]], labels: dict[str, str] | None = 
             # capex line, where an explicit total legitimately overrides
             # quantity x unit cost.
             "total_cost": None,
-            "reason": (_unpriced_reason(f.get("item_key"))
+            "reason": (_unpriced_reason(f.get("item_key"), f.get("detail"))
                        if described["cost"] is None else needs),
         }
         # None, not 0.0, when it cannot be computed honestly. A zero would
@@ -468,8 +468,15 @@ def _stated_cost_unit(finding: dict[str, Any]) -> str | None:
     return measure if measure in refcosts.UNITS else None
 
 
-def _unpriced_reason(item_key: str | None) -> str:
+def _unpriced_reason(item_key: str | None, detail: str | None = None) -> str:
     """Why this line has no figure -- never the empty string.
+
+    THE SCOPE'S REASON COMES FIRST. A pair in UNPRICED_DETAIL was
+    declined deliberately, and the item it belongs to may well be priced
+    -- an entry door is $1,450 and tightening its hardware is not a job
+    anybody publishes. Without this, such a line said "no cost was
+    recorded on this finding", which blames the inspector for a decision
+    the reference table made.
 
     `refcosts.reason()` answers for the items somebody has written a
     reason for, and returns "" for anything else. A freeform item nobody
@@ -486,6 +493,9 @@ def _unpriced_reason(item_key: str | None) -> str:
     item. It does NOT say the work is unpriceable or that no figure
     exists in the world -- neither is known.
     """
+    declined = refcosts.detail_reason(item_key, detail)
+    if declined:
+        return declined
     written = refcosts.reason(item_key)
     if written:
         return written
