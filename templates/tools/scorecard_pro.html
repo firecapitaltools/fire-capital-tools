@@ -872,7 +872,14 @@
     renderList("insight-green", insights.green_flags || []);
     renderList("insight-red", insights.red_flags || []);
     renderList("insight-recs", insights.recommendations || []);
-    const catRows = (insights.analyzed_cats || []).map(cat => [cat.name, fmtCurrency(cat.total), (Number(cat.pct_change) * 100).toFixed(1) + "%"]);
+    // Number(null) is 0, so an uncomputable trend would print as
+    // "0.0%" -- the exact fabrication this column was fixed to stop.
+    // The NOI cell above already reads null this way.
+    const catRows = (insights.analyzed_cats || []).map(cat => [
+      cat.name,
+      fmtCurrency(cat.total),
+      cat.pct_change == null ? "—" : (Number(cat.pct_change) * 100).toFixed(1) + "%",
+    ]);
     renderTable(document.getElementById("category-table"), ["Category", "Total", "Trend"], catRows);
   }
 
