@@ -48,8 +48,10 @@ Yes, and it is worth stating why rather than assuming.
 
 * SQLite handles this size trivially — it is a single-file database doing
   ~1,000 inserts, which is milliseconds of work, not seconds.
-* The volume is 142 MB of 5,000 MB. `site_dd.db` is 96 KB; this seed adds
-  on the order of 150 KB.
+* The volume is **5.9 MB of 4,838 MB** — 0.12% used, re-measured
+  2026-08-31; the "142 MB" written here originally was wrong and was
+  carried for a fortnight. `site_dd.db` was 96 KB before the seed and is
+  184 KB after it.
 * Nothing else writes Site DD concurrently. There is one web process.
 
 **Use `executemany` for the rooms**, not a loop of `create_room`, and take
