@@ -48,11 +48,20 @@ from typing import Any
 # Bumped when the prompt or the expected shape changes, so a cached
 # update generated under the old wording is not served as if it were
 # produced by the current one.
-PROMPT_VERSION = "investor_update_v2"
+PROMPT_VERSION = "investor_update_v3"
 
 SECTIONS: tuple[dict[str, str], ...] = (
+    # HER NAME FOR IT, AND THE KEY DELIBERATELY DOES NOT MOVE.
+    #
+    # She wrote the list herself in the feedback table on 2026-08-16:
+    # "property update, financial update; market update; community
+    # events; next steps". Four of the five already matched; this was the
+    # one that did not. The key stays `operations` because a key is
+    # identity and a name is language -- stored sections_json carries the
+    # key, and renaming it would orphan every update ever generated. That
+    # rule was set when Capital Improvements became CapEx Update.
     {"key": "operations",
-     "name": "Operations",
+     "name": "Property Update",
      "brief": "occupancy, leasing, turnovers, staffing, resident issues, "
               "day-to-day management"},
     {"key": "capital_improvements",

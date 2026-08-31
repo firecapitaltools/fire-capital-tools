@@ -409,9 +409,16 @@ class ConfirmedSectionSetTests(unittest.TestCase):
 
     She was asked whether to add Legal Update and Next Steps and to
     rename two headings. Her answer: "don't worry about the legal update
-    but include a capex update and next steps." Property Update was never
-    mentioned, so Operations keeps its name -- renaming it would be an
-    invention, and the rename is not free.
+    but include a capex update and next steps."
+
+    > **"Property Update was never mentioned" WAS WRONG WHEN IT WAS
+    > WRITTEN, and the evidence was in the database at the time.** She
+    > wrote her own list into the in-app feedback form on 2026-08-16:
+    > *"property update, financial update; market update; community
+    > events; next steps"*. Nobody had read the feedback table, so this
+    > test recorded the rename as unevidenced and pinned the old name for
+    > two weeks. Corrected 2026-08-31; the reasoning below about WHY the
+    > rename is not free is unaffected and still the reason for the bump.
 
     IT IS NOT FREE BECAUSE THE NAMES REACH THE MODEL
 
@@ -437,9 +444,30 @@ class ConfirmedSectionSetTests(unittest.TestCase):
         """She asked for it to be skipped."""
         self.assertNotIn("Legal Update", self.names())
 
-    def test_operations_keeps_its_name(self):
-        """Property Update was not mentioned; renaming it is unevidenced."""
-        self.assertIn("Operations", self.names())
+    def test_operations_is_now_property_update(self):
+        """Her word for it, from feedback row 3."""
+        self.assertIn("Property Update", self.names())
+        self.assertNotIn("Operations", self.names())
+
+    def test_every_name_she_listed_is_present(self):
+        """The whole list, checked as a set rather than one heading at a
+        time -- this test file already got the rename wrong once by
+        reasoning about a single name in isolation."""
+        for name in ("Property Update", "Financial Update", "Market Update",
+                     "Community Events", "Next Steps"):
+            with self.subTest(name=name):
+                self.assertIn(name, self.names())
+
+    def test_the_operations_key_survived_the_rename(self):
+        """A key is identity and a name is language. Renaming the key
+        would orphan the sections_json of every stored update."""
+        self.assertIn("operations", synth.SECTION_KEYS)
+
+    def test_the_new_name_reaches_the_prompt(self):
+        """Not display-only: build_instructions interpolates the names,
+        which is the whole reason the version had to move."""
+        self.assertIn("Property Update", synth.build_instructions())
+        self.assertNotIn("Operations", synth.build_instructions())
 
     def test_the_key_did_not_change_with_the_label(self):
         """Renaming the heading must not orphan stored sections_json."""
@@ -462,14 +490,18 @@ class ConfirmedSectionSetTests(unittest.TestCase):
         self.assertNotIn("Capital Improvements", instructions)
 
     def test_the_prompt_version_was_bumped(self):
-        self.assertEqual(synth.PROMPT_VERSION, "investor_update_v2")
+        """v2 for the CapEx Update / Next Steps change, v3 for the
+        Property Update rename. The number is asserted rather than merely
+        "different from before", so a rename that forgets the bump fails
+        here rather than serving stale headings silently."""
+        self.assertEqual(synth.PROMPT_VERSION, "investor_update_v3")
 
-    def test_the_bump_invalidates_the_old_cache(self):
-        a = synth.cache_key("deal:1", "2026-04-01", "2026-06-30", [1],
-                            prompt_version="investor_update_v1")
-        b = synth.cache_key("deal:1", "2026-04-01", "2026-06-30", [1],
-                            prompt_version="investor_update_v2")
-        self.assertNotEqual(a, b)
+    def test_each_bump_invalidates_the_one_before(self):
+        keys = [synth.cache_key("deal:1", "2026-04-01", "2026-06-30", [1],
+                                prompt_version=v)
+                for v in ("investor_update_v1", "investor_update_v2",
+                          "investor_update_v3")]
+        self.assertEqual(len(set(keys)), 3)
 
     def test_every_section_still_parses_into_a_result(self):
         out = synth.parse_response("not json at all", self.TRANSCRIPTS
