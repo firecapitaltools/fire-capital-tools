@@ -243,15 +243,46 @@ class ABadSeedIsUndoneTests(RehearsalTestCase):
         """States the gap the snapshot exists to cover, rather than
         leaving it as prose in a design document.
 
-        A wrongly-reused area is indistinguishable, by any marker the seed
-        could have written, from an area a person edited by hand. That is
-        precisely why deleting by batch id cannot repair it and only a
-        point-in-time copy can.
+        REVISITED 2026-08-30, exactly as this test asked to be. It was
+        written before `seed_batch` existed and asserted the column was
+        absent, with a note saying to come back if areas ever carried a
+        marker. They do now, so the real property is pinned instead of
+        the proxy -- and the real property is stronger:
+
+        **A REUSED AREA'S `seed_batch` IS NULL.** The seed did not create
+        it, so it carries no marker, so `DELETE ... WHERE seed_batch = ?`
+        cannot reach it. It is indistinguishable from an area a person
+        edited by hand, which is exactly why the undo must not guess and
+        why only a point-in-time copy recovers it.
         """
+        from tools import site_dd_seed_write as sw
+        from tools import site_dd_seeding as seeding
+        from tools import rendered_state
+
+        plan = seeding.plan_units([{"unit": "110", "unit_type": "2/1.5 RENOVATED",
+                                    "sqft": 825.0, "status": "C",
+                                    "move_out": None}])
         with sdb.get_connection() as conn:
-            area = sdb.get_area(conn, self.areas["226 W/D"])
-        self.assertNotIn("seed_batch", area,
-                         "if areas ever carry a batch marker, revisit this")
+            areas = sdb.list_areas(conn, self.aid)
+            rooms = {a["id"]: sdb.list_rooms(conn, a["id"]) for a in areas}
+            finds = {a["id"]: sdb.area_finding_rows(conn, a["id"]) for a in areas}
+            form = {rendered_state.FIELD: rendered_state.token(areas)}
+        rec = seeding.plan_reconcile(plan, areas, rooms, finds)
+        out = sw.apply_seed(self.aid, plan, rec, form=form)
+
+        # 110 already existed, so it was REUSED rather than created.
+        self.assertEqual(out["created_areas"], 0)
+        with sdb.get_connection() as conn:
+            reused = sdb.get_area(conn, self.areas["110"])
+        self.assertIsNone(reused["seed_batch"],
+                          "a reused area must carry no batch marker")
+
+        # So the undo leaves the area itself entirely alone.
+        sw.undo_seed(self.aid, out["batch"])
+        with sdb.get_connection() as conn:
+            still = sdb.get_area(conn, self.areas["110"])
+        self.assertIsNotNone(still, "the undo deleted a reused area")
+        self.assertEqual(still["label"], "110")
 
 
 class RestoringIsNotItselfReversibleTests(RehearsalTestCase):

@@ -383,6 +383,33 @@ def _rebuild_findings(conn: sqlite3.Connection) -> None:
 _AREA_ADDED_COLUMNS = (
     ("pets_present", "TEXT"),
     ("pet_count", "INTEGER"),
+    # Which rent-roll import created this row, or NULL for one a person
+    # made. See _ROOM_ADDED_COLUMNS below for why the distinction is the
+    # whole point.
+    ("seed_batch", "TEXT"),
+)
+
+# NULL MEANS "A PERSON MADE THIS", AND THAT IS WHAT MAKES AN UNDO SAFE.
+#
+# A seed writes its batch id on every row it creates. The undo is then
+# `DELETE ... WHERE seed_batch = ?`, which cannot reach a hand-made area
+# or room by construction rather than by care -- those carry NULL and no
+# batch id ever equals NULL.
+#
+# WHAT IT DELIBERATELY CANNOT REACH, and this is not a shortcoming:
+# an area the reconcile REUSED carries no batch id, because the seed did
+# not create it. If a seed matched the wrong area and overwrote its label
+# or status, that row is indistinguishable from one an inspector edited by
+# hand -- and an undo that guessed would delete real work. That case is
+# routed to the snapshot in docs/site-dd-restore-runbook.md, and
+# tests/test_snapshot_restore_rehearsal.py demonstrates the snapshot
+# recovering it.
+#
+# Rooms carry it too, not only areas: the reconcile appends rooms to an
+# area that already existed, and those appended rooms are the seed's work
+# even though the area is not.
+_ROOM_ADDED_COLUMNS = (
+    ("seed_batch", "TEXT"),
 )
 
 _MEDIA_ADDED_COLUMNS = (
@@ -452,6 +479,10 @@ def init_schema(conn: sqlite3.Connection) -> None:
     for name, coltype in _FINDING_ADDED_COLUMNS:
         if name not in existing:
             conn.execute(f"ALTER TABLE site_dd_findings ADD COLUMN {name} {coltype}")
+    existing_rooms = {row[1] for row in conn.execute("PRAGMA table_info(site_dd_rooms)")}
+    for name, coltype in _ROOM_ADDED_COLUMNS:
+        if name not in existing_rooms:
+            conn.execute(f"ALTER TABLE site_dd_rooms ADD COLUMN {name} {coltype}")
     existing_areas = {row[1] for row in conn.execute("PRAGMA table_info(site_dd_areas)")}
     for name, coltype in _AREA_ADDED_COLUMNS:
         if name not in existing_areas:
@@ -1255,11 +1286,39 @@ def copy_layout(conn: sqlite3.Connection, from_area_id: int, to_area_id: int) ->
 
 
 def area_finding_count(conn: sqlite3.Connection, area_id: int) -> int:
-    """How many findings have been recorded anywhere in this area, at any
-    scope. Used to decide whether copy-layout is still safe to offer."""
+    """How many ANSWERED findings are recorded in this area, at any scope.
+
+    `condition IS NOT NULL` is deliberate and is why this is not the
+    function to use for "how much work would survive" -- see
+    `area_finding_rows()` below. Saving a room writes a row for every
+    checklist item, so an area can hold dozens of rows and two answers,
+    and "is copy-layout still safe to offer" is a question about answers.
+    """
     row = conn.execute(
         "SELECT COUNT(*) AS n FROM site_dd_findings WHERE area_id = ? "
         "AND condition IS NOT NULL", (area_id,)).fetchone()
+    return int(row["n"] or 0)
+
+
+def area_finding_rows(conn: sqlite3.Connection, area_id: int) -> int:
+    """EVERY finding row in this area, answered or not.
+
+    The number to show when telling somebody what a write will preserve.
+
+    THE TWO COUNTS ARE NOT INTERCHANGEABLE AND THIS ONE WAS WRONG FIRST.
+    The seeding preview reported `area_finding_count`, and on assessment
+    11 -- 23 rows, 2 of them with a condition -- it promised to preserve
+    **2** when it preserves **23**. Understating what is protected on the
+    screen where somebody approves a 152-unit write is the wrong direction
+    to be wrong in.
+
+    An unanswered row is still a row: it can carry a note, a cost or a
+    measurement without a condition, and even an empty one is a row the
+    seed does not touch. "Preserved" means every row that survives.
+    """
+    row = conn.execute(
+        "SELECT COUNT(*) AS n FROM site_dd_findings WHERE area_id = ?",
+        (area_id,)).fetchone()
     return int(row["n"] or 0)
 
 
