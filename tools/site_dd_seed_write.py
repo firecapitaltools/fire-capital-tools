@@ -31,41 +31,35 @@ THE THREE PROPERTIES, IN THE ORDER THEY MATTER
    retries; without the batch id that second run reports "152 reused, 0
    created", which is correct and reads exactly like nothing happened.
 
-── A HALF THAT SHIPPED ALONE. IT IS FINISHED; IT IS NOT WIRED. ─────────
+── WIRED 2026-08-30. IT WAS A WAITING HALF FOR EXACTLY ONE MERGE. ─────
 
-**NOTHING CALLS `apply_seed()` OR `undo_seed()`.** That is deliberate and
-it is not "unfinished": both are built, tested and merged, and the write
-was merged on purpose without a way to reach it, so that the first real
-seed is a decision somebody makes rather than a button that already
-exists. See HANDOFF, *Decision: the first real seed goes into a FRESH
-assessment*.
+**`site_dd.seed_apply` calls `apply_seed`; `site_dd.seed_undo` calls
+`undo_seed`.** The apply is the panel at the bottom of the seed preview,
+which names the counts on the button itself; the undo sits beside the
+batch id on the assessment page. The comment that stood here — nothing
+calls this, no sweep can see it, and one press writes 1,046 rows — is
+kept in the history rather than in the file, because a waiting-half
+notice that outlives its wiring is worse than none: it tells the next
+reader the feature is unreachable when it is reachable.
 
-**The other half is a route.** `site_dd.seed_preview` renders what a seed
-would do and writes nothing; what is missing is the POST that applies the
-previewed plan, and a path that reaches `undo_seed()` for an assessment
-that carries a batch. The preview already computes the plan and the
-reconcile the write needs, so wiring it is a route and a template, not a
-redesign.
+**What has NOT changed, and it is the part to carry forward:** neither
+sweep covers this module. `tests/test_dead_readers.py` globs
+`tools/*_db.py` and gates on `READER_PREFIXES`; `apply_seed` matches
+neither. The route sweep sees routes, and the routes above are POST-only.
+So if the apply panel is ever removed from the template, nothing
+automated will notice this module has gone dark again —
+`tests/test_sitedd_seed_route.py` is what would fail, because it
+harvests the form out of the rendered page rather than posting to a URL
+it typed.
 
-**NO SWEEP COVERS THIS MODULE, so nothing will remind anybody.**
-`tests/test_dead_readers.py` walks `tools/*_db.py` only, and gates on
-`READER_PREFIXES` — `apply_seed` and `undo_seed` match neither the glob
-nor the prefixes. `tests/test_route_reachability.py` sees routes, and
-there is no route here to see. This is the sixth instance of the dead-path
-shape and the first found in a module whose consequence is a 1,046-row
-write, which is why it is written here rather than only in a document.
-
-**IS IT SAFE TO WIRE AS IT STANDS? Yes — and know what wiring means.**
-Unlike `site_dd_costs.to_capex_lines()`, this has not drifted behind
-anything: it is current, it is the only implementation, and its tests run
-against the same reconcile the preview renders. What it does NOT need is a
-correctness fix before use. What it DOES need is that whoever connects it
-understands the button they are creating: **one press writes 152 areas
-and 894 rooms**, roughly 350x and 900x anything this platform has held,
-into the database carrying Michelle's live walk, with no platform backup
-behind it (known-issues 3). The confirmation step is therefore part of
-the wiring, not a nicety — it must name the figures, and the write must
-stay gated on the rendered-state token this module already checks.
+**THE THREE GATES IN FRONT OF THE WRITE** live in the route, not here,
+and they answer different failures: the held upload (this preview is
+still the file that was read), the rendered-state token checked below
+(the world has not moved under the reconcile), and a comparison of the
+figures the person approved against the figures re-derived at write time
+(the plan still means what the screen said). `apply_seed` refuses on the
+second of those; the route refuses on the other two, and writes nothing
+in either case.
 ────────────────────────────────────────────────────────────────────────
 """
 

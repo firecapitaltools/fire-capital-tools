@@ -31,9 +31,11 @@ summary card shows, and what the PDF prints cannot drift apart.
 from __future__ import annotations
 
 import datetime
+import re
 import secrets
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from flask import (
@@ -55,7 +57,9 @@ from tools import deal_dive_db
 from tools import site_dd_bank as bank
 from tools import site_dd_checklist as cl
 from tools import site_dd_conditions as cond
+from tools import rendered_state
 from tools import site_dd_seeding as seeding
+from tools import site_dd_seed_write as seed_write
 from tools import underwriting_rentroll as rentroll
 from tools import site_dd_costs as costs
 from tools import site_dd_reference_costs as refcosts
@@ -182,6 +186,9 @@ def detail(assessment_id):
         summary = cond.summarize({k: [r["condition"] for r in rows] for k, rows in items.items()},
                                  cl.CATEGORIES)
         areas = db.list_areas(conn, assessment_id)
+        # What a rent-roll import created, so the undo has somewhere to
+        # hang. A batch id nobody can see is a rollback nobody can run.
+        seed_batches = db.list_seed_batches(conn, assessment_id)
         area_rollups = []
         for a in areas:
             rooms = db.list_rooms(conn, a["id"])
@@ -215,6 +222,7 @@ def detail(assessment_id):
         photos_by_item=photos_by_item,
         summary=summary,
         areas=areas, area_rollups=area_rollups,
+        seed_batches=seed_batches,
         area_kinds=db.AREA_KINDS, area_statuses=db.AREA_STATUSES,
         # The ACCESSORS, not the raw maps.
         #
@@ -315,6 +323,102 @@ def save(assessment_id):
     return redirect(url_for("site_dd.detail", assessment_id=assessment_id))
 
 
+# ── Seeding: the preview, the apply, the undo ────────────────────────────
+#
+# THE FILE IS HELD BETWEEN THE PREVIEW AND THE APPLY, AND THAT IS A
+# CHANGE OF MIND WITH A REASON.
+#
+# `seed_preview` originally read the upload and threw it away, on the
+# argument that storing a file for a write nobody has approved is the
+# side effect this screen exists to avoid. That argument is still right
+# about DURABLE storage and it does not survive the apply step: a browser
+# cannot re-post a file it was given, so an approve-then-write flow either
+# asks the person to choose the file a second time -- inviting them to
+# choose a DIFFERENT one -- or holds the bytes it already showed them.
+#
+# So the bytes are held, and every property that made throwing them away
+# attractive is kept another way:
+#
+#   * they go to the system temp directory, never to /data, so nothing
+#     here can outlive a container;
+#   * the name is a random id, and only a form this app rendered carries
+#     it;
+#   * the apply deletes the file whether it wrote or refused, and stale
+#     ones are swept on every preview;
+#   * the apply RE-PARSES and RE-RECONCILES rather than trusting anything
+#     posted back, and refuses when the figures it computes differ from
+#     the figures the preview showed. What is written is what was
+#     approved, checked rather than assumed.
+
+_SEED_PENDING_TTL_SECONDS = 6 * 60 * 60
+
+
+def _seed_pending_dir() -> Path:
+    path = Path(tempfile.gettempdir()) / "site_dd_seed_pending"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _seed_pending_path(assessment_id: int, preview_id: str, suffix: str = "") -> Path | None:
+    """The held upload, or None if the id is not one we minted.
+
+    The id goes into a filename, so it is validated as 32 hex characters
+    rather than sanitised -- a rejected id cannot become a path at all.
+    """
+    if not re.fullmatch(r"[0-9a-f]{32}", preview_id or ""):
+        return None
+    if suffix:
+        return _seed_pending_dir() / f"{assessment_id}-{preview_id}{suffix}"
+    matches = sorted(_seed_pending_dir().glob(f"{assessment_id}-{preview_id}.*"))
+    return matches[0] if matches else None
+
+
+def _sweep_seed_pending() -> None:
+    """Held uploads are minutes old in the normal case. Anything older
+    than the TTL belongs to a preview nobody applied."""
+    cutoff = time.time() - _SEED_PENDING_TTL_SECONDS
+    for path in _seed_pending_dir().glob("*"):
+        try:
+            if path.is_file() and path.stat().st_mtime < cutoff:
+                path.unlink()
+        except OSError:
+            pass
+
+
+def _seed_read_state(assessment_id: int):
+    """Everything the plan is reconciled against, read in one connection.
+
+    The token is computed from the same `areas` list the reconcile uses,
+    which is what makes it a statement about the world the preview
+    described rather than about the moment it was rendered.
+    """
+    with db.get_connection() as conn:
+        areas = db.list_areas(conn, assessment_id)
+        rooms_by_area = {a["id"]: db.list_rooms(conn, a["id"]) for a in areas}
+        # EVERY row, not only the answered ones. This showed
+        # `area_finding_count` and promised to preserve 2 on an
+        # assessment holding 23 -- see area_finding_rows().
+        findings_by_area = {a["id"]: db.area_finding_rows(conn, a["id"])
+                            for a in areas}
+    return areas, rooms_by_area, findings_by_area
+
+
+def _seed_figures(plan, reconcile) -> dict[str, int]:
+    """The numbers a person approves, and the ones the apply re-checks.
+
+    Four, not one. A single total could match while its parts had moved --
+    a unit refused and another created is the same count of areas and a
+    different write.
+    """
+    return {
+        "units": int(plan["unit_count"]),
+        "refusals": int(plan["refusal_count"]),
+        "areas": int(reconcile["create_count"]),
+        "rooms": int(reconcile["rooms_appended"]),
+        "findings": int(reconcile["findings_preserved"]),
+    }
+
+
 @site_dd_bp.route("/assessment/<int:assessment_id>/seed-preview",
                   methods=["GET", "POST"])
 @login_required
@@ -325,51 +429,52 @@ def seed_preview(assessment_id):
     parses the uploaded roll, plans every unit and room, reconciles the
     plan against what the assessment already holds, and renders it.
     Nothing is created, nothing is updated, and no finding is touched.
-    The write is a separate run.
+    The write is `seed_apply`, reached from the panel this renders.
 
     GET renders the upload form; POST parses and previews. The file is
-    read from the request and NOT saved -- there is nothing yet to attach
-    it to, and storing a file for a write that has not been approved is
-    the kind of side effect this screen exists to avoid.
+    held in the system temp directory under a random id so that the apply
+    writes the same bytes that were previewed -- see the note above this
+    function for why that replaced throwing it away.
     """
     assessment = _load(assessment_id)
     if not assessment:
         return _not_found()
 
+    _sweep_seed_pending()
     preview = error = None
     if request.method == "POST":
         upload = request.files.get("rentroll")
+        suffix = Path(upload.filename).suffix.lower() if upload and upload.filename else ""
         if not upload or not upload.filename:
             error = "Choose a rent roll file to preview."
-        elif Path(upload.filename).suffix.lower() not in SEED_UPLOAD_EXT:
+        elif suffix not in SEED_UPLOAD_EXT:
             error = (f"Unsupported file type: "
                      f"{Path(upload.filename).suffix or 'unknown'}. "
                      f"Rent rolls are .xls or .xlsx.")
         else:
-            tmp = Path(tempfile.mkdtemp()) / Path(upload.filename).name
+            preview_id = secrets.token_hex(16)
+            held = _seed_pending_dir() / f"{assessment_id}-{preview_id}{suffix}"
             try:
-                upload.save(str(tmp))
-                parsed = rentroll.parse_rent_roll_workbook(tmp)
+                upload.save(str(held))
+                parsed = rentroll.parse_rent_roll_workbook(held)
                 plan = seeding.plan_units(parsed["units"])
-                with db.get_connection() as conn:
-                    areas = db.list_areas(conn, assessment_id)
-                    rooms_by_area = {a["id"]: db.list_rooms(conn, a["id"])
-                                     for a in areas}
-                    # EVERY row, not only the answered ones. This showed
-                    # `area_finding_count` and promised to preserve 2 on an
-                    # assessment holding 23 -- see area_finding_rows().
-                    findings_by_area = {a["id"]: db.area_finding_rows(conn, a["id"])
-                                        for a in areas}
+                areas, rooms_by_area, findings_by_area = _seed_read_state(assessment_id)
                 reconcile = seeding.plan_reconcile(plan, areas, rooms_by_area,
                                                    findings_by_area)
                 preview = {"source": parsed.get("source_format"),
                            "file": upload.filename,
                            "parsed_units": parsed.get("unit_count"),
+                           "preview_id": preview_id,
+                           "state_field": rendered_state.FIELD,
+                           "state_token": rendered_state.token(areas),
+                           "figures": _seed_figures(plan, reconcile),
                            **plan, "reconcile": reconcile}
             except rentroll.UnrecognizedRentRoll as exc:
                 error = str(exc)
-            finally:
-                tmp.unlink(missing_ok=True)
+                held.unlink(missing_ok=True)
+            except Exception:
+                held.unlink(missing_ok=True)
+                raise
 
     return render_template(
         "tools/site_dd_seed_preview.html",
@@ -378,6 +483,115 @@ def seed_preview(assessment_id):
         blank_status_label=db.area_status_label(seeding.BLANK_STATUS),
         feedback_tool=FEEDBACK_TOOL_NAME,
     )
+
+
+@site_dd_bp.route("/assessment/<int:assessment_id>/seed-apply", methods=["POST"])
+@login_required
+def seed_apply(assessment_id):
+    """Write the previewed plan. All of it, or none of it.
+
+    THREE GATES, AND EACH ONE ANSWERS A DIFFERENT WAY OF BEING WRONG.
+
+    1. **The held file** must still exist. A preview whose file has been
+       swept, or an id this app never minted, is not something to guess
+       at -- it sends the person back to the preview.
+    2. **The rendered-state token**, checked inside `apply_seed` against
+       the areas as they stand at write time. Two people previewing the
+       same assessment and both applying is the Part 67 problem exactly;
+       the second one's reconcile was computed against a world that no
+       longer exists.
+    3. **The figures**, re-derived here and compared with what the
+       preview displayed. This is the gate that catches the case the
+       other two cannot: the file and the token are both fine, and the
+       plan means something different than the screen said. Nothing is
+       written when they disagree, because a disagreement means one of
+       them is wrong about production and that is a thing to look at, not
+       to resolve automatically.
+    """
+    if not _load(assessment_id):
+        return _not_found()
+
+    back = redirect(url_for("site_dd.seed_preview", assessment_id=assessment_id))
+    held = _seed_pending_path(assessment_id, (request.form.get("preview_id") or "").strip())
+    if held is None or not held.exists():
+        flash("That preview is no longer available — the file it was read "
+              "from has expired. Upload the rent roll again to preview and "
+              "apply it. Nothing was written.", "danger")
+        return back
+
+    try:
+        parsed = rentroll.parse_rent_roll_workbook(held)
+        plan = seeding.plan_units(parsed["units"])
+        areas, rooms_by_area, findings_by_area = _seed_read_state(assessment_id)
+        reconcile = seeding.plan_reconcile(plan, areas, rooms_by_area, findings_by_area)
+
+        now = _seed_figures(plan, reconcile)
+        approved = {k: to_int(request.form.get(f"expect_{k}")) for k in now}
+        if any(v is None for v in approved.values()) or approved != now:
+            differences = ", ".join(
+                f"{k}: you approved {approved[k]}, this file now plans {now[k]}"
+                for k in sorted(now) if approved.get(k) != now[k])
+            flash("Nothing was written. What this rent roll plans no longer "
+                  "matches the preview you approved — "
+                  f"{differences or 'the approved figures were not readable'}. "
+                  "Preview it again and read the new figures before applying.",
+                  "danger")
+            return back
+
+        result = seed_write.apply_seed(assessment_id, plan, reconcile,
+                                       form=request.form)
+    except rentroll.UnrecognizedRentRoll as exc:
+        flash(str(exc), "danger")
+        return back
+    except seed_write.SeedRefused as exc:
+        # The held file is deleted in `finally` whether this wrote or not,
+        # so "reload and reapply" is not enough on its own here: the
+        # rent roll has to be uploaded again. Said rather than left for
+        # them to discover on the reloaded page.
+        flash(f"{exc} Upload the rent roll again to preview it against the "
+              f"units as they now stand.", "danger")
+        return back
+    finally:
+        held.unlink(missing_ok=True)
+
+    flash(f"Seeded {result['created_areas']} units and "
+          f"{result['created_rooms']} rooms from the rent roll. "
+          f"Import {result['batch']}; nothing already recorded was changed. "
+          f"A snapshot was taken first at {result['snapshot']}.", "success")
+    return redirect(url_for("site_dd.detail", assessment_id=assessment_id))
+
+
+@site_dd_bp.route("/assessment/<int:assessment_id>/seed-undo", methods=["POST"])
+@login_required
+def seed_undo(assessment_id):
+    """Remove exactly what one import created.
+
+    It refuses, by name, when somebody has recorded findings in rooms the
+    import made -- an undo that destroys an inspector's work to correct
+    ours is not an undo. That refusal is `undo_seed`'s, and it is shown
+    verbatim rather than summarised, because it names the rooms.
+
+    WHAT IT CANNOT REACH is the runbook's business: an area the seed
+    REUSED carries no batch id, so a wrong reuse is recovered from the
+    snapshot, not from here.
+    """
+    if not _load(assessment_id):
+        return _not_found()
+
+    detail_page = redirect(url_for("site_dd.detail", assessment_id=assessment_id))
+    batch = (request.form.get("batch") or "").strip()
+    if not batch:
+        flash("No import was named, so nothing was removed.", "danger")
+        return detail_page
+    try:
+        result = seed_write.undo_seed(assessment_id, batch)
+    except seed_write.UndoRefused as exc:
+        flash(str(exc), "danger")
+        return detail_page
+    flash(f"Import {batch} undone: {result['deleted_areas']} units and "
+          f"{result['deleted_rooms']} rooms removed. Nothing else was "
+          f"touched.", "success")
+    return detail_page
 
 
 @site_dd_bp.route("/assessment/<int:assessment_id>/delete", methods=["POST"])
