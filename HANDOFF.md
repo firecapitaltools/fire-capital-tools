@@ -2777,13 +2777,22 @@ The four capex lines sum to $97,665.38; with 5% contingency, $102,548.65
 — exactly the equity difference from the no-capex run, which produces
 20.12% and 2.3543. Both figures are real; they differ only by capex.
 
-**`test_fire_metrics_improvements` accounts for a 161-test gap** between
-local and container runs. It imports `httpx`, which is **undeclared** —
-it arrives only as a hard dependency of `openai`. Locally, where `openai`
-is absent, the whole module fails to import. Beckett's code; not fixed
-here. `openai` already ships an `httpx2` extra, so the fragility is real
-rather than hypothetical. Reconcile counts by **unique test ID**, never
-by line-grep — a line-grep tally produced a phantom 14-test discrepancy.
+**`test_fire_metrics_improvements` accounted for a 161-test gap**
+between local and container runs. It imports `httpx`, which was
+**undeclared** — it arrived only as a hard dependency of `openai`, and
+locally, where `openai` was absent, the whole module failed to import.
+
+> **RESOLVED 2026-08-31 (Part 92), and the paragraph above is left
+> standing because it was RIGHT and that is the finding.** Every word of
+> it was true when written; what is missing is the next sentence — *so
+> 161 tests are not running here* — and only that sentence has an action
+> attached. `httpx` is now declared, both packages are installed locally,
+> and both suites run the same 2,579 ids. See *The 160 invisible tests*.
+
+Reconcile counts by **unique test ID**, never by line-grep — a line-grep
+tally produced a phantom 14-test discrepancy — and use
+`python -m tools.suite_parity --compare`, which compares the sets rather
+than the totals.
 
 **Assessment 11's fingerprint: `11fdd001f2fca08e` is RETIRED.** Its
 algorithm was never written down and it cannot be reproduced, so it could
@@ -5261,6 +5270,156 @@ than a person typing one command.
 **What would change the answer:** a second service, or a deploy pipeline
 with a health gate that can roll back. Neither exists today, and both are
 much larger than the thing they would enable.
+
+---
+
+## The 160 invisible tests: the instrument worked, and the reading stopped one step short
+
+**For weeks the local suite ran 2,419 tests and the container ran 2,580,
+and `tests/test_fire_metrics_improvements.py` was not executing on this
+machine at all.** It imports `httpx`, which arrived only with `openai`,
+and `openai` was not installed here. Both are installed now and both
+suites run the same **2,579** ids.
+
+### Be exact about what failed, because the obvious story is wrong
+
+**The instrument was right and the diagnosis was right.** Every
+reconciliation was done by unique test id — never by line-grep, which had
+already produced a phantom 14-test discrepancy — and every one returned
+exactly 161 ids under one module name. This handoff already said, in as
+many words: *"`test_fire_metrics_improvements` accounts for a 161-test
+gap… it imports `httpx`, which is undeclared… Locally, where `openai` is
+absent, the whole module fails to import."* The letter to Beckett named
+the one-line fix.
+
+**So this was not a misreading of the evidence. It was a correct
+diagnosis filed in the wrong slot** — recorded as the explanation of a
+discrepancy rather than as a defect with a consequence. The sentence said
+*why the numbers differ*. Nobody wrote the next sentence, which is
+*therefore 161 tests do not run here*, and only that sentence has an
+action attached to it.
+
+> **A difference with a NAME is a finding. A difference reported as a
+> NUMBER is a fact about arithmetic.** The name was there every time, and
+> the name was a MODULE — not a scattering of tests across files, which is
+> ordinary, but one file's worth, which can only mean the file did not
+> execute. Nobody asked what it meant that the delta had a module's shape.
+
+### And the second thing, which is why it survived being known
+
+**`unittest` reports an unimportable module as ONE error.** A hundred and
+sixty missing tests and a single broken test are the same line of output.
+Demonstrated rather than argued, in `tests/test_suite_integrity.py`:
+sixty tests behind a broken import give `testsRun == 1` and one error.
+Rehearsed on the real tree too — breaking one import made the suite say
+`errors=1` while nine tests silently stopped running.
+
+**This is the dead-reader shape again**: a check that cannot run reports
+as a failure, not as an absence. The count of visible problems does not
+move, so nothing draws the eye, and the file stays in the tree looking
+exactly like coverage.
+
+**The general form, which is the part worth keeping.** When a difference
+between two environments is summarised as an integer, the integer is not
+the finding — it is what is left after the finding has been discarded.
+Ask what SHAPE the difference has before deciding whether it is
+interesting, and treat a module-shaped one as a module that is not
+executing until shown otherwise.
+
+---
+
+## What a parity check can honestly assert, and what it must not
+
+`tools/suite_parity.py` compares **sets of unique test ids**, not totals,
+and names any module absent from one side. **Counts net out**: two
+modules failing to import while one gains 160 tests is a difference of
+zero, and a totals check would have called that agreement.
+
+**A unit test cannot do the comparison, and the file says so.** Parity
+needs both environments; a test has only the one it runs in. So
+`tests/test_suite_integrity.py` pins the half that is reachable — *no
+test module fails to import, and none collects zero tests* — which is
+exactly the condition that produced the 161. The cross-environment half
+is a command a person runs, like the snapshot:
+
+    railway ssh
+    cd /app && python -m tools.suite_parity --ids > /tmp/remote.txt
+    # locally:
+    python -m tools.suite_parity --compare remote.txt
+
+**Run 2026-08-31: the two suites agree on all 2,579 ids.**
+
+> **What was deliberately NOT built: a committed expected test count.**
+> It passes on the day both sides are wrong together, and it needs
+> editing on every merge until somebody edits it without looking. A check
+> whose maintenance teaches people to ignore it is worse than no check.
+
+---
+
+## The sweep for anything else hiding this way — and it found two
+
+**Every test module in the tree imports, none collects zero tests, and
+an AST walk finds exactly TWO live skip constructs** — 95 modules at the
+time of the sweep, 96 with `test_suite_integrity` added. So there is no
+second module hiding behind an import. (The walk is an AST walk on
+purpose: a grep also matches the paragraph in `test_city_search.py` that
+*describes* the old guard, which is the comment-collision hazard this
+file has recorded before.) Skips are the other way to be invisible, and
+both that exist are worth naming.
+
+### 1. A 343-city audit that runs in NEITHER environment
+
+`TestFullCoverageAudit` in `tests/test_city_search.py` is guarded by
+`skipUnless(_has_indexed_cities())`. **The guard is correct** — Part 63
+had already fixed it from asking about a FILE to asking about DATA, after
+ordinary browsing created an empty database and turned the audit red
+forever. That fix holds.
+
+**What nobody checked afterwards was the path it asks about.**
+`DB_PATH` is hardcoded to `fire_metrics/output/fire_metrics.db`, the
+repo-relative fallback — while production sets
+`FIRE_METRICS_DB_PATH=/data/fire_metrics.db`, which the test ignores.
+So the file is empty locally and absent on the container, the guard
+skips in both, and **three tests asserting the 343-city index have never
+run anywhere.**
+
+Measured on production, read-only, before changing anything: repointed at
+`/data/fire_metrics.db` the guard says yes and **all three pass**, on 343
+rows with 343 included. So the fix is one line — resolve the path the way
+the application resolves it — and it can only convert *never runs* into
+*runs where the data is*. Local behaviour is unchanged, because
+`get_db_path()` returns that same repo path when the variable is unset.
+
+> **A guard that is correct about the question can still be wrong about
+> where it looks, and the second error is invisible to the first.** The
+> Part 63 write-up proved the guard would refuse an empty database. It
+> never asked whether the database it names is the one the data is in.
+>
+> Note also that `skipUnless` is evaluated at import, so the skip is
+> frozen before any environment fixup can matter — repointing `DB_PATH`
+> at runtime does not lift it.
+
+### 2. Nineteen tests that can only ever run on one laptop
+
+The container skips 22 tests to local's 3, and 19 of them are
+`TestExpenseAggregationRealT12` and friends, skipped with
+`real T12 not available: C:/Users/jaspe/Downloads/…`. **The paths are
+absolute Windows paths on a personal machine**, so those tests are
+permanently skipped on the container and can never be otherwise.
+
+**This is not a defect and it is not nothing.** The files are real
+lender-grade T12s that do not belong in the repo, and `SkipTest` is the
+honest response to their absence. But it means the standing rule *"run it
+on the container"* verifies **2,560 of 2,579** tests, and the 19 it
+cannot reach are the ones that check expense aggregation against real
+statements — including the naive-sum trap. **They are verified on the
+machine that has the files and nowhere else**, which is worth knowing on
+the day that machine is not available.
+
+**Nothing has the Part 63 self-poisoning shape now.** That trap is a
+guard whose own setup satisfies it; the two guards here fail in the
+opposite direction — they refuse where the data is missing, and one of
+them refuses everywhere.
 
 ---
 
