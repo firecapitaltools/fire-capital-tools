@@ -5536,19 +5536,120 @@ DD assessment 11 rendered on the container: no `Vintage`, no `Buildings`
 label, no `Square Footage`. **The claim survives**, and it is now checked
 the right way.
 
-**The one that still rests on reading code.** *"the token shipped in Part
-67, guarding all three routes — verified in the code, not recalled."*
-That phrase names its own method, and its method is the one that just
-failed. It is a weaker instance — a guard's surface is a POST response
-rather than a page, so it is genuinely harder to see — but *"verified in
-the code"* should read as **unverified against the surface** until
-somebody posts to those three routes without the token and observes the
-refusal.
+**The one that rested on reading code — now settled by posting to it.**
+*"the token shipped in Part 67 … verified in the code, not recalled."*
+That phrase named its own method, and its method was the one that had
+just failed. **Part 96 posted to all three routes** with no token, a
+stale token and a current one, and observed the refusals and the write.
+It holds — and it could not have been known to until somebody posted.
 
 > **The pattern worth carrying: when a claim states how it was verified,
 > read that clause as the finding.** "Checked by grep", "verified in the
 > code", "the comment quotes her request" are all telling you what was
 > NOT done.
+
+---
+
+## A verification method named in prose is evidence about the claimant, not about the world
+
+**This is the receiving half of the Part 95 triage lesson.** That one was
+about the artifact you check against. This one is about the sentence that
+tells you what was checked.
+
+> **When a claim states how it was verified, that clause is the finding.**
+> It reads as rigour — the author showing their work — and it functions as
+> a disclosure, because the method was chosen by the person making the
+> claim. *"Verified in the code"* means nobody ran it. *"Checked by grep"*
+> means nobody looked at the screen. *"Confirmed by the comment"* means
+> the evidence and the claim have one author.
+
+**The stronger version, and the one worth keeping.** A named method tells
+you about the claimant's confidence, not about the world. Somebody
+uncertain enough to justify themselves reached for the strongest thing
+they had done — so the clause is a ceiling on the evidence, not a floor.
+
+### How this one was found, which is the only way it could have been
+
+**The agent that wrote the sentence found it, auditing its own report.**
+Nobody reading *"verified in the code, not recalled"* from outside hears
+an admission; it is a phrase that signals care, and its emphasis falls on
+*"not recalled"* — a genuine improvement over memory that draws attention
+away from what it still is not. Only the author knows which stronger
+check was available and skipped.
+
+**So this is not a rule that can be enforced by review.** It is a habit
+of re-reading one's own claims for the method clause and asking whether
+that method could produce that claim.
+
+---
+
+## The token, observed rather than read
+
+**Exercised 2026-08-31 on a scratch instance — every database pointed at
+a temp directory, production untouched.** All three guarded routes, three
+ways each.
+
+| | no token | stale token | current token |
+|---|---|---|---|
+| `underwriting.save_loans` | 302 → `…/scenario/1#loans`, rows unchanged | 302, rows unchanged | 302, **write succeeded** |
+| `underwriting.save_capex` | 302 → `…/scenario/1#capex`, rows unchanged | 302, rows unchanged | 302, **write succeeded** |
+| `investor_report.save_gp_partners` | 302 → `…/scenario/1#gp-split`, rows unchanged | 302, rows unchanged | 302, **write succeeded** |
+
+**The positive control is the half that matters.** A guard that refuses
+everything passes every refusal test, so each route was also posted with
+a correct token and the edit confirmed in the database: `Senior` →
+`Senior EDITED` at 9,999,999; `Flooring` → `Flooring EDITED` at 777,777;
+`GP One 60%` → `GP One EDITED 55%`. **The guard discriminates**, which no
+amount of reading it could have established.
+
+**Absent is a mismatch, confirmed by exercise rather than by its
+docstring.** A post carrying no `_rendered_state` field at all is refused
+exactly like a stale one. That is the branch a reader is most likely to
+get wrong, because "cannot verify, proceed" is the default in most
+code that looks like this.
+
+### The Part 67 trade still behaves as designed, and it is worth restating
+
+**On refusal the user's typed edits are gone.** Verified rather than
+assumed: the redirect lands on the detail page, the stale message
+renders — *"This page was showing an older version of this list…"* — and
+the submitted values (`9999999`, `777777`, `GP One EDITED`) appear
+**nowhere in the destination page**. The form is re-rendered from the
+database.
+
+That was the considered trade in Part 67 and it still is: the alternative
+is echoing a stale form back, which is how somebody re-submits the same
+destructive post a second time. **Losing an edit is recoverable by
+retyping; losing a colleague's rows is not.** It stopped being
+hypothetical on 27 August, when Beckett got an account and this became a
+two-person application.
+
+---
+
+## The sweep: every claim that names its own method
+
+**Read HANDOFF, known-issues, the design documents and the code
+comments.** Nine claims name their method. **One could not support its
+claim; it is the one already identified, and it has now been exercised.**
+
+| claim | method named | verdict |
+|---|---|---|
+| *"the token shipped in Part 67, guarding all three routes"* | *"verified in the code, not recalled"* | **INSUFFICIENT — a guard fires or it does not, and reading cannot tell you which. Fixed by exercise, above.** |
+| *"nothing writes them, nothing reads them, and no template renders any of them"* | *"checked by grep"* | **Was weak, now adequate.** A grep proving an ABSENCE can miss a computed or aliased name. Re-checked in Part 95 on the rendered Site DD page: no `Vintage`, no `Buildings`, no `Square Footage`. The claim held. |
+| known-issue 1, user-store persistence | *"CLOSED BY ORDINARY USE, not by running the procedure below"* | **SOUND, and the model case.** A real account surviving 16 deploys is stronger evidence than the six-step procedure it replaced. The clause discloses a method that is better than the one on offer, which is the opposite failure and worth noticing. |
+| known-issue 3, *"the API exposes no way to read another plan's limits"* | *"checked by introspection"* | **SOUND.** Introspection is exactly the right instrument for "what queries exist"; and the entry already refuses the inference it cannot support. |
+| *"restart again"* advice in the restore runbook | *"advice from the shape of the problem, not from a measurement"* | **SOUND.** The claim is advice and the clause scopes it correctly. This is what an honest method clause looks like. |
+| *"all three were found by running code, none by reading it"* | running | **SOUND, strengthening.** |
+| *"the first was found by reading output, not by reading code"* | output | **SOUND, strengthening.** |
+| *"measured with an instrument, not by reading"* (work-options gap) | measurement | **SOUND, strengthening.** |
+| *"five are guarded by construction and cannot break"* | construction | **SOUND, with a caveat.** *By construction* is the one named method that can beat exercise — but only when the construction is visible in the code being described, as it is here (the loop supplies the value). It fails silently when asserted about code the reader cannot see. |
+
+> **The distinction that decides every row: does the method operate on the
+> same thing the claim is about?** A grep is about strings, so it settles
+> "this string appears nowhere" and not "this feature is delivered".
+> Reading is about code, so it settles "this function exists" and not
+> "this guard fires". **Exercise is the only method whose subject is
+> behaviour**, which is what a claim about a running system is about.
 
 ---
 
@@ -5649,7 +5750,12 @@ unread flag is cleared by a glance, and looking is not what was missing.*
   `save_capex` and `save_gp_partners`.**~~ **BUILT. The criterion fired on
   2026-08-27 and the token shipped in Part 67**, guarding all three routes
   — `underwriting.save_loans`, `underwriting.save_capex` and
-  `investor_report.save_gp_partners` — verified in the code, not recalled.
+  `investor_report.save_gp_partners` — **EXERCISED 2026-08-31, not read**:
+  each route refuses a post with no token and one with a stale token
+  (302, rows unchanged) and accepts a current one (the write lands). The
+  earlier wording here was *"verified in the code, not recalled"*, which
+  named a method that cannot establish that a guard fires — see *A
+  verification method named in prose*.
   **This line stayed as a prohibition for two days after the discussion
   above was marked resolved**, which is the rules-stated-twice failure
   that this very entry warned about: the two statements must move
