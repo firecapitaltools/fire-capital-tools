@@ -1,0 +1,3001 @@
+{
+ "Canyon": {
+  "accounts": [
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   }
+  ],
+  "flat": false,
+  "format": "ResMan (Standard)"
+ },
+ "Eagle Rock": {
+  "accounts": [
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": true,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   }
+  ],
+  "flat": false,
+  "format": "ResMan (Standard)"
+ },
+ "Jackson": {
+  "accounts": [
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "9",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": null,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "9",
+    "parent": false
+   }
+  ],
+  "flat": true,
+  "format": "Cash Flow (Generic)"
+ },
+ "OXPT": {
+  "accounts": [
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "4",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "4",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": true,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "6",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "6",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 5,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "non_operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 3,
+    "disagrees": false,
+    "kind": null,
+    "lead": "7",
+    "parent": true
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "operating",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   },
+   {
+    "depth": 4,
+    "disagrees": false,
+    "kind": "capex",
+    "lead": "7",
+    "parent": false
+   }
+  ],
+  "flat": false,
+  "format": "ResMan (Standard)"
+ }
+}

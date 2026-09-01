@@ -102,6 +102,39 @@ def empty_modules(root: pathlib.Path | str = TESTS_DIR,
     return empty
 
 
+def environment_gated(root: pathlib.Path | str = TESTS_DIR,
+                      package: str | None = None) -> dict[str, dict[str, Any]]:
+    """Modules that say, in the file, that they need something absent.
+
+    STATED RATHER THAN DISCOVERED. Nineteen tests skipped on the
+    container for months because four real files live on one laptop, and
+    the only trace was a skip count that nobody was comparing between
+    runs. A skip is invisible in exactly the way an unimportable module
+    is: the summary line stays green.
+
+    A module declares it by setting `ENVIRONMENT_GATED` to a sentence
+    saying what is missing and how to supply it. That is a claim its
+    author writes deliberately, which is the point -- this cannot detect
+    a gate nobody declared, and it is not pretending to.
+    """
+    root = pathlib.Path(root)
+    package = package if package is not None else root.name
+    out: dict[str, dict[str, Any]] = {}
+    for name in _module_names(root):
+        try:
+            module = importlib.import_module(f"{package}.{name}")
+        except BaseException:  # noqa: BLE001 - import_failures reports these
+            continue
+        reason = getattr(module, "ENVIRONMENT_GATED", None)
+        if reason:
+            out[name] = {
+                "reason": str(reason),
+                "tests": unittest.defaultTestLoader.loadTestsFromModule(
+                    module).countTestCases(),
+            }
+    return out
+
+
 def _flatten(suite: Any) -> list[str]:
     out: list[str] = []
     for item in suite:
@@ -203,6 +236,14 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI
     if not failures and not empty:
         print(f"all {len(_module_names(pathlib.Path(TESTS_DIR)))} test modules "
               f"import and collect at least one test")
+
+    gated = environment_gated()
+    if gated:
+        print()
+        print("ENVIRONMENT-GATED -- these do not run everywhere, and say so:")
+        for name, info in gated.items():
+            print(f"  {name} ({info['tests']} tests in the module)")
+            print(f"    {info['reason']}")
     return 1 if (failures or empty) else 0
 
 

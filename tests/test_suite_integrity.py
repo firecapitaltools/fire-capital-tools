@@ -40,7 +40,7 @@ import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
 from tools.suite_parity import (  # noqa: E402
-    compare, empty_modules, import_failures, test_ids)
+    compare, empty_modules, environment_gated, import_failures, test_ids)
 
 TESTS = pathlib.Path(__file__).resolve().parent
 
@@ -141,6 +141,62 @@ class TheCheckActuallyDetectsItTests(unittest.TestCase):
         self.assertEqual(len(result.errors), 1)
         self.assertEqual(import_failures(self.dir, package=self.pkg).keys(),
                          {"test_many_hidden"})
+
+
+class EnvironmentGatedIsDeclaredNotDiscoveredTests(unittest.TestCase):
+    """Nineteen tests skipped on the container for months, and the only
+    trace was a number in a summary line nobody was diffing.
+
+    A skip hides the same way an unimportable module does: the run stays
+    green and the count moves quietly. So a module that needs something
+    the machine may not have says so in the file, and the parity report
+    prints it.
+    """
+
+    def test_the_real_t12_module_declares_its_gate(self):
+        gated = environment_gated(TESTS)
+        self.assertIn("test_underwriting_math", gated)
+        reason = gated["test_underwriting_math"]["reason"]
+        self.assertIn("T12_DIR", reason)
+        self.assertIn("test_t12_shapes", reason,
+                      "the gate should name what DOES run everywhere")
+
+    def test_modules_without_a_gate_are_not_listed(self):
+        """Positive control: without this, a function returning every
+        module would satisfy the test above."""
+        gated = environment_gated(TESTS)
+        self.assertNotIn("test_suite_integrity", gated)
+        self.assertLess(len(gated), 5,
+                        "almost nothing should be environment-gated")
+
+    def test_a_declaration_is_picked_up_from_any_module(self):
+        d = pathlib.Path(tempfile.mkdtemp())
+        sys.path.insert(0, str(d.parent))
+        pkg = d.name
+        (d / "__init__.py").write_text("")
+        body = chr(10).join([
+            "import unittest",
+            "ENVIRONMENT_GATED = 'needs a thing'",
+            "class T(unittest.TestCase):",
+            "    def test_a(self): pass",
+        ])
+        (d / "test_gated.py").write_text(body)
+        plain = chr(10).join([
+            "import unittest",
+            "class T(unittest.TestCase):",
+            "    def test_a(self): pass",
+        ])
+        (d / "test_plain.py").write_text(plain)
+        try:
+            found = environment_gated(d, package=pkg)
+            self.assertEqual(list(found), ["test_gated"])
+            self.assertEqual(found["test_gated"]["reason"], "needs a thing")
+            self.assertEqual(found["test_gated"]["tests"], 1)
+        finally:
+            sys.path.remove(str(d.parent))
+            for m in [m for m in sys.modules if m.startswith(pkg)]:
+                sys.modules.pop(m)
+            shutil.rmtree(d, ignore_errors=True)
 
 
 class ParityComparesSetsNotCountsTests(unittest.TestCase):
