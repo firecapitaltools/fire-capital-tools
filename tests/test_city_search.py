@@ -30,7 +30,14 @@ from fire_metrics.fire_metrics_updater.index_builder import (
 )
 from fire_metrics.fire_metrics_updater import db as db_module
 
-DB_PATH = Path(__file__).resolve().parent.parent / "fire_metrics" / "output" / "fire_metrics.db"
+# Resolved the way the APPLICATION resolves it, which is the whole fix.
+# This was hardcoded to the repo-relative fallback while production sets
+# FIRE_METRICS_DB_PATH=/data/fire_metrics.db -- so the file was empty
+# here, absent there, and the guard below skipped in BOTH environments.
+# Three tests asserting the 343-city index had never run anywhere.
+# get_db_path() returns this same path when the variable is unset, so
+# local behaviour is unchanged; on the container the audit now runs.
+DB_PATH = db_module.get_db_path()
 
 
 def _make_index(*city_state_pairs):
