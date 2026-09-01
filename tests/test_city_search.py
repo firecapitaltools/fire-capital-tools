@@ -9,6 +9,7 @@ Covers:
 """
 from __future__ import annotations
 
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -30,14 +31,44 @@ from fire_metrics.fire_metrics_updater.index_builder import (
 )
 from fire_metrics.fire_metrics_updater import db as db_module
 
-# Resolved the way the APPLICATION resolves it, which is the whole fix.
-# This was hardcoded to the repo-relative fallback while production sets
-# FIRE_METRICS_DB_PATH=/data/fire_metrics.db -- so the file was empty
-# here, absent there, and the guard below skipped in BOTH environments.
-# Three tests asserting the 343-city index had never run anywhere.
-# get_db_path() returns this same path when the variable is unset, so
-# local behaviour is unchanged; on the container the audit now runs.
-DB_PATH = db_module.get_db_path()
+# THE ENVIRONMENT VARIABLE IS DELIBERATELY NOT CONSULTED, and that is
+# the opposite of what it looks like.
+#
+# The audit below needs the real Census data. Production keeps it at
+# /data/fire_metrics.db and points FIRE_METRICS_DB_PATH there, so asking
+# the application (`db_module.get_db_path()`) looks like the correct fix
+# and works when this module is run on its own.
+#
+# It does not work in the full suite. Environment variables are process
+# -global, `tests/test_admin_feedback.py` rewrites every *_DB_PATH to a
+# throwaway sandbox AT IMPORT TIME so the suite cannot write production
+# databases, and it sorts before this file in discovery. By the time this
+# line runs the variable names a sandbox file that does not exist, the
+# guard says no, and the audit skips -- on the container, in the run that
+# matters, silently. Measured, not assumed.
+#
+# Neither file is wrong on its own reading: that sandboxing is a good
+# thing and this module is entitled to find real data. So this asks the
+# two places the data actually lives, which no other module can rewrite.
+_CANDIDATES = (
+    Path("/data/fire_metrics.db"),                                  # production
+    Path(__file__).resolve().parent.parent / "fire_metrics" / "output"
+    / "fire_metrics.db",                                            # a dev checkout
+)
+
+
+def _resolve_db_path() -> Path:
+    """The first candidate that exists; the dev one if neither does.
+
+    A function rather than an inline expression so the property that
+    matters -- that no environment variable can move it -- is assertable
+    instead of merely described in a comment. The comment above is what
+    was believed last time.
+    """
+    return next((p for p in _CANDIDATES if p.exists()), _CANDIDATES[-1])
+
+
+DB_PATH = _resolve_db_path()
 
 
 def _make_index(*city_state_pairs):
@@ -520,6 +551,66 @@ class TestTheGuardCannotManufactureItsOwnPrecondition(unittest.TestCase):
             self.assertTrue(mod._has_indexed_cities())
         finally:
             mod.DB_PATH = real
+
+
+class WhereTheGuardLooksTests(unittest.TestCase):
+    """One module's import-time setup can move another module's
+    import-time constants, and neither file is wrong on its own reading.
+
+    `tests/test_admin_feedback.py` redirects every *_DB_PATH environment
+    variable to a sandbox at import time, so the suite cannot write
+    production databases. It is right to do that. This module needs the
+    REAL data or it has nothing to audit, and it is right to want that.
+    The collision is invisible in both files and shows up only as a skip
+    count in a run nobody reads closely.
+
+    Cousin of the Part 63 trap, which was a guard whose own setup
+    satisfied it. This is a guard that a DIFFERENT module's setup
+    un-satisfies.
+    """
+
+    def test_the_environment_variable_cannot_move_it(self):
+        """THE WHOLE POINT. Resolving through the application's
+        get_db_path() passed when this module ran alone and skipped in
+        the full suite, which is the worst of both -- it looked fixed."""
+        before = _resolve_db_path()
+        old = os.environ.get("FIRE_METRICS_DB_PATH")
+        os.environ["FIRE_METRICS_DB_PATH"] = str(
+            Path(tempfile.mkdtemp()) / "somewhere-else.db")
+        try:
+            self.assertEqual(_resolve_db_path(), before)
+        finally:
+            if old is None:
+                os.environ.pop("FIRE_METRICS_DB_PATH", None)
+            else:
+                os.environ["FIRE_METRICS_DB_PATH"] = old
+
+    def test_it_prefers_production_when_that_exists(self):
+        """Positive control: without this, a resolver that always
+        returned the repo path would pass the test above."""
+        import tests.test_city_search as mod
+        real = mod._CANDIDATES
+        present = Path(tempfile.mkdtemp()) / "present.db"
+        present.write_bytes(b"")
+        absent = Path(tempfile.mkdtemp()) / "absent.db"
+        mod._CANDIDATES = (present, absent)
+        try:
+            self.assertEqual(mod._resolve_db_path(), present)
+            mod._CANDIDATES = (absent, present)
+            self.assertEqual(mod._resolve_db_path(), present)
+        finally:
+            mod._CANDIDATES = real
+
+    def test_it_falls_back_rather_than_raising(self):
+        import tests.test_city_search as mod
+        real = mod._CANDIDATES
+        missing = Path(tempfile.mkdtemp()) / "a.db"
+        fallback = Path(tempfile.mkdtemp()) / "b.db"
+        mod._CANDIDATES = (missing, fallback)
+        try:
+            self.assertEqual(mod._resolve_db_path(), fallback)
+        finally:
+            mod._CANDIDATES = real
 
 
 @unittest.skipUnless(_has_indexed_cities(),
