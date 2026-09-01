@@ -4529,9 +4529,9 @@ like any other.
 
 | her words | verdict |
 |---|---|
-| *"remove top description"* | **BUILT.** The subtitle is gone and `investor_report.html` carries a comment quoting her request and explaining that the invariants claim moved to the detail page rather than being dropped. |
+| *"remove top description"* | **THIS VERDICT WAS WRONG, AND HOW IT WAS REACHED IS THE LESSON.** The subtitle was gone, and the comment quoting her request was real — but a comment written by whoever did the work is not evidence about a screen. She reported it twice more and she was right: the **dashboard card** carried the same text on the page she lands on at login. Removed in Part 94 (`a5b1188`) and asserted on the rendered response of `/`. See *A claim confirmed against an artifact by the same author*. |
 | *"add a section where i upload all the notetaker reports for a particular timeframe"* | **BUILT AS A CROSS-LINK.** That page now carries a "Meeting notes for these properties" card whose comment says she asked for it *"while standing on this page, because from here there was no way to know the notetaker existed"*. The timeframe half is real: `notes/generate` takes `property_key`, `start` and `end`. **Not built:** uploading several transcripts at once — it is one file and one date per upload. |
-| *"i need ability to add a new property/deal"* | **BUILT, TWICE.** `investor_notes.add_property` creates a property that exists only as a name; Deal Dive creates deals. **Neither is on the page she was standing on**, which is what she was asking for. |
+| *"i need ability to add a new property/deal"* | **BUILT, and this row was stale.** `investor_notes.add_property` creates a property that exists only as a name; Deal Dive creates deals. The line used to end *"neither is on the page she was standing on"* — **Part 86 put it there**, and nobody updated this row. Re-verified 2026-08-31 on the rendered page: the form is on `/tools/investor-report/`, posts to a live route, and the created name is visible to the notetaker immediately. |
 | *"i need a template created in word for the individual updates like property update, financial update; market update; community events; next steps"* | **BUILT (`9e8fdc5`).** `.docx` export, "Download Word" on the update page, sections chosen per export with no hardcoded default. |
 
 ### So the finding from Part 84 was half right, and the half it got wrong matters
@@ -5420,6 +5420,135 @@ the day that machine is not available.
 guard whose own setup satisfies it; the two guards here fail in the
 opposite direction — they refuse where the data is missing, and one of
 them refuses everywhere.
+
+---
+
+## A claim confirmed against an artifact by the same author is confirmed against nothing
+
+**This is not the false-premise family, and filing it there would lose
+what happened.** A false premise is a claim that turns out to be untrue.
+Here the claim was true, the evidence was real, and the conclusion was
+still wrong — because the evidence and the claim had the same author and
+the same source.
+
+**What the triage did.** Part 85 confirmed *"remove top description"* as
+delivered by finding, in `investor_report.html`, a comment quoting her
+words back and explaining what had been done about them. That comment was
+written by whoever did the work, from the same feedback row. **Agreement
+between them establishes nothing at all** — it is one person's account of
+their own work, cited twice.
+
+Michelle then reported the description twice more, and she was right: the
+page subtitle was gone, and the **dashboard card** carried the same text
+on the screen she lands on at login.
+
+> **A delivery claim is verified against the surface a user sees, not
+> against the code that intends to produce it.** Load the page a
+> logged-in user actually lands on and read the rendered response. A
+> template, a route, a docstring and a comment are all statements of
+> intent; only the response is the thing she opens.
+
+### Why this got past a project that already had the rule
+
+**Reachability is a distinct check from correctness** is written down
+here, with five instances behind it — the dead-reader sweep, the
+route-reachability sweep, `layouts_for_units` with no caller, the
+notetaker that no page linked to, and the self-referential cluster the
+sweep cannot see. The rule was known. It did not fire.
+
+**The reason is that a comment quoting her words looks like evidence in a
+way a passing test does not.** Nobody would accept *"the test is named
+`test_description_removed`"* as proof; it reads as a label. A paragraph
+quoting the request and explaining the reasoning reads as a report from
+the scene — it has her language in it, which is exactly what makes it
+feel like contact with her rather than with ourselves. **The more
+carefully a comment is written, the more it invites this mistake.**
+
+### The check, and what it costs
+
+For each delivered item: log in, request the URL, assert against the
+returned HTML. It is four lines and it is the difference between what we
+told her and what she opened. Where the surface cannot exist yet — no
+data of hers to render — **say which**: *"verified against a scratch
+update, because none of hers exist"* is honest, and *"verified"* is not.
+
+---
+
+## Re-verifying the other three, on the rendered page
+
+**All three hold.** Checked 2026-08-31 against the deployed container by
+driving a logged-in client and reading the responses, not the templates.
+
+| what we told her | what the rendered page says |
+|---|---|
+| the notetaker is reachable from the Investor Report page | **True.** `/tools/investor-report/` returns 200 and contains `href="/tools/investor-report/notes"` and the "Meeting notes" card; that URL returns 200 and is the notetaker |
+| she can add a property from that page | **True.** A form on that page posts to `/tools/investor-report/notes/properties` with `csrf_token`, `return_to=investor_report`, `property_label` |
+| the Word export produces a real `.docx` | **True**, and see the caveat below |
+
+**The add-property route was exercised in both directions.** Against
+production, a deliberately empty submission: 200, not 404 or 405, and the
+alias count was 9 before and 9 after — **live, validating, and nothing
+written into her data**. The happy path was then run on a scratch
+instance with every database pointed at a temporary directory: the row is
+created as an Underwriting scenario named *"Placeholder — no assumptions
+entered"*, the redirect lands back on the Investor Report page, the
+success flash renders, and the new name is immediately visible in the
+notetaker.
+
+> **The Word export was verified against a scratch update, because none
+> of hers exist.** Production holds **zero transcripts and zero
+> investor updates**, so there is no page of hers to open. On a scratch
+> instance the update page returns 200, offers `export.docx`, and the
+> download is a real Word file: `36,901` bytes, correct
+> `wordprocessingml.document` content type, a filename in the
+> `Content-Disposition`, and `word/document.xml` inside the zip carrying
+> both the section name and the point text. **That is a check of the
+> mechanism, not of anything she has.**
+
+### One line in this file was stale, and it is the same failure pointed backwards
+
+The Part 85 table says of add-property: *"**Neither is on the page she
+was standing on**, which is what she was asking for."* That was true when
+written and **Part 86 built exactly that**. The row was never updated, so
+this document has been understating what was delivered — the mirror of
+overstating it, and both come from the document being written from the
+work rather than from the screen.
+
+---
+
+## Was anything else marked delivered on a comment rather than a surface?
+
+**Audited every BUILT/DELIVERED claim in this file. One more rests on
+reading code, and one negative claim rested on a grep — which was
+re-checked and holds.**
+
+**Re-verified and sound.** The rent-roll and unit-type items are backed
+by a real seed — 152 units and 894 rooms actually in the database — which
+is data rather than a description of work. `snapshot_all` was verified by
+running it against production and comparing fingerprints. Those are
+observations of behaviour and need nothing further.
+
+**The negative claim, re-checked on the rendered page.** *"`deals` has
+`vintage`, `building_count`, `property_sqft` … nothing renders any of
+them — checked by grep."* A grep proving an ABSENCE is weaker than one
+proving a presence, because it can miss a computed or aliased name. Site
+DD assessment 11 rendered on the container: no `Vintage`, no `Buildings`
+label, no `Square Footage`. **The claim survives**, and it is now checked
+the right way.
+
+**The one that still rests on reading code.** *"the token shipped in Part
+67, guarding all three routes — verified in the code, not recalled."*
+That phrase names its own method, and its method is the one that just
+failed. It is a weaker instance — a guard's surface is a POST response
+rather than a page, so it is genuinely harder to see — but *"verified in
+the code"* should read as **unverified against the surface** until
+somebody posts to those three routes without the token and observes the
+refusal.
+
+> **The pattern worth carrying: when a claim states how it was verified,
+> read that clause as the finding.** "Checked by grep", "verified in the
+> code", "the comment quotes her request" are all telling you what was
+> NOT done.
 
 ---
 
