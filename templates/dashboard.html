@@ -133,7 +133,24 @@
       </svg>
     </div>
     <div class="tool-card-title">Investor Report</div>
-    <div class="tool-card-desc">LP/GP distribution waterfalls — return of capital, preferred return, and promote split, built on a saved Underwriting scenario.</div>
+    {#
+      NO DESCRIPTION HERE, AND IT IS THE SAME REQUEST AS THE ONE ON THE
+      PAGE ITSELF. Michelle asked to "remove top description" in August;
+      that was done on templates/tools/investor_report.html, and she then
+      said twice that she could still see it -- "when I logged in that the
+      orange box description is still there."
+
+      Both were true. This card is the ONLY orange one on the dashboard,
+      it is the first thing after login, and it carried the same abstract
+      framing text that was taken off the page: what a waterfall is,
+      rather than anything about her deals. The triage in Part 85 read a
+      template comment instead of the screen she was looking at, so it
+      answered a different question and closed it.
+
+      Nothing else on this card changed, and no other card was touched --
+      she pointed at this one, twice. This is also the only card alone in
+      its grid row, so removing the line cannot leave the others ragged.
+    #}
     <span class="tool-tag tag-live">Live &middot; Beta</span>
   </a>
 
