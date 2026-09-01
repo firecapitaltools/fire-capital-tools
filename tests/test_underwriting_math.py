@@ -19,6 +19,7 @@ Assertions restate the arithmetic independently wherever practical, the
 same discipline used for deal_analyzer_math and site_dd_checklist.
 """
 
+import os
 import unittest
 from pathlib import Path
 
@@ -27,12 +28,39 @@ from tools.deal_analyzer_math import analyze as da_analyze
 from tools.scorecard_pro.kpis import KPICalculator
 from tools.scorecard_pro.parsing import PnLParser
 
+# WHERE THE REAL T12s LIVE, AND WHY THIS IS NOT A HARDCODED PATH ANY MORE.
+#
+# These four files are Michelle's and are not in the repo. They used to be
+# named by absolute paths into one person's Downloads folder, which made
+# these tests unrunnable by anyone else and permanently skipped on the
+# container -- nineteen of them, including the naive-sum trap, discovered
+# only by noticing a skip count.
+#
+# Set T12_DIR to a folder holding the four files (default: the layout on
+# the machine they were first read on, so nothing changed for it):
+#
+#     T12_DIR=/path/to/t12s python -m unittest tests.test_underwriting_math
+#
+# The SHAPE of these files is committed as tests/fixtures/t12_shapes.json
+# and asserted by tests/test_t12_shapes.py, which runs everywhere. THESE
+# TESTS STAY ANYWAY: the fixture proves the code handles four shapes we
+# have already seen, and only a real file can show one nobody has seen.
+T12_DIR = Path(os.environ.get("T12_DIR", "C:/Users/jaspe/Downloads"))
+
 REAL_T12 = {
-    "Eagle Rock": r"C:/Users/jaspe/Downloads/test-files-2/Eagle Rock T12 May 2026 Profit and Loss.xlsx",
-    "Canyon": r"C:/Users/jaspe/Downloads/test-files-2/Canyon T12 May 2026 Profit and Loss.xlsx",
-    "OXPT": r"C:/Users/jaspe/Downloads/test-files-2/OXPT T12 May 2026 Profit and Loss.xlsx",
-    "Jackson": r"C:/Users/jaspe/Downloads/Test_5/Jackson T12 Aug 2025-Jul 2026.xlsx",
+    "Eagle Rock": T12_DIR / "test-files-2" / "Eagle Rock T12 May 2026 Profit and Loss.xlsx",
+    "Canyon": T12_DIR / "test-files-2" / "Canyon T12 May 2026 Profit and Loss.xlsx",
+    "OXPT": T12_DIR / "test-files-2" / "OXPT T12 May 2026 Profit and Loss.xlsx",
+    "Jackson": T12_DIR / "Test_5" / "Jackson T12 Aug 2025-Jul 2026.xlsx",
 }
+
+# Named so tools/suite_parity.py can report these as environment-gated
+# rather than leaving a reader to work it out from a skip count.
+ENVIRONMENT_GATED = (
+    "the four real T12 files are not in the repo (they are a client's); "
+    "set T12_DIR to a folder holding them. Their SHAPE is committed and "
+    "asserted by tests/test_t12_shapes.py, which runs everywhere."
+)
 
 BASE_SCENARIO = {
     "purchase_price": 5_000_000.0, "closing_costs_pct": 2.0, "ltv_pct": 65.0,
