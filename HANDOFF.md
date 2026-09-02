@@ -3270,13 +3270,22 @@ up, and it is worth marking which is which:
 | claim | how it was obtained | still true |
 |---|---|---|
 | a backup covers the whole volume | every mutation keyed on `volumeInstanceId` | yes |
-| restore is in place, no undo exists | argument descriptions, and no reverse mutation | yes |
+| ~~restore is in place, no undo exists~~ | **inferred from argument descriptions** and the absence of a reverse mutation | **NO — corrected Part 99/100. A signature is not a description of an effect; see the entry on that.** |
 | backups are metered as `BACKUP_USAGE_GB` | the `MetricMeasurement` enum plus a usage query | yes |
 | all twelve DBs are `journal=delete`, `synchronous=FULL` | run on the container | yes |
 | **the capability was available to us** | **inferred from a listing** | **no** |
 
 Four measured, one inferred, and the inferred one was the only one that
 was wrong. That is not a coincidence and it is the entry.
+
+> **UPDATED 2026-09-01: it was FIVE claims, three measured and TWO
+> inferred, and both inferred ones were wrong.** The restore row above was
+> marked "yes" on the strength of argument descriptions — which is the
+> same method as the capability row, in the same table, marked as the
+> failure. **The table stated its own lesson and then broke it one line
+> further down**, and nobody noticed for six weeks because the second
+> inference erred toward danger and nothing that errs toward danger ever
+> gets contradicted by an incident.
 
 
 ## When a positive control passes, doubt the instrument first
@@ -5669,17 +5678,27 @@ axis — which is precisely the axis `snapshot_all` could never cover.
 
 ### A rehearsal cannot be done safely here, and the reason is structural
 
+> **TWO OF THESE THREE WERE WRONG, corrected 2026-09-01. The section is
+> kept as written because the reasoning was sound on its premises and the
+> premises were the defect** — deleting it would hide where the error
+> entered. Read the correction entry before acting on anything below.
+
 Three established facts compose badly:
 
-* **restore is in place** — it overwrites the volume it restores to
-* **there is no undo** anywhere in the API surface
+* ~~**restore is in place** — it overwrites the volume it restores to~~
+  **WRONG: it stages a change, creates a new volume from the backup, and
+  retains the original unmounted.**
+* ~~**there is no undo** anywhere in the API surface~~ **OVERSTATED: no
+  undo mutation, but the original volume survives.**
 * **restoring removes any newer backups**, by Railway's own documentation
+  — **right, and still right.**
 
-**So a restore performed to practise IS the incident.** It would overwrite
-production with an older state, destroy every backup taken since, and
-leave nothing to roll forward to. There is no dry-run flag, no
-restore-to-new-volume, and no second environment — one service, one
-volume, one environment named `production`.
+~~**So a restore performed to practise IS the incident.**~~ **It is a real
+operation with a real blast radius behind a review gate, which is a
+different thing.** There is still no dry-run flag and still one service,
+one volume, one environment named `production` — and a second environment
+would not have helped anyway, because **backups restore only into the same
+project and environment.**
 
 > **What we can claim, exactly: backups exist, they are taken
 > automatically, and one of them has been verified to exist by listing it.
@@ -5695,11 +5714,12 @@ underwriting rehearsal, which moved a fingerprint by damage and returned
 it exactly. That is the only shape that tests the platform's restore
 rather than describing it.
 
-**It is not free and it is not this run's decision.** A second environment
-is a billing question on Michelle's account and a deploy question about
-what a non-production environment is allowed to reach. **The honest
-position is to name the price rather than quietly keep listing the
-restore as untested forever.**
+~~**It is not free and it is not this run's decision.**~~ **This whole
+paragraph was answering a question that has no answer: a backup cannot be
+restored into a second environment at all, so no amount of billing makes
+this design work.** Priced anyway in Part 99, because the question had
+been asked: environments are not a billable unit and a stopped service
+costs nothing. **The obstacle was never the money.**
 
 **The cheaper half that IS available now, and is not a substitute.** The
 volume can be copied with `python -m tools.snapshot_all` and a database
@@ -5846,6 +5866,203 @@ had passed). The manual backup `b8384e68` carries `expiresAt: null` and
 **Recorded so the answer is read off the listing on the day rather than
 reconstructed.** If `b8384e68` is gone when the cap binds, the lock did
 nothing and the runbook's first known-good copy was never protected.
+
+---
+
+## A function signature describes its arguments, not its semantics
+
+**`volumeInstanceBackupRestore(volumeInstanceId, volumeInstanceBackupId)`
+returns a workflow id.** Read that and you have read everything the schema
+will tell you: it takes the volume you are restoring *into*, and it starts
+something. From Part 72 until Part 99 this file concluded from it that
+**the restore overwrites that volume in place and cannot be undone** — and
+built six weeks of decisions on top.
+
+**What the vendor actually describes** is a staged change that must be
+reviewed and committed, which creates a **new volume** from the backup at
+the same mount point and **retains the original, unmounted**. The API had
+been saying so all along in a different place: `environmentPatchCommitStaged`
+exists, and a mutation that stages rather than applies is not an in-place
+overwrite.
+
+> **A signature tells you what a function accepts. It cannot tell you what
+> the function does to the world.** `restore(volume_id)` and
+> `overwrite(volume_id)` have identical shapes. The inference was not
+> sloppy — the argument really is the destination volume — it was a
+> category error: reading a type as if it were a description of an effect.
+
+### Why this one was expensive, and it is not the six weeks
+
+**It made a safe operation look unsafe**, which is the direction that
+produces no visible failure. A wrong claim that something is *dangerous*
+never gets caught by anything going wrong; it gets caught only if somebody
+re-reads the source. **Nothing would ever have contradicted it**, because
+the way to contradict it was to do the thing we had decided not to do.
+
+It also propagated. It shaped the write design, the runbook's framing, the
+decision to treat the application snapshots as the only rollback, and a
+whole entry costing out a second environment that could never have worked
+anyway.
+
+> **The pairing worth keeping**: the Part 74 error read a capability off a
+> catalogue and concluded we *could* do something we could not. This one
+> read semantics off a signature and concluded we *could not* do something
+> we can. **Same method, opposite direction** — and the safe-looking
+> direction is the one that hides.
+
+### The correction, stated precisely so it is not over-applied
+
+| claim | status |
+|---|---|
+| restore overwrites the volume in place | **WRONG.** New volume from the backup, mounted at the same path |
+| there is no undo | **OVERSTATED.** No undo *mutation*, but the original volume is retained unmounted |
+| it applies immediately | **WRONG.** Staged for review, committed via `environmentPatchCommitStaged` |
+| **it redeploys the service** | **RIGHT, unchanged** |
+| **it destroys every backup newer than the one restored** | **RIGHT, unchanged** |
+| **backups restore only into the same project + environment** | **RIGHT** — established Part 99, and it is why no second environment helps |
+
+**And the application snapshots are still not superseded.** A platform
+restore prunes the backup set, so the platform cannot protect the moment
+before a platform restore. `python -m tools.snapshot_all` can, and that
+argument never depended on the in-place claim.
+
+---
+
+## What a platform-restore rehearsal now costs, operationally
+
+**It stopped being a billing question in Part 99 and is now a scheduling
+one.** Here is what it actually involves.
+
+**The service goes down for the redeploy.** One service, one replica, so a
+redeploy is an outage rather than a rolling swap. **Our own successful
+deploys reach a serving state in roughly one to three minutes**, measured
+across this session's deploy waits; the restore case has never been run,
+so **treat that as the shape of it and not as a measurement of it.**
+
+**What is destroyed is every backup newer than the one restored — and
+right now that set is empty.** The only backup is the manual
+`b8384e68` from 2026-09-01 05:05 UTC, and **the first daily fires
+2026-09-02 06:05 UTC**.
+
+> **So there is a window, and it is the cheapest this will ever be**:
+> rehearsing before the first daily lands destroys nothing, because
+> nothing newer exists. Afterwards, each rehearsal costs the dailies
+> accumulated since — up to six of them once retention fills.
+
+**What restoring `b8384e68` would actually roll back**: production to
+05:05 on 2026-09-01. Nothing of Michelle's has been written since —
+0 transcripts, 0 investor updates, assessment 11 unchanged at
+`f6451ecb366f6ab4` — so the data cost today is close to zero. **That is a
+statement about today and will not be true next week.**
+
+**The retained old volume is the backstop, and it is unproven.**
+`volumeDelete`, `volumeUpdate` and `volumeInstanceUpdate` all exist, so
+re-mounting is plausibly reachable — but **nothing published says how long
+the old volume is retained or that re-mounting is supported**, and we have
+not done it. It costs about **two cents a month** to keep (150 MB at
+$0.15/GB-month), so the money is not the constraint; the uncertainty is.
+
+### What would have to be true to do this on a weekday afternoon
+
+1. **A fresh `snapshot_all` set taken minutes before**, so recovery does
+   not depend on the retained volume behaving as hoped.
+2. **Nobody using the app** — which today means checking with Michelle,
+   because she is the only user and there is no session telemetry to check
+   instead.
+3. **Acceptance of a few minutes' outage** on a tool she may open at any
+   time.
+4. **A written expectation of what the restored state should be**, so the
+   rehearsal produces a verdict rather than a vibe: the twelve content
+   fingerprints as of 05:05 on 2026-09-01, compared after.
+
+**None of that is expensive and none of it is automatic.** The honest
+recommendation is that this is now a decision about interrupting her
+rather than about money — and that the window before the first daily is
+the cheapest moment, at the price of doing it with less preparation than
+item 4 deserves.
+
+---
+
+## The View, and what adding a property to the Weekly Property Summary costs
+
+**Her fourth feedback row, 2026-08-31 21:37, on `/tools/mmr-summary/`**
+(`feedback #4`): she wants **The View** added, and says she will email the
+file.
+
+**The finding is that there is almost nothing to add.** The Weekly
+Property Summary is **format-driven, not property-driven**:
+`detect_source_system()` returns ResMan, AppFolio or *Unrecognized*, and
+the property name is **read out of the uploaded sheet** rather than looked
+up. There is no registry of permitted properties, and nothing gates a new
+one.
+
+**The only property-specific code in the tool is `_PROPERTY_ABBREVS`**, a
+five-entry map used solely to build the download filename, and it has a
+fallback — first word, skipping "The". Checked rather than assumed:
+
+    make_download_filename("The View at Pembroke", ...)
+        -> "View Summary 09.01.26.xlsx"
+
+**So if her export is one of the two formats already handled, The View
+works today with no change at all**, and the only open question is
+cosmetic: whether "View" is the abbreviation she wants in the filename.
+That is one line if it is not.
+
+**What genuinely waits for the file**, and no investigation happens before
+it arrives, per the standing format rule:
+
+* **which system produced it.** ResMan and AppFolio are handled. A third
+  is real work — and there is precedent for how much: **Maple Valley's
+  AppFolio path is special-cased in two places**, including a hardcoded
+  property-name default and a date-range heuristic. That is what a new
+  source system costs.
+* **whether the sheets and headers match the fingerprints** in
+  `detection.py`. A ResMan export of a different vintage can fail
+  detection while looking identical to a person.
+* **whether the sections the parser needs are present and labelled the way
+  it expects** — unit status counts, projected occupancy, work orders.
+
+**What is already known about the property, so it is not treated as
+unknown**: *The View at Pembroke* appears in `docs/kobo-forms-manifest.md`
+with an **84-unit rent roll**. **That is not the same document** — a rent
+roll is not a weekly management report — so it establishes that the
+property is real and roughly sized, and nothing about the export.
+
+**What can be prepared now: the abbreviation question, and nothing else.**
+Ask her whether the filename should read `View`, `TVAP` or something she
+already uses in her own filing. Everything else is a guess until the file
+is in hand.
+
+---
+
+## Michelle has said something about the engagement, and nobody has answered
+
+**In the same feedback row, unprompted:**
+
+> *"I know that you are starting school so I want to be super mindful of
+> your time but maybe when you are back for the Christmas holiday, you can
+> help with some updates?"*
+
+**This is the first thing she has said about the arrangement rather than
+about the software**, and it is doing several things at once: proposing a
+window (Christmas), giving a reason (school), and — read plainly —
+checking whether the work continues at all.
+
+**It is recorded here because it is not a software item and would
+otherwise live only in a feedback table.** Three things a future session
+should know:
+
+1. **She proposed the timeline herself**, which means the next substantial
+   tranche has a date attached that we did not set and have not agreed to.
+2. **The View request is inside the same message as the Christmas
+   proposal.** She may well expect it *then* rather than now — the request
+   and the deferral arrived together, and reading only the request would
+   invent an urgency she did not express.
+3. **Nobody has replied.** As of this entry it has been open since
+   2026-08-31 and is unanswered, which is a thing to fix rather than a
+   thing to note. **She should not have to guess whether her message
+   landed** — that is the same failure as the feedback table sitting
+   unread for two weeks, in a register that matters more.
 
 ---
 
