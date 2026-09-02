@@ -183,6 +183,32 @@ MAX_PENDING = 10   # max simultaneous downloads per session
 @mmr_bp.route("/")
 @login_required
 def index():
+    """The Weekly Property Summary landing page.
+
+    THE VIEW IS COMING, AND ALMOST NOTHING HERE HAS TO CHANGE (`feedback #4`).
+
+    Michelle asked on 2026-08-31, from this page, for The View to be added
+    to this tool, and said she would email the export. Recorded here
+    because the answer is counter-intuitive and would otherwise be
+    re-derived: **this tool is format-driven, not property-driven.**
+    `detect_source_system()` decides ResMan / AppFolio / unrecognised, and
+    the property name is read out of the uploaded sheet -- there is no
+    registry of permitted properties and so nothing to add one to.
+
+    If her export is one of the two handled formats, The View works with
+    no change at all. The only property-specific code in the tool is
+    `_PROPERTY_ABBREVS` in builders.py, which affects the download
+    FILENAME only and falls back to the first word after "The": measured,
+    "The View at Pembroke" already yields "View Summary <date>.xlsx". The
+    one open question is cosmetic -- whether that is the abbreviation she
+    wants.
+
+    What waits for the file, and is deliberately not guessed before it
+    arrives: which system produced it, whether the sheet fingerprints
+    match `detection.py`, and whether the sections the parser needs are
+    labelled as expected. Maple Valley's AppFolio special-casing is the
+    precedent for what a third source system costs.
+    """
     return render_template("tools/mmr_summary.html")
 
 
