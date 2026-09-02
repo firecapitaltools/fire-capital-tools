@@ -5653,6 +5653,82 @@ claim; it is the one already identified, and it has now been exercised.**
 
 ---
 
+## The backups work, and what a restore rehearsal can honestly be
+
+**Settled 2026-09-01 by exercise.** Michelle's Pro upgrade changed the
+entitlement: `volumeInstanceBackupCreate` on `/data` was refused on
+2026-08-30 and accepted after the upgrade. One backup exists and is
+lock-requested; **DAILY and MONTHLY schedules are enabled**, with the
+platform's own retention — **6 days and 89 days**, not the 7 and 90 they
+resemble. Full figures in `docs/known-issues.md` entry 3.
+
+**This is the first automatic protection the volume has ever had.** It
+ran unprotected for the entire project, and the gap the runbook described
+in as many words is now closed on the "what happens without a person"
+axis — which is precisely the axis `snapshot_all` could never cover.
+
+### A rehearsal cannot be done safely here, and the reason is structural
+
+Three established facts compose badly:
+
+* **restore is in place** — it overwrites the volume it restores to
+* **there is no undo** anywhere in the API surface
+* **restoring removes any newer backups**, by Railway's own documentation
+
+**So a restore performed to practise IS the incident.** It would overwrite
+production with an older state, destroy every backup taken since, and
+leave nothing to roll forward to. There is no dry-run flag, no
+restore-to-new-volume, and no second environment — one service, one
+volume, one environment named `production`.
+
+> **What we can claim, exactly: backups exist, they are taken
+> automatically, and one of them has been verified to exist by listing it.
+> What we cannot claim is that we can recover.** Those are different
+> sentences and the gap between them is a restore nobody has run.
+
+### What a rehearsal would actually require, costed
+
+**A second Railway environment with its own volume.** Restore the backup
+into it, boot the app against it, and compare a content fingerprint of
+each database with the source — the method already used for the
+underwriting rehearsal, which moved a fingerprint by damage and returned
+it exactly. That is the only shape that tests the platform's restore
+rather than describing it.
+
+**It is not free and it is not this run's decision.** A second environment
+is a billing question on Michelle's account and a deploy question about
+what a non-production environment is allowed to reach. **The honest
+position is to name the price rather than quietly keep listing the
+restore as untested forever.**
+
+**The cheaper half that IS available now, and is not a substitute.** The
+volume can be copied with `python -m tools.snapshot_all` and a database
+restored from that copy — which is rehearsed, twice, and returns exact
+fingerprints. That tests *our* copies and says nothing about Railway's.
+Conflating the two would be the partial-defence error again.
+
+> **A platform restore prunes the backup set.** That is the standing
+> reason the application-level snapshots are not superseded by any of
+> this: the platform cannot protect the moment before a platform restore,
+> and `snapshot_all` can.
+
+### The lock, and a claim deliberately not made
+
+`volumeInstanceBackupLock` returned `true`. **No field anywhere in the
+schema reports lock state** — not on the backup, not on any query. So the
+claim recorded is *the lock mutation was accepted*, and not *the backup
+is locked*. The only way to settle it is to ask the platform to delete or
+expire the backup and watch it refuse, which risks the one known-good
+copy to confirm a flag.
+
+**That is the method-clause discipline from Part 96 applied on the day it
+was written**, and it is worth noticing that the instruction for this
+work said to confirm the lock in the listing afterwards. It cannot be
+done. Saying so is the finding; doing it and reporting "locked" would
+have been the failure.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later

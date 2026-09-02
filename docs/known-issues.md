@@ -188,169 +188,151 @@ failure would arrive inside a number nobody reads closely any more.
 
 ---
 
-## 3. Volume backups are unavailable on the Hobby plan
+## 3. Volume backups: available since the Pro upgrade, restore not yet rehearsed
 
-**Opened** 2026-08-30 · **Severity** high · **Status** open
+**Opened** 2026-08-30 · **Severity** high · **Status** open — *narrowed
+2026-09-01*
 
-> **Retitled and corrected 2026-08-30.** This opened as *"there is no
-> restore point for the /data volume"*, on the finding that the backup
-> API returned empty lists and the mutations existed. **That reading was
-> wrong in its cause.** Backups are not merely unconfigured — they are
-> **not permitted on this plan**, and the fix is a billing decision on
-> Michelle's account rather than a setting anyone here can flip. See the
-> HANDOFF entry on schema-versus-entitlement.
+> **STATUS CHANGED 2026-09-01: from "not possible" to "possible, running,
+> and unproven where it matters."** Michelle upgraded the workspace from
+> Hobby to Pro on 2026-08-31. Backups now work; they are taken on a
+> schedule; **nothing has ever been restored from one.** That last clause
+> is why this entry stays open, and it is the same standard that kept
+> entry 1 open until a real account settled it.
 
 **What is believed.** If production data were lost or corrupted, it could
 be restored from a platform backup.
 
-**What is actually known.** It could not, and it cannot be arranged
-without a plan change. Read from the Railway API on 2026-08-30 with a
-fresh token:
+**What is actually known.** Established by exercise on 2026-09-01:
 
-    workspace.plan                            HOBBY
+    project.subscriptionType                  pro          (was hobby)
     subscriptionPlanLimit.volumes:
-        maxBackupsCount                       0
-        maxBackupsUsagePercent                0
+        maxBackupsCount                       10           (was 0)
+        maxBackupsUsagePercent                0.5          (was 0)
+        maxSizeMB                             1000000      (was 5000)
+        defaultSizeMB                         50000
+        maxPerProject                         20
 
-    volumeInstanceBackupList(/data)           0
-    volumeInstanceBackupScheduleList(/data)   0
-    volumeInstanceBackupCreate(...)           Not Authorized
+    volumeInstanceBackupCreate(/data)         ACCEPTED     (was Not Authorized)
+      -> workflowId createVolumeInstanceBackup/5d1c9be7-...
+      -> verified BY LISTING, not by the return value
 
-**`maxBackupsCount: 0`.** The plan permits zero. Reads succeed and return
-empty because there are none and there can be none; the create mutation is
-refused. Available tiers are `FREE`, `HOBBY`, `PRO`.
+    volumeInstanceBackupList(/data)           1 backup
+        id              b8384e68-6ddf-46a8-af2c-cb86baf350d1
+        name            first-pro-backup-2026-08-31
+        createdAt       2026-09-01T05:05:03.550Z
+        referencedMB    150
+        expiresAt       null
+        scheduleId      null      (manual, not from a schedule)
 
-The volume holds all twelve databases — `site_dd.db` with Michelle's
-assessment 11, and `users.json`.
+    volumeInstanceBackupScheduleList(/data)   2 schedules
+        DAILY    cron "5 6 * * *"      retentionSeconds  518400  =  6 days
+        MONTHLY  cron "48 20 1 * *"    retentionSeconds 7689600  = 89 days
 
-**What still stands from the earlier reconnaissance**, because it was read
-or measured rather than inferred:
+**The entitlement was settled by exercise, not by reading a limit.** The
+identical `volumeInstanceBackupCreate` call was refused on 2026-08-30 and
+accepted after the upgrade. That ordering is the evidence; the limit
+fields only agree with it. Reading `maxBackupsCount: 10` and stopping
+there would have been the Part 74 error again — a capability read off a
+catalogue.
 
-* A backup covers the **whole volume**, not a database — every operation
-  is keyed on `volumeInstanceId`.
-* Restore is **in place** and there is **no undo** in the API surface.
-* Backups are metered as `BACKUP_USAGE_GB`; the project's month-to-date
-  figure is `0`, and the per-GB rate has not been read.
-* Every database on the volume is `journal=delete`, `synchronous=FULL`,
-  which is the configuration under which a crash-consistent snapshot
-  recovers to the last committed transaction.
+**The retention numbers are the ones the platform actually set**, not the
+round numbers they resemble: **6 days, not 7; 89 days, not 90.** Part 72
+declined to guess this value because no schedule existed to read it from.
+Anyone quoting "a week" or "three months" to Michelle would be rounding
+in the direction that flatters us.
 
-**Why it is not settled.** Nothing has changed and nothing here can
-change it.
+### The lock was accepted and CANNOT be confirmed by reading
 
-> **RE-VERIFIED 2026-08-31, and the entry stands unchanged.** Read with a
-> working `me`:
->
->     workspace.plan                          HOBBY
->     subscriptionPlanLimit.volumes:
->         maxBackupsCount                     0
->         maxBackupsUsagePercent              0
->         maxSizeMB                        5000
->
-> **The Part 84 attempt failed for a reason that was not the one recorded,
-> and the correction is the more useful half.** It read `Not Authorized`
-> on `me` and matched that to this project's documented stale-token
-> signature. The token was not stale: the CLI's config now carries
-> `user.accessToken`, and `user.token` — the field the script read — is
-> `null`, so the request went out as `Bearer None`. A refreshed token
-> failed identically, which should have been the tell.
->
-> See HANDOFF, *A recorded failure signature makes the wrong cause the
-> obvious one*.
+`volumeInstanceBackupLock` on `b8384e68` returned `true`. **The listing is
+unchanged by it**, and that is not a failure — `VolumeInstanceBackup`
+exposes `createdAt, creatorId, expiresAt, externalId, id, name,
+referencedMB, scheduleId, usedMB, volumeInstanceSizeMB` and **no lock
+field at all**. There is no query anywhere in the schema that reports lock
+state.
 
-**Cost if wrong.** Total, unrecoverable loss of every deal, scenario,
-assessment and uploaded file, with no platform-level recovery of any kind.
+> **So the honest claim is "the lock mutation was accepted", not "the
+> backup is locked".** The only test that would settle it is asking the
+> API to delete or expire the backup and watching it refuse — which risks
+> the one known-good copy this project has, to confirm a flag. **Not
+> worth it.** Recorded as unverifiable-by-reading rather than quietly
+> upgraded to verified, per *A verification method named in prose*.
 
-> ### THE RATE, READ 2026-08-31 — and the storage is not the cost
->
-> Step 2 of the procedure below is done. **Backups are not priced
-> separately: they are billed as volume storage.**
->
-> From `docs.railway.com/reference/backups`, verbatim:
->
-> > *"You are only billed for the incremental size of the backup at a rate
-> > per GB / minutely, and invoiced monthly."*
-> >
-> > *"Backups are incremental and Copy-on-Write, we only charge for the
-> > data exclusive to them, that aren't from other snapshots or the volume
-> > itself."*
->
-> and the rate, from `railway.com/pricing`:
->
-> > *"Volumes | $0.00000006 per GB/s | $0.15 per GB"* (per month)
->
-> Retention, same page: **Daily** kept 6 days, **Weekly** kept 1 month,
-> **Monthly** kept 3 months.
->
-> **The arithmetic against this volume**, re-measured today rather than
-> recalled — `/data` is **5.9 MB used of 4,838 MB**, 0.12%:
->
-> | | |
-> |---|---|
-> | one full copy, 0.0059 GB × $0.15 | **$0.0009 / month** |
-> | DAILY + MONTHLY = up to 9 snapshots, **if every one were a full copy** | **$0.008 / month** |
-> | realistically, incremental and copy-on-write on a volume that changes by a few hundred KB in a busy week | **less than that** |
->
-> **Under one cent a month, and it stays under a cent until the volume
-> passes roughly 500 MB.** The seeding work — the largest write this
-> platform has made — moved `site_dd.db` by 88 KB.
->
-> ### So the question to Michelle is not about backup storage
->
-> It is **+$15/month**: Hobby is $5 and Pro is $20, each including usage
-> credit equal to its own fee, so the backup storage disappears inside
-> the credit entirely. The storage cost is a rounding error and the plan
-> is the whole of it.
->
-> ### One thing that must NOT be asserted to her, and it is the Part 74 shape
->
-> **Nothing published says Pro permits backups.** The plan comparison on
-> the pricing page does not mention backups at all, and the backups
-> documentation does not state per-plan limits. What we know is what our
-> own workspace reports: Hobby, `maxBackupsCount: 0`.
-> `subscriptionPlanLimit` is a field on *our* workspace and the API
-> exposes no way to read another plan's limits — checked by
-> introspection, the only plan-shaped queries are
-> `serviceInstanceLimits` and `serviceInstanceLimitOverride`.
->
-> So *"upgrade to Pro and you get backups"* is **exactly the inference
-> that was wrong last time** — a capability read off a listing rather than
-> exercised. Ask Railway support, or treat the first backup after an
-> upgrade as the verification. **The ask is "$15/month, conditional on
-> Railway confirming Pro allows volume backups", not "$15/month for
-> backups".**
->
-> ### And one operational fact that changes the runbook
->
-> > *"Restoring a backup will remove any newer backups you may have
-> > created after the backup you are restoring."*
->
-> Restore is destructive to the backup set as well as to the volume. That
-> is sharper than "restore is in place and there is no undo", and it is
-> the reason the application-level snapshot stays even if the plan
-> changes: a `VACUUM INTO` file is not deleted by a platform restore.
+**Capacity is not a concern.** Ten backups permitted; daily retention of 6
+days plus monthly means the set stays well under that even with the
+locked manual one held indefinitely. `referencedMB` is 150 against a
+5,000 MB volume — Pro raises the size ceiling to 1 TB but resizes nothing,
+and nothing here needs resizing.
+
+### Two reading notes that have now cost time twice
+
+1. **`workspace(workspaceId:)` denies for this account.** The project sits
+   in *Michelle Jeong's Projects* and we are a project member, not a
+   workspace member, so `me { workspaces }` does not list it and the
+   workspace query returns `Not Authorized`. **Read limits through
+   `project(id:) { subscriptionPlanLimit }`**, which works. The earlier
+   `workspace.plan HOBBY` reading is not reproducible from this account
+   and should not be retried that way.
+2. **The CLI credential is `user.accessToken`.** `user.token` is `null` in
+   `~/.railway/config.json`, and a request built from it sends
+   `Bearer None`, which denies **identically to a stale token**. Check the
+   input before believing the response.
+
+**A third, from this run:** three separate `Not Authorized`-looking
+failures were **GraphQL shape errors**, not authorization —
+`subscriptionPlanLimit` is a scalar with no subfields,
+`VolumeInstanceBackup` has no `status`, and `volumeInstanceBackupCreate`
+returns `WorkflowId` whose only field is `workflowId`. Read the error
+body rather than matching the shape of the failure to a remembered cause.
+
+**Why it is not settled.** Nothing has ever been restored.
+
+**Restore is in place, there is no undo in the API, and restoring removes
+any newer backups.** Those three together mean a rehearsal on this volume
+is not a rehearsal — it is the event. See the HANDOFF entry for what a
+rehearsal could honestly be and what it would cost.
+
+**Cost if wrong.** The volume is lost or corrupted, somebody reaches for a
+backup that exists, and the restore fails or restores something
+unusable — at which point the fallback is whatever `snapshot_all` set was
+taken by hand, and if none was taken recently the loss is Michelle's 31
+findings, her grading bands, three rows of feedback typed once, and 14
+paid RentCast lookups. **The backups make that scenario less likely and
+do not make it impossible**, which is exactly the distinction this entry
+now exists to hold open.
+
+**How to close this entry.** A restore performed against a volume that is
+not production, with the restored content compared against a known
+fingerprint. Until then the claim is *"backups exist and are taken
+automatically"*, which is true, and not *"we can recover"*, which is
+untested.
+
+**The `VACUUM INTO` snapshots stay regardless.** A platform restore prunes
+the backup set, so the platform's copies cannot protect the moment before
+a platform restore. `python -m tools.snapshot_all` is not superseded by
+this and its runbook section stands.
 
 **How to close it.**
 
-1. **Decide whether to upgrade the workspace to `PRO`.** This is
-   Michelle's account and her bill. It is a question for her, not an
-   action for us.
-2. ~~Confirm the per-GB rate for `BACKUP_USAGE_GB` from Railway's pricing
-   page first.~~ **DONE 2026-08-31 — see above. $0.15/GB-month, billed on
-   the incremental size only, which is under a cent a month for this
-   volume. The number to give her is $15/month for the plan, not a
-   storage figure.**
-3. If upgraded: enable a schedule, take one manual backup immediately,
-   and **lock** it so retention cannot expire it.
-4. Then rehearse a restore — onto a separate volume, never over
-   production — and record who can perform one.
+1. ~~Decide whether to upgrade the workspace to `PRO`.~~ **DONE — Michelle
+   upgraded on 2026-08-31 and did it herself.**
+2. ~~Confirm the per-GB rate for `BACKUP_USAGE_GB`.~~ **DONE 2026-08-31:
+   $0.15/GB-month on incremental size, under a cent a month for a 150 MB
+   volume. The number that mattered was $15/month for the plan.**
+3. ~~Enable a schedule, take one manual backup immediately, and lock it.~~
+   **DONE 2026-09-01. DAILY + MONTHLY enabled; `first-pro-backup-2026-08-31`
+   taken and lock-requested — with the caveat above that no API field
+   reports lock state.**
+4. **Rehearse a restore — onto a separate volume, never over production —
+   and record who can perform one.** THE ONLY STEP LEFT, and it needs a
+   second environment that does not exist. See the HANDOFF entry for what
+   that costs and what we can claim until then.
 
 **What does NOT depend on this.** The application-level rollback for the
 seeding work — a `seed_batch` column and a pre-write `VACUUM INTO`
-snapshot — is entirely within our control, costs nothing, and does not
-require the plan change. **Rehearsed 2026-08-30** -- on a scratch database and again on a copy
-of real production content, source opened `mode=ro` and never written.
-The runbook is `docs/site-dd-restore-runbook.md`. **The seeding work is
-gated on that rehearsal, which has now passed, and not on this entry.**
+snapshot — is entirely within our control, costs nothing, and never
+required the plan change. **Rehearsed 2026-08-30**, on a scratch database
+and again on a copy of real production content, source opened `mode=ro`
+and never written. The runbook is `docs/site-dd-restore-runbook.md`.
 
 ---
