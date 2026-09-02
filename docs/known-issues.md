@@ -203,7 +203,7 @@ failure would arrive inside a number nobody reads closely any more.
 **What is believed.** If production data were lost or corrupted, it could
 be restored from a platform backup.
 
-**What is actually known**, established by exercise on 2026-09-01:
+**What is actually known.** Established by exercise on 2026-09-01:
 
     project.subscriptionType                  pro          (was hobby)
     subscriptionPlanLimit.volumes:
@@ -285,12 +285,21 @@ failures were **GraphQL shape errors**, not authorization —
 returns `WorkflowId` whose only field is `workflowId`. Read the error
 body rather than matching the shape of the failure to a remembered cause.
 
-### Why it is not settled: nothing has been restored
+**Why it is not settled.** Nothing has ever been restored.
 
 **Restore is in place, there is no undo in the API, and restoring removes
 any newer backups.** Those three together mean a rehearsal on this volume
 is not a rehearsal — it is the event. See the HANDOFF entry for what a
 rehearsal could honestly be and what it would cost.
+
+**Cost if wrong.** The volume is lost or corrupted, somebody reaches for a
+backup that exists, and the restore fails or restores something
+unusable — at which point the fallback is whatever `snapshot_all` set was
+taken by hand, and if none was taken recently the loss is Michelle's 31
+findings, her grading bands, three rows of feedback typed once, and 14
+paid RentCast lookups. **The backups make that scenario less likely and
+do not make it impossible**, which is exactly the distinction this entry
+now exists to hold open.
 
 **How to close this entry.** A restore performed against a volume that is
 not production, with the restored content compared against a known
