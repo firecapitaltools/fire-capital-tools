@@ -255,8 +255,23 @@ state.
 > backup is locked".** The only test that would settle it is asking the
 > API to delete or expire the backup and watching it refuse — which risks
 > the one known-good copy this project has, to confirm a flag. **Not
-> worth it.** Recorded as unverifiable-by-reading rather than quietly
-> upgraded to verified, per *A verification method named in prose*.
+> worth it.**
+>
+> **A mutation whose effect no query reports is not verifiable without
+> destroying the thing it protects.** So this is recorded as
+> accepted-not-verified **with a scheduled observation**, which costs
+> nothing and runs itself:
+>
+> * **~2026-09-08**, when the first daily reaches its 6-day retention. If
+>   dailies expire and `b8384e68` is still listed, retention is at least
+>   not sweeping unscheduled backups. **Weak evidence** — one with no
+>   expiry may never have been a candidate.
+> * **When the set approaches `maxBackupsCount: 10`** and something must
+>   be evicted. **That is the observation that tests the lock**, and it is
+>   reachable within about a week of dailies.
+>
+> Read the answer off the listing on the day rather than reconstructing
+> it. If `b8384e68` is gone when the cap binds, the lock did nothing.
 
 **Capacity is not a concern.** Ten backups permitted; daily retention of 6
 days plus monthly means the set stays well under that even with the
@@ -287,10 +302,22 @@ body rather than matching the shape of the failure to a remembered cause.
 
 **Why it is not settled.** Nothing has ever been restored.
 
-**Restore is in place, there is no undo in the API, and restoring removes
-any newer backups.** Those three together mean a rehearsal on this volume
-is not a rehearsal — it is the event. See the HANDOFF entry for what a
-rehearsal could honestly be and what it would cost.
+**Nothing has been restored, and the shape of a rehearsal changed on
+2026-09-01 when the vendor's own description was finally read.**
+
+* **A backup can only be restored into the same project AND environment.**
+  So the second-environment rehearsal recorded here yesterday is not
+  possible at any price — that question is closed, not deferred.
+* **A restore is NOT in place.** It stages a change for review, creates a
+  new volume from the backup at the same mount point, and leaves the
+  original volume retained but unmounted. The old record here said "in
+  place, no undo"; that was inferred from a mutation signature and was
+  wrong in the direction of danger.
+* It still redeploys the service, still destroys every backup newer than
+  the one restored, and still has no single undo mutation.
+
+See the HANDOFF entry for the correction and what it leaves us able to
+claim.
 
 **Cost if wrong.** The volume is lost or corrupted, somebody reaches for a
 backup that exists, and the restore fails or restores something

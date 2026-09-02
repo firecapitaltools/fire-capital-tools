@@ -5729,6 +5729,126 @@ have been the failure.
 
 ---
 
+## The restore rehearsal was priced, and the price is not the obstacle
+
+**Asked: what does a second environment cost. Answer: nothing useful,
+because a second environment cannot receive the backup.** Railway's
+documentation, read on 2026-09-01:
+
+> **"Backups can only be restored into the same project + environment."**
+
+That is the whole of it. The rehearsal design recorded yesterday —
+restore into a second environment, boot against it, compare
+fingerprints — **is not possible on this platform**, at any price. Nothing
+to ask Michelle for, because there is nothing she could buy.
+
+**The billing answers, kept because they were asked and because they
+close the question rather than leaving it open.** Pro is **$20/month per
+workspace**, seats unlimited, including $20 of usage; environments are
+**not a billable unit at all** — usage is metered per resource, volumes at
+**$0.15/GB-month**, and *"billing is always per-second, so stopped
+services cost nothing."* A throwaway environment would have cost pennies.
+It would simply not have been able to do the job.
+
+> **Our record said Pro was $15/month. The published figure is $20.** She
+> has already upgraded so nothing turns on it, but the number we gave her
+> was wrong and the correction belongs here rather than nowhere.
+
+### And the reason a rehearsal looked dangerous is also wrong
+
+**This file has recorded, since Part 72, that "restore is in place and
+there is no undo".** The documentation describes something materially
+safer:
+
+> *"Once completed, we will stage the change for you to review… you will
+> see a new volume mounted to the same location as the original volume,
+> its name will be the date stamp of the backup. The previous volume will
+> be retained but has been unmounted from the service."*
+
+**A restore does not overwrite the volume. It creates a NEW volume from
+the backup, mounts it at the same path, and leaves the original one
+sitting there unmounted** — behind a staging gate that has to be
+committed before anything applies. The API agrees: `volumeInstanceUpdate`
+and `environmentPatchCommitStaged` both exist, so the staging step is
+real and not a UI convenience.
+
+**Both halves of the old claim were wrong in the same direction — toward
+danger.** "In place" is not what happens, and "no undo" overstates it:
+there is no undo *mutation*, but the previous volume is retained, which
+is the thing an undo would need.
+
+> **How the error happened is the part to keep.** The claim came from
+> reading the API surface — `volumeInstanceBackupRestore` takes a volume
+> id and returns a workflow, which looks like an in-place operation — and
+> nobody read the vendor's description of what the mutation does. **A
+> function signature describes its arguments, not its semantics.** That is
+> the same family as the method-clause rule: the method (reading a schema)
+> could not establish the claim (what the operation does to data).
+
+### So what a rehearsal now honestly is
+
+**It is a restore on production, behind a review gate, with the old volume
+retained** — and it costs: a service redeploy, every backup newer than the
+restored one destroyed, and recovery depending on re-mounting the retained
+volume through an API that has no single mutation for it.
+
+**That is a real operation with a real blast radius, not a rehearsal**, and
+it is still not something to do casually. But it is not the
+unrecoverable one-way door this file has been describing, and the
+decision about it should be made against what is true.
+
+**What we can claim today is unchanged**: backups exist, they run
+automatically, and no restore has ever been performed. **What has changed
+is the price of finding out** — it is a scheduling and nerve question, not
+a billing one, and no second environment will ever make it safer.
+
+---
+
+## A mutation whose effect no query reports
+
+**`volumeInstanceBackupLock` returned `true`, and nothing anywhere can
+confirm it.** `VolumeInstanceBackup` exposes ten fields and none of them
+is a lock; no query in the schema reports lock state. The listing is
+identical before and after.
+
+> **A mutation whose effect no query reports is not verifiable without
+> destroying the thing it protects.** The only confirming test is to ask
+> the platform to delete or expire the backup and watch it refuse — which
+> risks the single known-good copy to confirm a flag. **The honest
+> position is accepted-not-verified with a scheduled observation, rather
+> than a claim.**
+
+This is a new shape here. The nearest neighbour is the unreproducible
+fingerprint — *a number that gets copied forward* — but that one could be
+replaced with a reproducible method. This one has no method available at
+all, and the answer is to wait rather than to build.
+
+### The free test that runs itself
+
+**The schedules make the observation without anyone doing anything.**
+Daily fires `5 6 * * *` and keeps 6 days; the first one lands
+**2026-09-02 06:05 UTC** (the schedule was created after that day's slot
+had passed). The manual backup `b8384e68` carries `expiresAt: null` and
+`scheduleId: null`.
+
+**Two things to watch, and they answer different questions:**
+
+1. **Around 2026-09-08**, when the first daily reaches its 6-day
+   retention: if dailies begin expiring and `b8384e68` is still listed,
+   retention is at least not sweeping non-scheduled backups. **That is
+   weak evidence** — a backup with no expiry may simply never have been a
+   candidate.
+2. **When the set approaches `maxBackupsCount: 10`**, something must be
+   evicted, and *that* is when a lock either holds or does not. With 6
+   dailies plus monthlies the cap is reachable within roughly a week.
+   **This is the observation that actually tests the lock.**
+
+**Recorded so the answer is read off the listing on the day rather than
+reconstructed.** If `b8384e68` is gone when the cap binds, the lock did
+nothing and the runbook's first known-good copy was never protected.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
