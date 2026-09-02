@@ -22,7 +22,7 @@ section that matches.**
 > | the other **eleven** databases | **no.** underwriting, deal_dive, investor_report, investor_notes, market_data_cache, scorecard_pro_history, fire_metrics, feedback, rent_comps, app_settings, openai_usage |
 > | `/data/uploads` — 52 files, 2.1 MB | **no** |
 > | `/data/users.json` — the account store | **no** |
-> | platform-level volume backups | **no, and not purchasable on this plan** — known-issue 3 |
+> | platform-level volume backups | **YES since 2026-09-01** — Pro upgrade, DAILY (6-day retention) + MONTHLY (89-day), plus one locked manual backup. **No restore has ever been performed from one** — known-issue 3 |
 >
 > **`/data/backups` also holds four `keep-` files** — hand copies of
 > deal_dive, investor_notes, underwriting and site_dd taken on 12–17
@@ -53,9 +53,18 @@ section that matches.**
 > nobody types anything. The command changes what is possible, not what
 > happens automatically.
 
-**There is no platform backup.** The workspace is on Railway's Hobby plan
-and `maxBackupsCount` is `0` — see known-issues entry 3. Everything below
-is application-level and is the whole of the recovery story.
+**There ARE platform backups now, and they do not replace anything
+below.** Michelle upgraded the workspace to Pro on 2026-08-31;
+`maxBackupsCount` went from `0` to `10`, and on 2026-09-01 a manual backup
+was taken and DAILY + MONTHLY schedules enabled. See known-issues entry 3
+for the figures.
+
+**Two things about them an operator needs before relying on them.**
+**Nobody has ever restored from one** — the entitlement and the backups
+are verified, the recovery is not. And **a platform restore removes every
+backup newer than the one being restored**, which is why the
+application-level copies below are not superseded: they are the only
+thing that can protect the moment before a platform restore.
 
 **And it stays worth having even if the plan changes**, which is not
 obvious and is worth one line: Railway's own documentation says
