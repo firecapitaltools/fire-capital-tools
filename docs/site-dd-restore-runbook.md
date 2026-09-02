@@ -59,12 +59,19 @@ below.** Michelle upgraded the workspace to Pro on 2026-08-31;
 was taken and DAILY + MONTHLY schedules enabled. See known-issues entry 3
 for the figures.
 
-**Two things about them an operator needs before relying on them.**
-**Nobody has ever restored from one** — the entitlement and the backups
-are verified, the recovery is not. And **a platform restore removes every
-backup newer than the one being restored**, which is why the
-application-level copies below are not superseded: they are the only
-thing that can protect the moment before a platform restore.
+**Three things about them an operator needs before relying on them.**
+
+1. **Nobody has ever restored from one.** The entitlement and the backups
+   are verified; the recovery is not.
+2. **A platform restore removes every backup newer than the one being
+   restored**, which is why the application-level copies below are not
+   superseded — they are the only thing that can protect the moment
+   before a platform restore.
+3. **A restore is staged, not instant, and does not overwrite in place.**
+   Railway creates a NEW volume from the backup at the same mount point
+   and retains the original, unmounted, after a change you have to review
+   and commit. It also **redeploys the service**. Corrected 2026-09-01;
+   this document previously implied a one-way overwrite.
 
 **And it stays worth having even if the plan changes**, which is not
 obvious and is worth one line: Railway's own documentation says
