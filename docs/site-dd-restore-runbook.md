@@ -59,19 +59,28 @@ below.** Michelle upgraded the workspace to Pro on 2026-08-31;
 was taken and DAILY + MONTHLY schedules enabled. See known-issues entry 3
 for the figures.
 
-**Three things about them an operator needs before relying on them.**
+**Rehearsed on production 2026-09-04, and here is what it does.**
 
-1. **Nobody has ever restored from one.** The entitlement and the backups
-   are verified; the recovery is not.
-2. **A platform restore removes every backup newer than the one being
-   restored**, which is why the application-level copies below are not
-   superseded — they are the only thing that can protect the moment
-   before a platform restore.
-3. **A restore is staged, not instant, and does not overwrite in place.**
-   Railway creates a NEW volume from the backup at the same mount point
-   and retains the original, unmounted, after a change you have to review
-   and commit. It also **redeploys the service**. Corrected 2026-09-01;
-   this document previously implied a one-way overwrite.
+1. **A restore is STAGED and does not overwrite in place.** Railway
+   creates a NEW volume from the backup, mounts it at `/data`, and leaves
+   the original **retained and unmounted**. Nothing applies until you
+   commit, and the app keeps serving from the old volume while the change
+   sits staged — that gate is real time to change your mind.
+2. **The outage is about two minutes.** Measured: **111.7 seconds** of
+   `404`s from the commit, serving again at commit **+116.4 s**. Restore
+   to staged takes about **7 seconds**.
+3. **A platform restore removes every backup newer than the one being
+   restored.** Still true, and the reason the application-level copies
+   below are not superseded — they are the only thing that can protect
+   the moment before a platform restore.
+4. **What came back**: 12/12 databases identical by content fingerprint,
+   assessment 11 intact, all five backups surviving, both schedules
+   surviving.
+
+> **Restore it from `/data/backups/keep-set-*` if you only need one
+> database back.** A platform restore is whole-volume, two minutes of
+> downtime and a service redeploy; a `cp` from a snapshot set is neither.
+> Reach for the platform only when the volume itself is the problem.
 
 **And it stays worth having even if the plan changes**, which is not
 obvious and is worth one line: Railway's own documentation says
@@ -131,6 +140,43 @@ unchanged afterwards.
 > runs it. There is still no scheduler, and the table above still
 > describes what is covered on a day nobody types anything. A set covers
 > everything — from the moment somebody runs it, and not before.
+
+---
+
+## §0b — Restoring the whole volume from a platform backup
+
+**Rehearsed once, 2026-09-04. Two minutes of downtime.** Use this when the
+volume itself is lost or corrupted — not to recover one database, which
+§3 does without an outage.
+
+**Take a `snapshot_all` set first (§0a).** A platform restore destroys
+every backup newer than the one you pick, so your own copy is the only
+thing that survives the operation intact.
+
+    # 1. list, and choose. Note that restoring PRUNES everything newer.
+    volumeInstanceBackupList(volumeInstanceId: "<id>")
+
+    # 2. stage it. Returns in under a second; nothing has happened yet.
+    volumeInstanceBackupRestore(volumeInstanceId: "<id>",
+                                volumeInstanceBackupId: "<backup>") { workflowId }
+
+    # 3. READ WHAT IS STAGED before committing. This is the gate.
+    environmentStagedChanges(environmentId: "<env>") { id status patch }
+    # expect: the new volume isCreated, mounted at /data, and the OLD
+    # volume's mountPath set to null -- unmounted, NOT deleted.
+
+    # 4. commit. The outage starts about 5 seconds later.
+    environmentPatchCommitStaged(environmentId: "<env>", commitMessage: "...")
+
+**Then verify against something written down beforehand**, not against
+your memory of what the numbers were:
+
+    python -c "from tools.snapshot_all import content_fingerprint as f;                import pathlib; [print(p.name, f(p)) for p in sorted(pathlib.Path('/data').glob('*.db'))]"
+
+**The old volume is retained.** It stays in the project, unmounted, and
+costs about two cents a month. **Nobody has re-mounted one** — if the
+restore was a mistake, that path is untested, so do not treat it as an
+undo you can rely on.
 
 ---
 

@@ -22,6 +22,17 @@ is a worry, not an issue, and does not belong here.
 **What is actually known.**  The evidence, and its kind — direct, indirect, or none.
 **Why it is not settled.**   What the evidence does not cover.
 **Cost if wrong.**      What breaks, and who notices.
+**The rehearsal, in numbers** (full account in HANDOFF, *The restore was
+rehearsed on production*):
+
+    target            RESTORE-REHEARSAL-TARGET-20260904  15404d57-...
+    restore issued    15:57:33Z   mutation returned in 0.27s
+    staged            15:57:40Z   status STAGED, nothing applied, app still serving
+    committed         15:59:03Z   environmentPatchCommitStaged -- REQUIRED, not a formality
+    outage            111.7s      74 consecutive 404s at 1s sampling
+    serving again     16:00:59Z   commit +116.4s
+    result            12/12 databases identical; 5/5 backups survived; schedules survived
+
 **How to close it.**    Numbered steps. Someone with no context runs them.
 ```
 
@@ -188,17 +199,24 @@ failure would arrive inside a number nobody reads closely any more.
 
 ---
 
-## 3. Volume backups: available since the Pro upgrade, restore not yet rehearsed
+## 3. Volume backups: available, scheduled, and the restore is rehearsed
 
-**Opened** 2026-08-30 · **Severity** high · **Status** open — *narrowed
-2026-09-01*
+**Opened** 2026-08-30 · **Severity** high · **Status** closed 2026-09-04
 
-> **STATUS CHANGED 2026-09-01: from "not possible" to "possible, running,
-> and unproven where it matters."** Michelle upgraded the workspace from
-> Hobby to Pro on 2026-08-31. Backups now work; they are taken on a
-> schedule; **nothing has ever been restored from one.** That last clause
-> is why this entry stays open, and it is the same standard that kept
-> entry 1 open until a real account settled it.
+> **CLOSED 2026-09-04 BY REHEARSAL, on production.** Michelle upgraded to
+> Pro on 2026-08-31; backups began working and running on a schedule; and
+> on 2026-09-04 a backup was **restored and verified**. Twelve databases
+> came back identical by content fingerprint against values written down
+> beforehand, assessment 11 intact at `f6451ecb366f6ab4`, **112 seconds of
+> downtime**. The entry stayed open until somebody restored rather than
+> until a backup existed, which was the point.
+>
+> **What closing it does NOT claim** — kept here because the next reader
+> will want the short version and the short version is misleading: the
+> target was **118 seconds old**, so this says nothing about restoring a
+> backup that has aged through retention, and the monthly ones are what
+> the feared scenario actually reaches for. The retained old volume was
+> **observed, not exercised**. And one restore is one sample.
 
 **What is believed.** If production data were lost or corrupted, it could
 be restored from a platform backup.
@@ -350,10 +368,13 @@ this and its runbook section stands.
    **DONE 2026-09-01. DAILY + MONTHLY enabled; `first-pro-backup-2026-08-31`
    taken and lock-requested — with the caveat above that no API field
    reports lock state.**
-4. **Rehearse a restore — onto a separate volume, never over production —
-   and record who can perform one.** THE ONLY STEP LEFT, and it needs a
-   second environment that does not exist. See the HANDOFF entry for what
-   that costs and what we can claim until then.
+4. ~~Rehearse a restore — onto a separate volume, never over production.~~
+   **DONE 2026-09-04, and the premise was wrong twice over**: a backup
+   cannot be restored into another environment at all, and a restore does
+   not overwrite production — it mounts a NEW volume from the backup and
+   retains the original. So it was rehearsed on production, deliberately,
+   against a backup taken minutes earlier so that nothing newer could be
+   pruned.
 
 **What does NOT depend on this.** The application-level rollback for the
 seeding work — a `seed_batch` column and a pre-write `VACUUM INTO`
