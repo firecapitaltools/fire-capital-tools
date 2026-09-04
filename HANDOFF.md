@@ -6066,6 +6066,122 @@ should know:
 
 ---
 
+## The restore was rehearsed on production, and it worked
+
+**2026-09-04. The first restore anyone has performed on this platform.**
+Twelve databases returned **byte-for-byte identical by content
+fingerprint**, against values written down before anything was touched.
+The app was unavailable for **112 seconds**.
+
+### The timeline, measured rather than estimated
+
+| | UTC | offset |
+|---|---|---|
+| `volumeInstanceBackupCreate` — the target | 15:55:14.859 | — |
+| `volumeInstanceBackupRestore` issued | 15:57:33 | mutation returned in **0.27 s** |
+| new volume exists, **unmounted** | 15:57:34 | +1 s |
+| staged patch created, status `STAGED` | 15:57:40 | +7 s |
+| `environmentPatchCommitStaged` issued | 15:59:03 | +90 s *(the gap is me reading the patch)* |
+| first failed request | 15:59:08 | **commit +4.7 s** |
+| last failed request | 16:00:58 | commit +115.1 s |
+| **first successful request** | 16:00:59 | **commit +116.4 s** |
+
+**Outage: 111.7 seconds**, 74 consecutive `404`s at one-second sampling.
+The runbook's *"1–3 minutes"* was the shape of it; **112 seconds** is the
+number. An operator who does not stop to inspect the staged patch should
+expect **restore to serving in about two minutes**.
+
+### The staged-change mechanism, observed for the first time
+
+**A commit was required. It is not a formality and the Part 100
+correction rests on it.** The staged patch was readable before it applied,
+and says the whole thing in eight lines:
+
+```json
+{"volumes":  {"2ad0d575-…": {"isCreated": true}},
+ "services": {"bbda99d6-…": {"volumeMounts": {
+     "2ad0d575-…": {"mountPath": "/data"},     ← new volume, from the backup
+     "b023531b-…": {"mountPath": null}}}}}     ← ORIGINAL, unmounted not deleted
+```
+
+**Three independent confirmations that a restore is not an overwrite**,
+which is worth stating because the wrong claim survived six weeks:
+
+1. **The workflow is named `createVolumeFromSnapshot`** — the operation
+   names itself.
+2. **The staged patch sets the old volume's mountPath to `null`**, not to
+   deleted.
+3. **`/data` is now a different block device** — `/dev/zd15968`, where it
+   was `/dev/zd3360` before. The filesystem was swapped, not rewritten.
+
+**Nothing applied until the commit.** The app served normally for the 90
+seconds the change sat staged, which means **the review gate is real
+time to change your mind**, not a UI step.
+
+### What was verified, against a record written first
+
+**12/12 databases identical**, including `site_dd.db` at
+`63e51711071481aa` and `underwriting.db` at `1d8667e24f8a8032`.
+**Assessment 11: 23 findings, `f6451ecb366f6ab4`.** All Site DD findings:
+31, `cdb4350469932df7`. `users.json` 249 bytes, `f4e6d7a474f43c38`.
+Uploads 30 files / 1,407,133 bytes. Deployed suite **2,621 tests,
+errors=2** — the same two known node failures. Dashboard and assessment
+11 both serve `200`.
+
+**The backup set survived intact — all five, nothing pruned.** That was
+the entire basis for choosing a freshly-taken target over `b8384e68`, and
+it was verified rather than assumed. **The DAILY and MONTHLY schedules
+also survived** onto the new volume with the same crons and retentions,
+which nobody had thought to predict either way.
+
+> **The backups are addressable from both the old and new volume instance
+> ids and return the same five.** So a backup belongs to the volume's
+> lineage rather than to the instance — useful the day somebody restores
+> twice and wonders which instance to query.
+
+### The retained volume: observed once, and that is all
+
+`fire-capital-tools-volume` (`b023531b…`) is **still there, READY,
+unmounted**, holding 151 MB. **It exists and it is visible**, which is one
+more than we knew yesterday.
+
+> **What this does NOT establish is that it is usable.** Nobody has
+> re-mounted it, and there is no single mutation to do so —
+> `volumeInstanceUpdate` exists and might serve, untested. **It is
+> observed, not relied upon**, and a plan that depends on re-mounting it
+> is still a plan nobody has run.
+
+**It also costs about two cents a month and will sit there indefinitely.**
+Whether to keep it as a belt-and-braces copy of the pre-restore state or
+delete it is a decision, not a default — flagged rather than taken.
+
+### What this proves, and what it does not
+
+**Proven.** A backup on this platform can be restored; the content comes
+back identical; it takes about two minutes end to end with roughly 112
+seconds of downtime; the change is staged and reviewable; the original
+volume is retained.
+
+**Not proven, and the distance is not small.**
+
+* **This says nothing about a backup taken three months ago.** The target
+  was 118 seconds old when the restore was issued. Storage that is fresh
+  is not storage that has aged through retention cycles, and the monthly
+  backups are the ones that will matter in the scenario people imagine.
+* **It says nothing about restoring a backup taken from a different
+  volume generation** — every backup in the set predates this restore.
+* **The retained-volume backstop is observed, not exercised.**
+* **One restore is one sample.** It went cleanly; that is evidence, not a
+  guarantee.
+
+**And it changes nothing about the application snapshots.** A platform
+restore still prunes every backup newer than its target — it did not here
+only because there was none. `snapshot_all` remains the only thing that
+can protect the moment before a platform restore, and a set was taken
+minutes before this one for exactly that reason.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
