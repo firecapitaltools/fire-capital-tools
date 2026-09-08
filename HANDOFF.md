@@ -6182,6 +6182,147 @@ minutes before this one for exactly that reason.
 
 ---
 
+## Reachability is not findability, and no sweep here measures the second
+
+**On a live call neither Jasper nor Michelle could find the rent-roll
+import.** Both knew the feature existed. Both knew it was on that page.
+
+It was there, exactly as designed: *"Adding a whole building? **Preview
+units from a rent roll** — nothing is saved until you say so"* — a link
+inside a sentence, in subtitle grey, directly above a manual add form
+whose **Add** is a solid blue primary button.
+
+> **The page's visual hierarchy recommended typing 152 units in one at a
+> time, and mentioned the thing that does all 152 in prose.**
+
+### Every check we have passed it, and they were all asking the right question badly
+
+**The route-reachability sweep asserts that a route is referenced by some
+template.** That is a true and useful property — five features here
+shipped correct, tested and reachable only by URL, and the sweep exists
+because of them. **A link in a paragraph satisfies it completely.**
+
+So this is not a gap in the sweep's implementation. **It is the sweep
+answering a different question than the one that matters**: *can a user
+get there from here* is not *will a user find it*. The first is a
+property of the graph and is mechanically checkable. The second is a
+property of a person looking at a screen.
+
+| | question | checkable by |
+|---|---|---|
+| reachability | is there a path to this page? | a sweep, and we have one |
+| **findability** | **will somebody looking for it see it?** | **a person who did not build it** |
+
+### The honest substitute, since there is no assertion for this
+
+**Somebody who did not build the page tries to use it.** That is the whole
+method. It has no automation and pretending otherwise is how this
+happened: the feature was covered by tests, by a sweep, and by a comment
+explaining that it was deliberately placed beside "add a unit" — and all
+three were about the code rather than about the screen.
+
+**This is the receiving end of the Part 95 lesson**, one level out. There,
+a delivery claim was verified against a comment with the same author.
+Here, an affordance was verified against a sweep that could only see the
+href. **Both times the artifact checked was made by the same people as the
+thing it was checking**, and neither could have reported the problem.
+
+> **Note what the call was worth.** Two people failing to find something
+> in thirty seconds produced information no amount of re-reading the
+> template would have. That is not an argument for more calls; it is an
+> argument for treating "watch somebody use it" as a check with a cost and
+> a yield, rather than as a courtesy.
+
+### What was built, and the one judgement in it
+
+The import is now a **button whose weight flips with the empty state**:
+
+* **no areas yet** → import is `btn-primary`, manual add is `btn-ghost`
+* **areas exist** → manual add is `btn-primary` again, import steps back
+  to `btn-ghost`
+
+**The flip is the design.** An empty assessment is somebody setting up a
+building, where the import is almost certainly what they want. A
+populated one is somebody mid-walk adding a single unit, which is a real
+thing an inspector does and which this was never about replacing.
+**Two primaries side by side would have been the same failure in
+different clothes** — when everything is recommended, nothing is.
+
+**The reassurance stayed attached to the control.** *"Nothing is saved
+until you approve a preview"* is the reason a person dares press an import
+on real data, and trading it away for space would have been a bad swap.
+
+`tests/test_rentroll_findable.py` pins the affordance in both states —
+that it is a button, that the weights are opposite, that it never
+vanishes, and that the manual form survives. **It says in its own
+docstring that it cannot tell you whether anybody will find it.**
+
+---
+
+## The same shape elsewhere: one real defect, five judgement calls
+
+**Swept every action-looking anchor across all templates.** The two
+candidates named as suspects came out opposite ways.
+
+### `btn-secondary` is used nine times and does not exist
+
+**The defect, and it is a real one.** `class="btn btn-secondary"` appears
+in **six templates**, and **there is no `.btn-secondary` rule in
+`static/style.css`** — the defined set is `btn`, `btn-primary`,
+`btn-ghost`, `btn-success`, `btn-danger`. Base `.btn` supplies padding,
+weight and `border: none` and **no background and no colour**.
+
+| where | control | severity |
+|---|---|---|
+| `investor_report.html:47` | **`<a>` Open Notetaker** | **worst — an anchor gets no default background, so it renders as bold text with padding** |
+| `underwriting_detail.html:43, 448` | `<a>` | same |
+| `underwriting_pnl.html:83` | `<a>` | same |
+| `investor_report.html:85` | `<button>` Add property | milder — a `<button>` still gets the browser's grey |
+| `investor_notes.html:250` | `<button>` Add a property | milder |
+| `investor_report_detail.html:312` | `<button>` Add Partner | milder |
+| `underwriting_detail.html:929, 982` | `<button>` Add Mortgage, **Upload OM** | milder |
+
+**So the add-property affordance flagged as a suspect IS an instance** —
+not because it is a text link, but because its class does nothing, which
+produces the same outcome by a different route. **The four anchors are the
+sharp cases**: an `<a class="btn btn-secondary">` has no button appearance
+at all.
+
+**Not fixed here** — it is a stylesheet decision (define `btn-secondary`,
+or migrate nine call sites to `btn-ghost`) touching six templates across
+four tools, and Step B was a list.
+
+### The three Site DD exports are clean
+
+Checked because they were named: `Condition Report (PDF)` is
+`btn-primary`, both `Capital Budget` exports are `btn-ghost`, `Delete` is
+`btn-danger`, all in one flex row. **Correctly ranked already** — the
+report is the common case, the budgets are secondary, delete is
+distinguished by colour rather than by weight.
+
+### Five prose links, none urgent, listed for completeness
+
+All are **empty-state prompts inside a sentence** — the rent-roll shape,
+at much lower stakes, because each appears exactly when the page has
+nothing else on it and the sentence is the only content:
+
+* `deal_dive.html:93` — *"No deals yet. **Create one**."*
+* `deal_dive.html:89` — *"No deals match … — **Create it as a new deal**"*
+* `deal_dive_detail.html:88` — *"No underwriting scenarios yet ·
+  **Build a model →**"*
+* `investor_report.html:188` — *"…nothing to allocate until one exists —
+  **build one first →**"*
+* `underwriting_compare.html:67` — same wording
+
+**My read: leave them.** An empty state where the sentence IS the page
+does not hide its link the way a paragraph above a competing primary
+button does. The rent-roll case was severe precisely because something
+louder sat next to it recommending the wrong path. **If any one of these
+is worth promoting it is `deal_dive_detail.html:88`**, which is a
+cross-tool jump rather than a prompt to fill an empty list.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later

@@ -215,11 +215,45 @@
     It sits beside "add a unit" because that is the job it does: the same
     task for 152 units instead of one.
   #}
-  <p class="page-subtitle" style="margin:14px 0 0;">
-    Adding a whole building?
-    <a href="{{ url_for('site_dd.seed_preview', assessment_id=assessment.id) }}">
-      Preview units from a rent roll</a> &mdash; nothing is saved until you say so.
-  </p>
+  {#
+    A BUTTON, BECAUSE REACHABLE IS NOT FINDABLE.
+
+    This was a link inside a sentence, in subtitle grey, directly above a
+    manual add form whose "Add" is a solid primary button. Every sweep we
+    have passed it: the route is referenced by a template, so it is
+    reachable. **On a live call neither Jasper nor Michelle could find
+    it** -- both knew the feature existed and knew it was on this page.
+
+    The page was recommending, visually, that you type 152 units in one at
+    a time, and mentioning the thing that does all 152 in prose.
+
+    THE WEIGHT FLIPS WITH THE EMPTY STATE, which is the whole design:
+
+      no areas yet -> the import is what you almost certainly want, so it
+                      is the primary button and manual add is the ghost
+      areas exist  -> you are mid-walk adding one thing, so manual add is
+                      primary again and the import steps back to a ghost
+                      button. It steps BACK; it does not disappear.
+
+    The reassurance stays attached to it. "Nothing is saved until you say
+    so" is the reason somebody dares to click an import on real data, and
+    trading it away to make room for a button would have been a bad swap.
+  #}
+  <div style="margin:14px 0 0; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <a href="{{ url_for('site_dd.seed_preview', assessment_id=assessment.id) }}"
+       class="btn {{ 'btn-primary' if not area_total else 'btn-ghost' }} sdd-touch">
+      Import units from a rent roll
+    </a>
+    <span class="stat-box-sub" style="flex:1 1 240px;">
+      {% if not area_total %}
+        Adds every unit in the building at once &mdash; the last import created
+        152. <strong>Nothing is saved until you approve a preview.</strong>
+      {% else %}
+        Adding a whole building? Same job, every unit at once.
+        <strong>Nothing is saved until you approve a preview.</strong>
+      {% endif %}
+    </span>
+  </div>
 
   {#
     WHERE A SEEDED ASSESSMENT SHOWS ITS BATCH -- AND THEREFORE WHERE THE
@@ -301,7 +335,15 @@
         {% for st in area_statuses %}<option value="{{ st }}">{{ area_status_label(st) }}</option>{% endfor %}
       </select>
     </div>
-    <button type="submit" class="btn btn-primary sdd-touch">Add</button>
+    {#
+      Primary when there is already something here -- that is the mid-walk
+      case, where adding one unit is exactly the job. Ghost on an empty
+      assessment, where the import above is almost always the better
+      route. Still a button either way: this form is not being demoted out
+      of usefulness, it is being ranked.
+    #}
+    <button type="submit"
+            class="btn {{ 'btn-primary' if area_total else 'btn-ghost' }} sdd-touch">Add</button>
   </form>
 </div>
 
