@@ -16,8 +16,10 @@ reimplemented, because they already encode real knowledge about which
 ledger lines count as rent (HAP and other subsidies do, renters insurance
 does not, concessions offset).
 
-ResMan only for this beta. Any other layout raises UnrecognizedRentRoll
-rather than guessing -- the Scorecard Pro property-name collision came
+TWO DIALECTS, DISPATCHED ON THE HEADER. ResMan was first and is
+unchanged below; Appfolio was added in Part 106 because Michelle is
+walking a property whose roll is one. Any other layout, or a file that
+matches both, raises UnrecognizedRentRoll rather than guessing -- the Scorecard Pro property-name collision came
 from a parser that guessed when it did not recognize a file, and the same
 mistake here would silently under- or over-state income for the whole
 model.
@@ -144,6 +146,165 @@ def _header_index(rows) -> int | None:
     return None
 
 
+# ── Appfolio: a second dialect, dispatched rather than guessed ───────────
+#
+# Appfolio's rent roll is a different document that happens to share a
+# name. One row per unit, no charge lines at all, and the layout written
+# numerically:
+#
+#     rows 0-7  Rent Roll / Exported On: / Properties: / Units: Active /
+#               As of: / Include Non-Revenue... / Include Advertised...
+#     row 9     Unit | BD/BA | Tenant | Status | Sqft | Rent | Deposit |
+#               Move-in | Move-out | Past Due
+#     row 10    1120 Jackson Street - 1120 Jackson      <- property banner
+#     row 11    1 | 1/1.00 | Kin Wah Fong | Current | | 2820 | 100 | ...
+#     ...
+#     footer    16 Units | | | 93.8% Occupied
+#               Total 16 Units | | | 93.8% Occupied
+#
+# THE TWO SIGNATURES ARE DISJOINT ON THREE COLUMNS EACH, which is what
+# makes this a dispatch and not a guess:
+#
+#     ResMan    Unit AND Market Rent AND Description/Amount
+#     Appfolio  Unit AND BD/BA AND Status, and NEITHER Market Rent NOR
+#               Description/Amount
+#
+# Confirmed against `Jackson 0816 RR test.xlsx` (1120 Jackson Street,
+# exported 2026-08-16): 16 units, labels 1-12 and 14-17 with no unit 13,
+# every layout `1/1.00`, sqft empty on every row, and statuses stated
+# rather than blank.
+_APPFOLIO_STATUS_COL = "status"
+
+
+def _appfolio_header_index(rows) -> int | None:
+    """Row index of an Appfolio header band, or None.
+
+    Requires Unit, BD/BA and Status AND the ABSENCE of the two ResMan
+    markers. The absence half is load-bearing: without it a ResMan export
+    that happens to carry a Status column would match both dialects, and
+    the caller could not tell which parser to run.
+    """
+    for idx, row in enumerate(rows[:MAX_HEADER_SCAN_ROWS]):
+        has_unit = find_col(row, "unit") is not None
+        has_bdba = (find_col(row, "bd/ba", "bd / ba", "bdba") is not None
+                    or find_col_contains(row, "bd/ba") is not None)
+        has_status = find_col(row, "status") is not None
+        has_market = (find_col(row, "market rent") is not None
+                      or find_col_contains(row, "market rent") is not None)
+        has_charges = (find_col(row, "description") is not None
+                       and find_col(row, "amount") is not None)
+        if has_unit and has_bdba and has_status and not has_market and not has_charges:
+            return idx
+    return None
+
+
+def _appfolio_columns_seen(rows) -> list[str]:
+    """What the best-looking header row actually carried, for the refusal
+    message. Naming what WAS found is the difference between a message
+    somebody can act on and one that just says no."""
+    best: list[str] = []
+    for row in rows[:MAX_HEADER_SCAN_ROWS]:
+        labels = [str(c).strip() for c in row if str(c or "").strip()]
+        if find_col(row, "unit") is not None and len(labels) > len(best):
+            best = labels
+    return best
+
+
+def parse_appfolio_rent_roll(rows) -> dict[str, Any]:
+    """One row per unit, and three kinds of row that are not units.
+
+    The banner (`1120 Jackson Street - 1120 Jackson`) and both footers
+    (`16 Units ... 93.8% Occupied`, `Total 16 Units ...`) all carry text in
+    the Unit column and would open a phantom unit. Every one of them is
+    distinguishable by having no BD/BA, which is the same corroboration
+    rule the ResMan path already uses -- a unit number on its own is not a
+    unit.
+    """
+    header_idx = _appfolio_header_index(rows)
+    if header_idx is None:
+        raise UnrecognizedRentRoll("Not an Appfolio rent roll layout.")
+    header = rows[header_idx]
+    cols = {
+        "unit": find_col(header, "unit"),
+        "type": (find_col(header, "bd/ba", "bd / ba", "bdba")
+                 or find_col_contains(header, "bd/ba")),
+        "status": find_col(header, _APPFOLIO_STATUS_COL),
+        "sqft": find_col(header, "sqft", "sq ft", "square feet"),
+        "rent": find_col(header, "rent"),
+        "move_in": find_col(header, "move-in", "move in"),
+        "move_out": find_col(header, "move-out", "move out"),
+    }
+    if cols["unit"] is None or cols["type"] is None or cols["status"] is None:
+        raise UnrecognizedRentRoll(
+            "Appfolio rent roll header found but its Unit/BD-BA/Status "
+            "columns could not be read.")
+
+    units: list[dict[str, Any]] = []
+    for row in rows[header_idx + 1:]:
+        label = str(safe_get(row, cols["unit"]) or "").strip()
+        unit_type = str(safe_get(row, cols["type"]) or "").strip()
+        if not label or not unit_type:
+            # Banner and footer rows both land here. Neither carries a
+            # layout, and a row without one cannot be seeded anyway.
+            continue
+        # WHAT NOTHING WE HOLD CAN VALIDATE, SAID WHERE THE PARSE HAPPENS.
+        #
+        # Every one of Jackson's 16 rows reads `1/1.00`. So this parser is
+        # demonstrated on ONE layout string, and how Appfolio writes a unit
+        # that is not one bedroom is UNKNOWN. If it writes `2/1.00` this
+        # already works, because parse_unit_type reads a leading N/M and
+        # ignores the rest. If it writes `2BD/1BA` or `2 BR / 1 BA` the
+        # parse returns None, plan_units refuses the row by name, and the
+        # preview shows it -- which is the right failure, but it is a
+        # failure nobody here has seen.
+        #
+        # Do not add a pattern for a form nobody has a file of. The
+        # letter-only unit rule was retired for exactly that reason: a
+        # branch that cannot be exercised is a branch that cannot be
+        # trusted. The first multi-bedroom Appfolio roll is the test.
+        units.append({
+            "unit": label,
+            "unit_type": unit_type,
+            # ABSENT, NOT ZERO. Sqft is empty on every row of the only
+            # Appfolio file we hold; coercing to 0 would put a real number
+            # in front of somebody. This repo has recorded that failure
+            # three times.
+            "sqft": coerce_num(safe_get(row, cols["sqft"]), default=None),
+            "status": (str(safe_get(row, cols["status"]) or "").strip() or None),
+            "market_rent": None,          # Appfolio has no market rent column
+            "in_place_rent": coerce_num(safe_get(row, cols["rent"]), default=None),
+            "lease_start": None,
+            "lease_end": None,
+            "move_in": _as_date(safe_get(row, cols["move_in"])),
+            "move_out": _as_date(safe_get(row, cols["move_out"])),
+            # THE DIALECT TRAVELS WITH THE ROW, because the status
+            # vocabulary inverts between the two and the seeding must not
+            # re-derive it from whether a cell was blank. See
+            # site_dd_seeding.read_status.
+            "dialect": "appfolio",
+        })
+
+    if not units:
+        raise UnrecognizedRentRoll(
+            "An Appfolio rent roll header was recognised but no unit rows "
+            "were found under it.")
+
+    warnings: list[str] = []
+    missing_sqft = sum(1 for u in units if u["sqft"] is None)
+    if missing_sqft:
+        warnings.append(f"{missing_sqft} unit(s) have no square footage; they are "
+                        f"excluded from average-sqft figures rather than counted as zero.")
+    warnings.append(
+        "Appfolio rent rolls carry no market rent, so gross potential rent "
+        "cannot be read from this file.")
+    return {
+        "units": units,
+        "unit_count": len(units),
+        "warnings": warnings,
+        "source_format": "Appfolio Rent Roll",
+    }
+
+
 def _as_date(value):
     if value is None or value == "":
         return None
@@ -259,7 +420,28 @@ def parse_rent_roll_workbook(path) -> dict[str, Any]:
     if the layout is not recognized or yields no units -- never returns a
     partially-guessed result."""
     rows, sheetnames = _load_rows(path)
-    header_idx = _header_index(rows)
+
+    # DISPATCH, NOT GUESS. Both dialects are workbooks whose first rows are
+    # title text and neither names its own vendor anywhere worth trusting,
+    # so the decision is made on the header row's columns. The signatures
+    # are disjoint on three columns each; see _appfolio_header_index.
+    #
+    # AMBIGUITY REFUSES. Guessing wrong here seeds an entire building from
+    # a misunderstanding, and the undo for that is a seed_batch rollback
+    # that only works while nobody has walked the units -- which is exactly
+    # the window an import is followed by.
+    resman_idx = _header_index(rows)
+    appfolio_idx = _appfolio_header_index(rows)
+    if resman_idx is not None and appfolio_idx is not None:
+        raise UnrecognizedRentRoll(
+            "This file matches both the ResMan and the Appfolio rent roll "
+            "layouts, so which one it is cannot be decided from its columns. "
+            "Nothing was read. The header row carries: "
+            + ", ".join(_appfolio_columns_seen(rows)) + ".")
+    if appfolio_idx is not None:
+        return parse_appfolio_rent_roll(rows)
+
+    header_idx = resman_idx
     if header_idx is None:
         # Name the actual mistake when it is recognizable. An MMR is the file
         # most likely to be uploaded here by accident -- it is the same
@@ -270,12 +452,15 @@ def parse_rent_roll_workbook(path) -> dict[str, Any]:
                 "This looks like a Weekly Property Summary / MMR export, not a "
                 "rent roll. Please upload the property's actual rent roll file."
             )
+        seen = _appfolio_columns_seen(rows)
         raise UnrecognizedRentRoll(
-            "This does not look like a ResMan rent roll — no row was found "
-            "carrying a 'Unit' column, a 'Market Rent' column and the "
+            "This does not look like a rent roll this tool reads. A ResMan "
+            "export needs a 'Unit' column, a 'Market Rent' column and the "
             "'Description'/'Amount' charge lines that in-place rent is read "
-            "from. Only ResMan rent roll exports are supported in this beta; "
-            "upload one of those, or enter the rent roll manually."
+            "from; an Appfolio export needs 'Unit', 'BD/BA' and 'Status'. "
+            + (f"The closest header row carries: {', '.join(seen)}. "
+               if seen else "No header row carrying a 'Unit' column was found. ")
+            + "Upload one of those exports, or enter the rent roll manually."
         )
 
     header = rows[header_idx]
@@ -426,12 +611,15 @@ def parse_unit_type(text: Any) -> UnitLayout | None:
 
     NONE IS REFUSED, NOT GUESSED, AND THE CALLER MUST REPORT IT.
 
-    A studio has no leading integer pair and there is no honest reading of
-    one -- "0 bedrooms" is a guess, and so is "1". No such row exists in
-    either rent roll we hold, so this path has never run against real
-    data; it stays a refusal rather than a default precisely because it is
-    untested. `layouts_for_units()` collects the refusals so they are
-    shown rather than silently absent.
+    A studio has no leading integer pair in a ResMan file and there is no
+    honest reading of one -- "0 bedrooms" is a guess, and so is "1". No
+    such row exists in either rent roll we hold, so this path has never
+    run against real data; it stays a refusal rather than a default
+    precisely because it is untested. `layouts_for_units()` collects the
+    refusals so they are shown rather than silently absent.
+
+    **An Appfolio studio WOULD parse**, as `0/1.00`, and is refused
+    explicitly below for the same reason rather than seeded.
 
     A fractional bath other than .5 is refused for the same reason. Every
     bath figure in the real file is 1, 1.5 or 2; .5 means one half bath,
@@ -441,6 +629,30 @@ def parse_unit_type(text: Any) -> UnitLayout | None:
     if not match:
         return None
     beds = int(match.group(1))
+    if beds == 0:
+        # A STUDIO IS REFUSED, AND THIS IS A DECISION MADE WITHOUT A SAMPLE.
+        #
+        # ResMan strings cannot reach here: a studio there has no leading
+        # `N/M` pair, so it is already refused by the pattern. Appfolio
+        # writes its layouts numerically -- `1/1.00` -- and a studio would
+        # therefore arrive as `0/1.00` and parse cleanly to zero bedrooms.
+        # This function was written and validated against ResMan; it
+        # accepts the Appfolio form by accident rather than by design.
+        #
+        # Zero bedroom rooms might be exactly right for a studio. The
+        # problem is that a unit seeded with living, kitchen and bathroom
+        # and nothing else is ALSO precisely what a parse failure looks
+        # like, and after the seed nothing distinguishes the two -- there
+        # is no record of whether zero was read or fumbled.
+        #
+        # NOTHING WE HOLD CONTAINS A STUDIO, so the correct behaviour is
+        # untested either way. Refusing surfaces it once, on the first
+        # real one, on a preview where a person can look at it and add the
+        # unit by hand. Seeding it would be silent and permanent.
+        #
+        # Do not "fix" this as an oversight. If a studio sample arrives,
+        # decide it against the file.
+        return None
     baths = float(match.group(2))
     full_baths = int(baths)
     remainder = round(baths - full_baths, 4)
