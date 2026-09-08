@@ -6407,6 +6407,65 @@ see the check, so it cannot quietly become a gate.
 
 ---
 
+## A summary can be accurate and still mislead, by being silent
+
+**Part 107 opened with an assertion that was simply wrong**: that
+assessment 22 was *Nabob Hill*, and therefore that Michelle had imported
+an Oxford Pointe rent roll into a Nabob Hill assessment. A whole step was
+built on it — find out whether the wrong file was imported, and what she
+could do about it.
+
+**Assessment 22 is labelled `OXPT`.** She imported an Oxford Pointe roll
+into an Oxford Pointe assessment. There was no mistake to find.
+
+### Where the wrong fact came from, which is the useful part
+
+**From an earlier report's table — one that never contained the field.**
+That table was about unit counts: assessment id, area count, and which
+assessments carried 152. **`property_label` was not a column in it.** The
+name "Nabob Hill" came from a different table in a different run, about
+the assessments Michelle had created.
+
+So this is not the summary-inheritance failure, and filing it there would
+lose what makes it different:
+
+| | |
+|---|---|
+| [summary inheritance](#a-summary-inherits-staleness-and-launders-it-into-a-fresh-reading) | a summary carried **stale facts**, and re-reading it produced a confident wrong answer |
+| **this** | a summary carried **correct facts and no facts at all** about the field later asserted — and the gap was filled from memory of a different table |
+
+> **A summary is dangerous in two ways, and only one of them is
+> staleness.** The other is SILENCE: it is accurate about what it covers,
+> so it reads as trustworthy, and it says nothing about the column you
+> need — at which point the mind supplies one from somewhere else without
+> registering that it did. **Stale data announces itself eventually.
+> Absent data never does**, because there is nothing there to contradict.
+
+**The practical form: before asserting a field, check the summary you are
+reading actually has that column.** If it does not, the value came from
+somewhere and that somewhere is the thing to name. "I read it in the
+earlier table" is a claim that can be checked in three seconds and was
+never made, because it never felt like a claim.
+
+### What caught it, and it was not re-reading anything
+
+**Four independent checks on the actual rows**, none of which consulted a
+summary:
+
+1. `property_label` read straight off `site_dd_assessments` — `'OXPT'`.
+2. **The 152 labels compared as sets** against assessment 21's Oxford
+   Pointe labels — identical, and **zero overlap with Jackson's 1–17**.
+3. The layout distribution — same four shapes in the same counts.
+4. The seed batch — its own, distinct from 21's.
+
+**Any one of them would have settled it.** The instruction to check the
+labels was right for exactly the reason it gave: *the labels settle it
+immediately.* The lesson is not "check four things"; it is that **the
+check has to touch the row, because every summary in the chain had
+already agreed with itself.**
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
