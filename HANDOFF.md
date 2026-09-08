@@ -6466,6 +6466,119 @@ already agreed with itself.**
 
 ---
 
+## The seeder is deterministic, and the evidence is two rows in the database
+
+**Not a claim — an artifact anyone can re-run.** Oxford Pointe was seeded
+twice: assessment **21** on 2026-08-31 from one export, assessment **22**
+on 2026-09-08 from a different one, eight days and one client apart.
+
+    railway ssh -- compare the two, read-only:
+    SELECT label, kind, status FROM site_dd_areas WHERE assessment_id IN (21, 22)
+
+Everything that should be identical is:
+
+| | 21 | 22 |
+|---|---|---|
+| labels | 152 | 152 — **identical as a set** |
+| room shapes | — | **0 differences** |
+| room labels | — | **0 differences** |
+| kind | — | **0 differences** |
+| total rooms | 894 | 894 |
+| layout distribution | — | identical |
+
+**Every difference traces to the data or to a feature that shipped between
+the runs**, and none traces to the seeder: seven units changed occupancy,
+and 19 areas carry the *"Vacant inferred"* note that Part 88 added
+**after** 21 was seeded.
+
+### Nobody designed this experiment, and that is the point
+
+It exists because **a rehearsal assessment was kept rather than tidied
+away**, and a client then happened to seed the same property from a newer
+file. The determinism check cost nothing to run and could not have been
+constructed deliberately without seeding a client's property twice on
+purpose.
+
+> **An artifact left in place is a control group you did not have to
+> build.** Not an argument for keeping everything — assessment 21 is
+> still a duplicate in Michelle's list and its removal is her call — but
+> worth noticing before the next tidy-up, because the value only appeared
+> eight days later and would not have been missed if it had been deleted.
+
+---
+
+## A net figure hides movement in both directions
+
+**"One unit went vacant" was the net.** The gross was **seven units
+changing status** — 229, 317, 419 and 640 went occupied to vacant; 212,
+515 and 722 went the other way. Net +1, 18 vacant to 19.
+
+Nobody was misled, because nobody acted on it. **That is why it is worth
+writing down now rather than after somebody is.**
+
+> **On a rent roll the movement IS the thing.** An inspector planning a
+> walk cares which seven units changed, not that the total moved by one.
+> A net of zero would have been the worst case of all: seven changes,
+> reported as nothing happening.
+
+### Where this could bite here, checked rather than assumed
+
+**Nothing in this codebase reports a net occupancy change. That is the
+answer, not a gap.** Searched the seeding path, the exports, the MMR
+package and the scorecard: occupancy is reported as a point-in-time
+figure — `pct_occ`, occupied units — never as a delta between two rolls.
+
+**And `_seed_figures` already embodies the same rule**, explicitly:
+
+> *"Four, not one. A single total could match while its parts had moved —
+> a unit refused and another created is the same count of areas and a
+> different write."*
+
+**One consequence found while checking, and it is worth knowing before
+somebody relies on it.** `site_dd_seed_write.py` contains exactly one
+write to `site_dd_areas` — an `INSERT` — and **no `UPDATE` anywhere**. On
+re-import, a unit that already exists is *reused*: missing rooms are
+appended and **its status is not touched**.
+
+> So **re-importing a newer rent roll into an existing assessment does not
+> update occupancy.** Those seven changed units would be reported by the
+> preview as "reused" and their old statuses left in place. That is
+> correct behaviour for this design — the seeder appends and never
+> overwrites, and a rent roll cannot say a room an inspector recorded does
+> not exist — but somebody who re-imports a fresh roll expecting statuses
+> to refresh will get silence. **Not a defect to fix today; a fact to
+> state before it is discovered.**
+
+---
+
+## The restart window, observed rather than reasoned about
+
+**During Part 109 the container reported `status: exited` mid-redeploy and
+came back healthy** — the app served 200 internally and the public URL
+returned 200 a few minutes later.
+
+This is the window the startup-hook decision was weighed against: *a hook
+that can raise is a hook that can stop the app booting, and trading "no
+backups" for "the app will not boot" is a bad trade on a single production
+service with no rollback.* That was an argument; it has now been seen.
+
+**What it establishes:** the window is real, it is observable from
+outside, and an ordinary redeploy passes through it and recovers without
+help.
+
+> **What it does NOT establish, and the distinction is the whole value of
+> the note: nothing about what a raising hook would do, because no such
+> hook exists.** A deploy that fails during startup for a reason the code
+> introduced is a different event from one that restarts cleanly, and this
+> observation contains no evidence about the first. The decision stands on
+> its original reasoning, not on this.
+
+**Recorded because it is cheap to write down and impossible to reconstruct
+later** — the window is only visible if somebody happens to be running a
+command against the container at the moment it turns over.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
