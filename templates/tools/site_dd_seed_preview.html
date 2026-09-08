@@ -80,6 +80,49 @@
         <div class="stat-box-sub">listed individually below</div>
       </div>
     </div>
+    {#
+      WHICH BUILDING IS THIS FILE FOR?
+
+      The figures above say what WOULD happen -- "152 units will be
+      created" -- and that sentence reads exactly the same whether the
+      file is the right one or somebody else's. The consequence is what
+      the tool knows. Which building this is, is what the person knows,
+      so the screen has to carry the file's own answer for them to
+      compare against.
+
+      Never a gate. A mismatch is shown and the import proceeds if they
+      want it to: names legitimately differ, and refusing would be a rule
+      nobody asked for.
+    #}
+    {% if preview.property_check %}
+      {% set pc = preview.property_check %}
+      <div style="margin:12px 0 0; padding:10px 12px; border-radius:8px;
+        {% if pc.verdict == 'differ' %}background:#fef2f2; border-left:3px solid #dc2626;
+        {% elif pc.verdict == 'unknown' %}background:#f9fafb; border-left:3px solid #9ca3af;
+        {% else %}background:#f0fdf4; border-left:3px solid #059669;{% endif %}">
+        {% if pc.verdict == 'differ' %}
+          <strong>These are two different property names.</strong>
+        {% elif pc.verdict == 'unknown' %}
+          <strong>The property could not be compared.</strong>
+        {% else %}
+          <strong>The file is for this property.</strong>
+        {% endif %}
+        <div class="stat-box-sub" style="margin-top:6px;">
+          The file says
+          {% if pc.file_name %}<strong>{{ pc.file_name }}</strong>{% else %}
+            <em>nothing &mdash; it does not name a property</em>{% endif %}
+          &middot; this assessment is
+          {% if pc.assessment_name %}<strong>{{ pc.assessment_name }}</strong>{% else %}
+            <em>unnamed</em>{% endif %}.
+          {%- if pc.verdict != 'unknown' %} {{ pc.reason }}.{% endif %}
+          {% if pc.verdict == 'differ' %}
+            Check you are importing the right rent roll into the right
+            assessment before approving &mdash; this is not blocked, and
+            there may be a good reason the names differ.
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
     <p class="page-subtitle" style="margin-bottom:0;">
       Read from <strong>{{ preview.file }}</strong>
       {%- if preview.source %} &middot; {{ preview.source }}{% endif %}

@@ -6354,6 +6354,59 @@ argument against making it the loudest thing on the page.
 
 ---
 
+## A confirmation screen that shows only the consequence cannot check the premise
+
+**Nothing went wrong, and that is why this is worth writing down.**
+
+On 2026-09-08 Michelle seeded 152 units into assessment 22. The preview
+told her *"152 units will be created"* — and **that sentence reads
+identically whether the file is the right one or somebody else's.** The
+file was right: assessment 22 is labelled `OXPT`, its 152 labels are an
+identical set to assessment 21's Oxford Pointe labels, and the 18 vacant
+units had become 19, which is what a re-walk with a fresh roll looks like.
+
+> **The consequence is what the tool knows. The premise — which building
+> this is — is what the PERSON knows.** A screen that states only the
+> first has nothing for them to check the second against, so approving is
+> an act of faith even when the person is being careful.
+
+**And the preview genuinely could not have told anyone either way.**
+Neither parser extracted the property name, though both files state it
+plainly: ResMan puts it in row 1 (`Oxford Pointe Apartments`), Appfolio in
+its preamble (`Properties: 1120 Jackson Street - …`). The screen showed
+the uploaded FILENAME, which is whatever the file was last saved as and
+says nothing about its contents.
+
+**Built in Part 108**: both parsers return `property_name`, and the
+preview shows it beside the assessment's own label with a verdict.
+
+**The comparison is deliberately lopsided, and that is the design.** A
+false *"these disagree"* costs a person two seconds of reading two names.
+A false *"these agree"* is the whole failure — a reassurance printed at
+exactly the moment somebody is about to seed a building from the wrong
+file. So agreement is asserted only on evidence (identical names, whole-
+token containment, or a pairing the platform already knows), and anything
+else is a stated disagreement or **no verdict at all**.
+
+`Oxford Pointe Apartments` against `OXPT` is a match a person makes
+instantly and `==` does not, so the abbreviation table the Weekly Property
+Summary has carried since long before this check is reused rather than
+restated.
+
+**It never blocks.** Names legitimately differ, an assessment may be
+labelled with a deal code, and refusing an import over a name would be a
+rule Michelle has not asked for. A test asserts `seed_apply` cannot even
+see the check, so it cannot quietly become a gate.
+
+> **The general form, worth carrying to every confirm screen here.** Ask
+> what the person is being asked to confirm, and then whether the screen
+> carries the thing they would need to confirm it. "152 units will be
+> created" is a fact about the tool's plan. "This file says Oxford Pointe
+> Apartments" is a fact about the world, and only the second one can be
+> wrong in a way the person is positioned to catch.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
