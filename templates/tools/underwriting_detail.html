@@ -40,7 +40,7 @@
   #}
   {% if result %}
     <a href="{{ url_for('underwriting.pnl', scenario_id=scenario.id) }}"
-       class="btn btn-secondary" style="margin-top:12px; display:inline-flex;">
+       class="btn btn-ghost" style="margin-top:12px; display:inline-flex;">
       View Pro-Forma P&amp;L
     </a>
   {% endif %}
@@ -445,7 +445,7 @@
 <div class="card" id="investor-summary">
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
     <div class="scorecard-section-title">Investor Returns</div>
-    <a class="btn btn-secondary"
+    <a class="btn btn-ghost"
        href="{{ url_for('investor_report.detail', scenario_id=investor_summary.id) }}">
       Open Full Waterfall
     </a>
@@ -926,7 +926,7 @@
     </table>
 
     <div style="display:flex; gap:10px; margin-top:12px; flex-wrap:wrap;">
-      <button type="button" class="btn btn-secondary" onclick="addMortgageRow();">Add Mortgage</button>
+      <button type="button" class="btn btn-ghost" onclick="addMortgageRow();">Add Mortgage</button>
       <button type="submit" class="btn btn-primary">Save Loans</button>
     </div>
     <p class="stat-box-sub" style="margin-top:10px;">
@@ -979,7 +979,7 @@
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <input class="form-input" type="file" name="om" accept=".pdf"
              style="max-width:360px;">
-      <button type="submit" class="btn btn-secondary">Upload OM</button>
+      <button type="submit" class="btn btn-ghost">Upload OM</button>
     </div>
     <span class="stat-box-sub">
       PDF only, up to 20 MB. Uploading reads the file here and sends

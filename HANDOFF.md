@@ -6288,9 +6288,25 @@ produces the same outcome by a different route. **The four anchors are the
 sharp cases**: an `<a class="btn btn-secondary">` has no button appearance
 at all.
 
-**Not fixed here** — it is a stylesheet decision (define `btn-secondary`,
-or migrate nine call sites to `btn-ghost`) touching six templates across
-four tools, and Step B was a list.
+> **MIGRATED 2026-09-07: all nine to `btn-ghost`, and the class is not
+> defined.** Migrating rather than defining, because a sixth style nobody
+> chose deliberately is worse than reusing the five that exist, and
+> `btn-ghost` is already what secondary actions use where the styling
+> works. Each site was judged on its own; all nine came out secondary,
+> including `Upload OM` — see the note on relative weight above.
+>
+> **`tests/test_button_classes_exist.py` now asserts that every `btn-`
+> class used in any template has a rule in the stylesheet.** Unlike
+> findability, that is mechanically checkable, and it would have caught
+> this on the day it was written.
+>
+> **The first version of that check reported five false positives** —
+> `sdd-nav-btn--primary` (a BEM modifier on another base, matched by a
+> word boundary between the hyphen and the `b`) and four
+> `id="btn-refresh-all"` element ids on FIRE Metrics. The fix was in the
+> pattern, not in any template. **An instrument that names correct code is
+> worse than no instrument, because somebody will go and "fix" what it
+> names.**
 
 ### The three Site DD exports are clean
 
@@ -6314,12 +6330,27 @@ nothing else on it and the sentence is the only content:
   **build one first →**"*
 * `underwriting_compare.html:67` — same wording
 
-**My read: leave them.** An empty state where the sentence IS the page
-does not hide its link the way a paragraph above a competing primary
-button does. The rent-roll case was severe precisely because something
-louder sat next to it recommending the wrong path. **If any one of these
-is worth promoting it is `deal_dive_detail.html:88`**, which is a
-cross-tool jump rather than a prompt to fill an empty list.
+**Leave them — accepted 2026-09-07, and the reasoning is the point.**
+An empty state where the sentence IS the page does not hide its link the
+way a paragraph above a competing primary button does. The rent-roll case
+was severe precisely because **something louder sat next to it
+recommending the wrong path**.
+
+> **The defect was RELATIVE weight, not absolute.** A text link with
+> nothing competing is findable; a text link beside a solid primary button
+> that does the lesser thing is not. Anyone doing an affordance pass here
+> should test that comparison rather than treating every `<a>` as a bug —
+> a repo where nothing may be prose is a repo of shouting buttons, and the
+> next person will not have this paragraph unless it is written down.
+
+**If any one of these is ever worth promoting it is
+`deal_dive_detail.html:88`**, which is a cross-tool jump rather than a
+prompt to fill an empty list.
+
+**The same test decided `Upload OM`** in the `btn-secondary` migration:
+alone on its card, so nothing competes, so ghost is right — and the
+card's own copy says *"Nothing here populates the model"*, which is an
+argument against making it the loudest thing on the page.
 
 ---
 
