@@ -28,6 +28,7 @@ import math
 import re
 from typing import Any, NamedTuple
 
+from tools import investor_notes_match as matching
 from tools import site_dd_db as sdb
 from tools.underwriting_rentroll import parse_unit_type
 
@@ -383,6 +384,108 @@ def _notes_for(unit: dict[str, Any], status: StatusReading) -> tuple[str, ...]:
         notes.append("Vacant inferred: the rent roll gave no status, and "
                      "no lease, move-in or rent.")
     return tuple(notes)
+
+
+# ── Does the file say it is for this building? ───────────────────────────
+#
+# INFORMATION AT THE POINT OF APPROVAL, NOT A GATE. A mismatch is never
+# refused: names legitimately differ, an assessment may be labelled with
+# an abbreviation or a deal code, and refusing would invent a rule
+# Michelle has not asked for. The screen shows both names and says which
+# way it reads them.
+#
+# CONSERVATIVE IN ONE DIRECTION ON PURPOSE. A false "these disagree" costs
+# a person two seconds of reading two names. A false "these agree" is the
+# entire failure this exists to prevent -- it would put a reassurance on
+# screen exactly when somebody is about to seed a building from the wrong
+# file. So AGREEMENT IS ASSERTED ONLY ON EVIDENCE, and anything else is
+# either a stated disagreement or no verdict at all.
+
+MATCH_YES = "match"          # the same building, on evidence
+MATCH_NO = "differ"          # both named, and nothing connects them
+MATCH_UNKNOWN = "unknown"    # not enough to say -- show both, judge nothing
+
+
+class PropertyNameCheck(NamedTuple):
+    file_name: str | None       # what the rent roll calls itself
+    assessment_name: str | None # what this assessment is called
+    verdict: str
+    reason: str
+
+
+def _tokens(text: Any) -> list[str]:
+    return matching.normalize(str(text or "")).split()
+
+
+def _contains_tokens(longer: list[str], shorter: list[str]) -> bool:
+    """Whole-token containment, in order.
+
+    Token-wise rather than substring so "Pointe" cannot match inside
+    another word, and ordered so "Eagle Rock" does not match "Rock Eagle".
+    """
+    if not shorter or len(shorter) > len(longer):
+        return False
+    for i in range(len(longer) - len(shorter) + 1):
+        if longer[i:i + len(shorter)] == shorter:
+            return True
+    return False
+
+
+def _abbreviation_pairs() -> dict[str, str]:
+    """The full-name/abbreviation pairings this platform already knows.
+
+    Reused rather than restated: the Weekly Property Summary has needed
+    "oxford pointe" -> "OXPT" since long before this check existed, and a
+    second copy would be a second thing to update.
+    """
+    from tools.mmr_report.builders import _PROPERTY_ABBREVS
+    return dict(_PROPERTY_ABBREVS)
+
+
+def compare_property_name(file_name: Any, assessment_name: Any) -> PropertyNameCheck:
+    """Whether the rent roll and the assessment name the same building.
+
+    "Oxford Pointe Apartments" against "OXPT" is a match a person makes
+    instantly and a string comparison does not, which is why the
+    abbreviation table is consulted rather than trusting equality.
+    """
+    file_text = str(file_name or "").strip() or None
+    assessment_text = str(assessment_name or "").strip() or None
+
+    if file_text is None:
+        return PropertyNameCheck(None, assessment_text, MATCH_UNKNOWN,
+                                 "this file does not name a property")
+    if assessment_text is None:
+        return PropertyNameCheck(file_text, None, MATCH_UNKNOWN,
+                                 "this assessment has no property name to compare")
+
+    a, b = _tokens(file_text), _tokens(assessment_text)
+    if not a or not b:
+        return PropertyNameCheck(file_text, assessment_text, MATCH_UNKNOWN,
+                                 "one of the names has nothing to compare")
+    if a == b:
+        return PropertyNameCheck(file_text, assessment_text, MATCH_YES,
+                                 "the names are the same")
+
+    longer, shorter = (a, b) if len(a) >= len(b) else (b, a)
+    # A very short name matching inside a longer one is not evidence -- it
+    # is a coincidence waiting to happen, and a coincidence that says
+    # "agree" is the failure mode this function is shaped around.
+    if len(" ".join(shorter)) >= 4 and _contains_tokens(longer, shorter):
+        return PropertyNameCheck(file_text, assessment_text, MATCH_YES,
+                                 "one name contains the other")
+
+    for full, abbrev in _abbreviation_pairs().items():
+        full_tokens, abbrev_tokens = _tokens(full), _tokens(abbrev)
+        for name_a, name_b in ((a, b), (b, a)):
+            if (_contains_tokens(name_a, full_tokens)
+                    and _contains_tokens(name_b, abbrev_tokens)):
+                return PropertyNameCheck(
+                    file_text, assessment_text, MATCH_YES,
+                    f"{abbrev} is this platform's abbreviation for {full.title()}")
+
+    return PropertyNameCheck(file_text, assessment_text, MATCH_NO,
+                             "nothing connects these two names")
 
 
 def plan_units(units: list[dict[str, Any]]) -> dict[str, Any]:

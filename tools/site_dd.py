@@ -530,6 +530,12 @@ def seed_preview(assessment_id):
                                                    findings_by_area)
                 preview = {"source": parsed.get("source_format"),
                            "file": upload.filename,
+                           # WHAT THE FILE SAYS IT IS FOR, beside what this
+                           # assessment is called. Information at approval,
+                           # never a gate -- see seeding.compare_property_name.
+                           "property_check": seeding.compare_property_name(
+                               parsed.get("property_name"),
+                               assessment.get("property_label")),
                            "parsed_units": parsed.get("unit_count"),
                            "preview_id": preview_id,
                            "state_field": rendered_state.FIELD,

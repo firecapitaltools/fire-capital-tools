@@ -302,7 +302,76 @@ def parse_appfolio_rent_roll(rows) -> dict[str, Any]:
         "unit_count": len(units),
         "warnings": warnings,
         "source_format": "Appfolio Rent Roll",
+        "property_name": _property_name_appfolio(rows, header_idx),
     }
+
+
+# ── The property the FILE says it is for ─────────────────────────────────
+#
+# WHY THIS IS EXTRACTED AT ALL. A preview that says "152 units will be
+# created" reads identically whether the file is the right one or the
+# wrong one. The consequence is what the tool knows; which building this
+# is, is what the PERSON knows -- so the screen has to carry the file's own
+# answer for them to compare against. See HANDOFF, "a confirmation screen
+# that shows only the consequence".
+#
+# Both dialects state it, in different places:
+#
+#   ResMan    row 1, column 0        'Oxford Pointe Apartments'
+#                                    (row 2 is the management company,
+#                                     row 3 the title "Rent Roll")
+#   Appfolio  preamble, column 0     'Properties: 1120 Jackson Street -
+#                                     1120 Jackson Street San Francisco...'
+#
+# ABSENT IS None, NEVER "". A file that does not name a property is a
+# different thing from one that names an empty string, and the preview
+# says "this file does not name a property" rather than rendering a blank
+# where a name should be. Falsy-absence has bitten this codebase in three
+# directions already.
+
+# Lines above a ResMan header that are furniture rather than a name.
+_RESMAN_BOILERPLATE = ("rent roll", "current", "future", "notice", "vacant")
+_DATE_ISH = re.compile(r"^\s*\d{1,2}/\d{1,2}/\d{2,4}")
+
+
+def _property_name_resman(rows, header_idx: int) -> str | None:
+    """The first line above the header that looks like a property name.
+
+    Taken positionally rather than by label because the export carries no
+    label for it -- it is simply the first thing on the page. The
+    boilerplate list exists so that a file whose name cell is empty falls
+    through to None instead of reporting "Rent Roll" as the property.
+    """
+    for row in rows[:header_idx]:
+        value = str(safe_get(row, 0) or "").strip()
+        if not value:
+            continue
+        low = norm(value)
+        if low in _RESMAN_BOILERPLATE or low.startswith("printed"):
+            continue
+        if _DATE_ISH.match(value):
+            continue
+        return value
+    return None
+
+
+def _property_name_appfolio(rows, header_idx: int) -> str | None:
+    """The `Properties:` line from the preamble.
+
+    Appfolio writes `Properties: <name> - <full address>`. The part before
+    the dash is the property as the file names it; the address after it is
+    the same thing again at greater length and is not what a person is
+    comparing against an assessment label.
+    """
+    for row in rows[:header_idx]:
+        value = str(safe_get(row, 0) or "").strip()
+        if not value.lower().startswith("properties:"):
+            continue
+        name = value.split(":", 1)[1].strip()
+        if " - " in name:
+            name = name.split(" - ", 1)[0].strip()
+        return name or None
+    return None
 
 
 def _as_date(value):
@@ -566,6 +635,7 @@ def parse_rent_roll_workbook(path) -> dict[str, Any]:
         "unit_count": len(units),
         "warnings": warnings,
         "source_format": "ResMan Rent Roll",
+        "property_name": _property_name_resman(rows, header_idx),
     }
 
 
