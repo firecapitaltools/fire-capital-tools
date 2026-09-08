@@ -8,6 +8,24 @@ exported 2026-08-16, property *1120 Jackson Street*. Every claim below
 was re-read from it today; nothing is carried forward from an earlier
 session's description.
 
+> **BUILT 2026-09-08 (Part 106). This document is the design it was built
+> from and is kept as written**, with the outcomes marked below rather
+> than the text rewritten — the point of a design doc is what was expected
+> before, and editing it to match the result destroys the only record of
+> that.
+>
+> **What shipped**: `parse_appfolio_rent_roll` and a dispatch in
+> `parse_rent_roll_workbook`, `APPFOLIO_STATUS_MAP` with a dialect-aware
+> `read_status`, and a studio refusal. **What changed from this design**:
+> nothing structural. **What the design got right and is worth noting**:
+> `parse_unit_type` needed no Appfolio branch, so there is no untestable
+> branch — verified rather than hoped.
+>
+> **Verified end to end through the upload route**, not the parser: 16
+> units, labels 1–12 and 14–17, no row for 13, 15 of 16 occupied, **no
+> inference note on any row**, sqft absent rather than zero, 64 rooms, and
+> nothing written.
+
 ---
 
 ## 1. Why an Appfolio roll is refused today
@@ -184,3 +202,30 @@ note stays a ResMan-only claim. Bed/bath needs nothing. **The single
 genuinely unknown is how Appfolio writes a unit type that is not one
 bedroom, and the honest position is to find that out from a file before
 writing a line that depends on it.**
+
+
+---
+
+## Built: what remains unvalidated
+
+**Recorded here and in the code, because a design document is not where
+somebody reads a warning while editing a parser.**
+
+* **No multi-bedroom Appfolio unit exists in anything we hold.** Jackson
+  is sixteen rows of `1/1.00`. If Appfolio writes two-bedroom units as
+  `2/1.00` the existing pattern already reads them; if it writes
+  `2BD/1BA` the parse returns `None`, the row is refused by name, and the
+  preview shows it. **Which of those it does is unknown and is not
+  guessed** — the note sits in `parse_appfolio_rent_roll` at the point the
+  type string is read.
+* **The studio refusal is a decision made without a sample.** `0/1.00`
+  parses cleanly to zero bedrooms and is refused anyway, because a unit
+  seeded with living, kitchen and bathroom and nothing else is
+  indistinguishable afterwards from a parse failure. The first real studio
+  is the test, and `TheStudioIsRefusedTests` says in its own docstring not
+  to "fix" the refusal as an oversight.
+* **A blank Appfolio status has no established meaning** and is refused
+  rather than defaulted. None exists in the file we hold.
+* **The tests are synthetic except one gated class.** The real roll is a
+  client's file and is not in the repo; `APPFOLIO_ROLL` points at a copy,
+  and `ENVIRONMENT_GATED` says so to `tools/suite_parity.py`.

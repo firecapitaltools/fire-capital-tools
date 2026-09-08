@@ -167,6 +167,41 @@ STATUS_MAP = {
 # "(no status) -> vacant" for exactly that reason.
 BLANK_STATUS = sdb.AREA_VACANT
 
+# ── Appfolio: the same two answers, arrived at the opposite way ──────────
+#
+# THE INVERSION IS THE WHOLE POINT OF THIS BLOCK. ResMan states occupancy
+# and leaves vacancy blank, so we INFER it -- see BLANK_STATUS above, and
+# the note that inference earns. Appfolio STATES vacancy outright and has
+# no blank at all: every one of the 16 rows in the only Appfolio file we
+# hold carries a word.
+#
+# So a vacant Appfolio unit is READ, not concluded, and the Part 100 note
+# "Vacant inferred: the rent roll gave no status..." must never appear on
+# one. Writing it there would be a false statement about provenance on
+# real client data, and Michelle is walking assessment 22 now.
+#
+# NOTICE-UNRENTED IS OCCUPIED, AND THAT IS THE FILE'S ARITHMETIC RATHER
+# THAN THE OBVIOUS READING. Jackson's own footer says 93.8% occupied of
+# 16 units; 93.8% of 16 is 15, and the file holds 14 Current + 1
+# Notice-Unrented + 1 Vacant-Unrented. So Appfolio counts a resident on
+# notice as in place -- which agrees with the reading a person would give
+# it, and matters because it was established the same way the ResMan map
+# was: from the document, not from plausibility.
+APPFOLIO_STATUS_MAP = {
+    "CURRENT": sdb.AREA_OCCUPIED,
+    "NOTICE-UNRENTED": sdb.AREA_OCCUPIED,
+    "VACANT-UNRENTED": sdb.AREA_VACANT,
+}
+
+# No blank status exists in the Appfolio file we hold, so there is no
+# evidence for what one would mean. It is refused rather than defaulted:
+# inventing a rule here is exactly the guess the ResMan blank rule earned
+# through four independent signals and this one has not.
+APPFOLIO_BLANK_MESSAGE = (
+    "this Appfolio rent roll left the status blank, and unlike a ResMan "
+    "export there is no established meaning for that"
+)
+
 UNMAPPED_STATUS_MESSAGE = (
     "status {code!r} is not one this import recognises, and it is not "
     "counted as occupied or vacant anywhere in the file"
@@ -179,14 +214,29 @@ class StatusReading(NamedTuple):
     inferred: bool          # True when we concluded it rather than read it
 
 
-def read_status(stated: Any) -> StatusReading:
+def read_status(stated: Any, dialect: str | None = None) -> StatusReading:
     """What the file said, what it becomes, and whether we inferred it.
 
     The three are returned together so a caller cannot render the
     conclusion without the evidence -- the same shape `site_dd_costs
     .describe()` uses to stop a figure being shown without its provenance.
+
+    THE DIALECT DECIDES, BECAUSE THE VOCABULARIES INVERT. ResMan infers
+    vacancy from a blank; Appfolio states it and never leaves it blank.
+    A shared "was the cell empty" test would mark an Appfolio vacancy as
+    inferred, which is false, and would attach a note saying the file gave
+    no status to a row where it plainly did.
+
+    Defaults to ResMan so every existing caller and test is unchanged --
+    the dialect travels on the unit dict, set by the parser that read it.
     """
     code = str(stated or "").strip()
+    if dialect == "appfolio":
+        if not code:
+            return StatusReading(stated=None, mapped=None, inferred=False)
+        return StatusReading(stated=code,
+                             mapped=APPFOLIO_STATUS_MAP.get(code.upper()),
+                             inferred=False)
     if not code:
         return StatusReading(stated=None, mapped=BLANK_STATUS, inferred=True)
     mapped = STATUS_MAP.get(code.upper())
@@ -296,11 +346,38 @@ class PlannedUnit(NamedTuple):
 # IT READS AS A FACT ABOUT THE IMPORT, not about the apartment. "This
 # unit is vacant" is a claim about the world that nobody here is entitled
 # to make; "the rent roll gave no status" is what actually happened.
+# The status codes that mean "occupied, nothing else to say", per dialect.
+# A note on every occupied unit is noise, which is why ResMan's "C" was
+# excluded from the start; "Current" is the same word in the other dialect.
+_UNREMARKABLE_STATUS = {
+    None: ("C",),
+    "appfolio": ("CURRENT",),
+}
+
+# The codes that mean "occupied today, leaving on a known date". Both
+# dialects have one, and both earn the same note when a move-out is on
+# the row -- the date is the useful part, not the code.
+_NOTICE_STATUS = {
+    None: ("NTV",),
+    "appfolio": ("NOTICE-UNRENTED",),
+}
+
+
 def _notes_for(unit: dict[str, Any], status: StatusReading) -> tuple[str, ...]:
+    """Facts the status collapse to occupied/vacant would otherwise lose.
+
+    THE INFERENCE NOTE IS RESMAN-ONLY, and that is not an accident of
+    control flow -- `status.inferred` is never True for an Appfolio row
+    because that dialect states its vacancies. Writing "the rent roll gave
+    no status" onto a row whose status column reads `Vacant-Unrented`
+    would be a false statement about where the conclusion came from.
+    """
+    dialect = unit.get("dialect")
+    code = (status.stated or "").upper()
     notes: list[str] = []
-    if (status.stated or "").upper() == "NTV" and unit.get("move_out"):
+    if code in _NOTICE_STATUS.get(dialect, ()) and unit.get("move_out"):
         notes.append(f"Notice to vacate {unit['move_out']}")
-    elif status.stated and status.stated.upper() not in ("C",):
+    elif status.stated and code not in _UNREMARKABLE_STATUS.get(dialect, ()):
         notes.append(f"Rent roll status: {status.stated}")
     elif status.inferred:
         notes.append("Vacant inferred: the rent roll gave no status, and "
@@ -341,10 +418,12 @@ def plan_units(units: list[dict[str, Any]]) -> dict[str, Any]:
                 f"type {str(unit.get('unit_type') or '')!r} does not state "
                 f"a number of bedrooms and bathrooms"))
             continue
-        status = read_status(unit.get("status"))
+        status = read_status(unit.get("status"), unit.get("dialect"))
         if status.mapped is None:
-            refusals.append(Refusal(
-                label, UNMAPPED_STATUS_MESSAGE.format(code=status.stated)))
+            reason = (APPFOLIO_BLANK_MESSAGE
+                      if status.stated is None
+                      else UNMAPPED_STATUS_MESSAGE.format(code=status.stated))
+            refusals.append(Refusal(label, reason))
             continue
         layout = layouts.get((layout_parts.beds, layout_parts.baths))
         if layout is None:
