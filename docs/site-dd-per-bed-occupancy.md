@@ -56,6 +56,15 @@ unit-level `occupied` column: yes 76 | no 8
 > turnable beds — 70% of all the vacancy in the building — are invisible
 > to a per-unit status.**
 
+> **DO NOT SET 70% BESIDE R3.3's 62%, added 2026-09-09.** These figures
+> use a different convention from the Entrata treatment: this one takes
+> occupancy from the file's own `occupied` column and counts `Notice` as
+> **vacant**, where R3.3 counts a resident on notice as in place. The two
+> disagree about exactly one apartment, 332. Both are correct for the
+> question they answer; **like-for-like the two files are 68% and 62%**,
+> and R3.3's table is the only place both are computed the same way.
+> Nothing below is withdrawn — see §R3.3.
+
 Recording this building the way Site DD records a unit today produces
 "76 occupied, 8 vacant". A unit like 134 — three of four beds empty — is
 indistinguishable from one that is genuinely full.
@@ -767,6 +776,36 @@ data would certify a branch that never runs — and the refusal list would
 be empty on the one file we can check, which the seeding design already
 names as the condition under which a summarised-refusal bug ships
 unnoticed.
+
+### `beds` is already taken, and it holds an integer
+
+**Found 2026-09-09 while confirming that no live path reaches the area
+note.** `_bed_notes()` reads `unit["beds"]` as a sequence of mappings.
+`underwriting_rentroll.layouts_for_units()` **already writes a `beds` key
+on a rent-roll unit dict** — an `int`, the bedroom count from
+`parse_unit_type`, beside `baths`, `full_baths` and `half_baths`.
+
+Nothing collides today: `layouts_for_units` has no production caller (it
+is the waiting half, pinned by `tests/test_waiting_halves.py`) and neither
+shipped parser emits the key — verified on deployed code against both real
+files. And the collision raises rather than passing quietly:
+
+    layouts_for_units(...)["units"][0]["beds"]  ->  2      (int)
+    _bed_notes(that row)  ->  TypeError: 'int' object is not iterable
+
+**The hazard is the name, not the type.** Both readings are natural, both
+are about beds, and whoever builds the Entrata parser is the same person
+most likely to reach for `layouts_for_units` — a per-apartment bed count
+is exactly what a 4x4 grouping wants.
+
+> **Recommendation for the parser run: emit `bed_states`, not `beds`.**
+> One word, and it leaves `beds` meaning what it has meant since
+> `parse_unit_type` — a count. `_bed_notes()` and its tests are the only
+> readers of the sequence, so the rename is confined to code with no
+> production caller and costs nothing until the parser exists. Deliberately
+> **not** done in Part 116: renaming a key on unbuilt work is the parser
+> run's decision, and doing it early would leave the note's own tests
+> asserting a shape the parser may still reject.
 
 ## R3.5 What is built, and what it deliberately does not do
 

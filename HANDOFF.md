@@ -6731,6 +6731,218 @@ command against the container at the moment it turns over.
 
 ---
 
+## A control that removes its own subject reports agreement
+
+**The first positive control written for the bed note did not fire, and
+the reason it did not fire is the finding.**
+
+The assertion it was guarding is *"no bed sentence reaches either live
+dialect"* — which is satisfied trivially by a function that can never
+produce one, so it establishes nothing until the same comparison is shown
+to move when a bed IS present. The control injected beds into a real
+Appfolio row and **also forced `dialect="entrata"`** on that row, on the
+reasonable-looking grounds that bed states are an Entrata fact.
+
+That second edit sent `read_status` down the ResMan branch, left the
+status unmapped, and `plan_units` **refused the whole row**. The unit
+disappeared from both sides of the comparison, before and after matched,
+and the control reported agreement — of a function that was working
+perfectly well.
+
+### The general form, because this is now a family
+
+> **A control has two parts: the SUBJECT it perturbs and the COMPARISON it
+> reads. A control must change how the thing under test BEHAVES and
+> nothing else. One that changes WHAT IS COMPARED — the population, the
+> keys, the rows that survive — will pass while proving nothing, and it
+> passes in the reassuring direction.**
+
+The failure is invisible from the result, because "before equals after"
+is exactly what a working system looks like. Nothing in the output says
+the subject was not there.
+
+**Three entries in this file are the same shape, and the family is worth
+naming now rather than after a fourth:**
+
+| | the control | how it removed its own subject |
+|---|---|---|
+| comp-set identity (Part 38) | keyed comparables on `id` | there is no `id` field, so every `.get("id")` was `None` and the check compared `[None] * 15` against itself |
+| the `MARKET_CACHE_DB_PATH` redirect | pointed a test away from the real cache | the variable does not exist, so the redirect moved nothing and the test observed the very thing it meant to avoid |
+| **the bed-note control** | **injected beds and the dialect together** | **the dialect edit got the row refused, so the injected bed was never in the compared set** |
+
+Each perturbed something real. Each then compared a set the perturbation
+had emptied, narrowed or left untouched, and each reported the answer its
+author expected.
+
+### The check, and it is two assertions and no judgement
+
+**Assert the subject survives the perturbation, before reading the
+comparison.** Concretely, in the corrected control:
+
+```python
+self.assertEqual(after_plan["refusals"], [],
+                 "the control must not remove its own subject")
+self.assertNotIn(sentence, before[label])
+self.assertIn(sentence, after[label])
+```
+
+The first line is the whole of it. It is the counting equivalent of
+[assert the population before its
+contents](#the-eighth-and-the-only-one-caught-by-accident) — there, an
+instrument had never been shown to see its whole input; here, one had
+never been shown to still contain its subject.
+
+**And the fix to the control was to perturb LESS.** Keep the file's real
+dialect and add only the beds. A control is not more convincing for
+changing more; every extra edit is another way for the subject to leave
+the comparison.
+
+> Filed beside [when a positive control passes, doubt the instrument
+> first](#when-a-positive-control-passes-doubt-the-instrument-first) and a
+> different member of it. There the control was **blunt** — it could not
+> tell two implementations apart. Here it was **sharp and aimed at
+> nothing**, because the thing it was aimed at had been removed by the
+> aiming.
+
+---
+
+## Two numbers over the same building, and only one convention between them
+
+**Publishing the query is what surfaced this, and that is the entry.**
+
+`docs/site-dd-per-bed-occupancy.md` §2 recorded, from Paresh's Kobo export
+of The View, **107 vacant beds and 75 hidden inside a mixed apartment —
+70%**. Revision 3 recorded, from Michelle's Entrata export of the same 84
+apartments, **85 vacant and 53 hidden — 62%**. Set side by side those read
+as a change in the building over thirteen months.
+
+**They are not comparable, and the reason is one word.** §2 takes
+occupancy from the file's own `occupied` yes/no column and counts
+**`Notice` as vacant**. The Entrata treatment counts a resident on notice
+as **in place** — which is the ResMan `NTV` and Appfolio `Notice-Unrented`
+call, established from those files rather than from plausibility.
+
+The two methods disagree about **exactly one apartment**:
+
+```
+332  occupied=yes  [Vacant Ready, Vacant Ready, Notice, Vacant Ready]
+```
+
+The property manager flags 332 occupied because somebody is still in one
+bed. Counting that bed as vacant is the whole of what moves 69 to 75 and
+101 to 107.
+
+**Like-for-like the two files are 68% and 62%**, and that is the pair to
+quote. §2's figures stay as written, because they were correct for the
+convention they used.
+
+### The rule this extends, and the clause it adds
+
+This file already carries *[before pairing two sources, confirm they cover
+the same keys](#two-claims-that-nothing-visible-could-have-contradicted)*,
+earned when Michelle's T12 KPIs were about to be shown beside a Jackson
+P&L covering **zero of the same months**.
+
+**Here the keys were identical.** Two files, the same 84 apartment labels,
+the same building, thirteen months apart. Every check that rule prescribes
+passes. What differed was the **definition applied to the rows**, and a
+shared key set is no protection at all against that.
+
+> **So the rule has a second half: confirm they cover the same keys, AND
+> that the same word means the same thing on both sides.** Occupancy is
+> the standing example — *occupied*, *vacant* and *on notice* are a
+> three-state world reported through two-state columns, and every system
+> picks its own place to put the third.
+
+### Why a paragraph would have carried it forward and a query did not
+
+**Nothing was wrong with §2.** It was correct, it was checked, and it was
+written as prose with the number in it. Re-reading it produces the number
+again; it cannot produce the convention, because the convention was never
+written down — it was a decision taken inside an unpublished computation.
+
+Revision 3 published its query. Running the two side by side is what made
+the conventions collide loudly enough to be reconciled, and one apartment
+then explained the entire gap.
+
+> **A published number is a claim. A published query is a claim plus its
+> definition, and only the second can be found to disagree with another.**
+> Same trade as the
+> [fingerprints](#assessment-11s-fingerprint-11fdd001f2fca08e-is-retired):
+> a value with its algorithm stated can be checked, and one without it
+> gets copied forward.
+
+**Cost of stating it: three lines of Python in the document. Cost of not
+stating it: two figures in one design document that a reader would
+reasonably subtract from one another.**
+
+---
+
+## `beds` now means two things, and one of them is an integer
+
+**Found while confirming the claim that no live path can reach the bed
+note — the check that was supposed to be a formality.**
+
+`tools/site_dd_seeding._bed_notes()` expects `unit["beds"]` to be a
+sequence of mappings carrying `label` and `status`.
+**`tools/underwriting_rentroll.layouts_for_units()` already writes a key
+called `beds` on a rent-roll unit dict, and it is an `int`** — the bedroom
+count from `parse_unit_type`, beside `baths`, `full_baths` and
+`half_baths`.
+
+**Nothing is broken today and the claim survives**, established on
+deployed code rather than by reading:
+
+* neither shipped parser emits a `beds` key on either real file — checked
+  on the container against `Rent Roll (11).xls` and
+  `rent_roll-20260907.xlsx`, whose parsed unit keys are the same ten and
+  eleven they have always been;
+* `layouts_for_units` has **no production caller at all** — it is the
+  waiting half this file already records, and
+  `tests/test_waiting_halves.py` fails the moment it acquires one.
+
+**And the collision fails LOUDLY, which was worth exercising rather than
+assuming.** Handed a `layouts_for_units` row, on the deployed container:
+
+```
+layouts_for_units(...)["units"][0]["beds"]  ->  2          (int)
+_bed_notes(that row)  ->  TypeError: 'int' object is not iterable
+```
+
+That is the right direction — it raises rather than silently producing no
+sentences, which would have been the
+[failure-that-creates](#a-failure-that-creates-is-invisible-to-every-check-that-finds-one-that-destroys)
+shape inverted into a silent omission. But it raises **inside the seeding
+path, during an import**, which is not where anybody wants to discover a
+name.
+
+> **The hazard is not the type, it is the NAME.** Two modules that both
+> handle rent-roll unit dicts now use one key for *how many bedrooms this
+> apartment has* and for *the state of each leased bed in it*. Both
+> readings are natural, both are about beds, and the two functions sit one
+> wiring decision apart: whoever builds the Entrata parser is the same
+> person most likely to reach for `layouts_for_units`.
+
+**Carried into the parser design rather than fixed here** —
+`docs/site-dd-per-bed-occupancy.md` §R3.4, beside the other two
+carry-forwards — because renaming a key on a function nobody calls is a
+change to unbuilt work, and the parser is the run that should make it. The
+recommendation there is one word: the per-bed sequence becomes
+`bed_states`, and `beds` keeps the meaning it has held since
+`parse_unit_type` — a count.
+
+**How it was found is the ordinary lesson.** The instruction was to
+*confirm* no live path reaches the branch, and the confirmation was
+expected to be a formality. It was answered by **deriving** the list —
+grepping for everything that writes that key — rather than by re-reading
+the docstring which says nothing produces it. The docstring was right. It
+was right about `_bed_notes`' own expectation, and it could not have been
+right about a key in another module. Same shape as [a change scoped by
+enumeration](#code-written-for-the-case-in-hand-not-for-the-shape-of-the-problem--three-times-this-week):
+derive the list, do not recall it.
+
+---
+
 ## Closed, unconfirmed
 
 **Deal Dive search box.** Michelle reported a search problem; asked later
@@ -6825,9 +7037,22 @@ unread flag is cleared by a glance, and looking is not what was missing.*
   `site_dd_rooms` fixes that, and it waits on the by-unit/by-bed flag,
   which waits on the properties table. Evidence, queries and the parser
   carry-forwards: `docs/site-dd-per-bed-occupancy.md` §R3.
-  **Nothing reaches it today** — there is no Entrata parser, so
-  `unit["beds"]` is set by nothing and both live dialects were shown
-  byte-identical before and after on the real ResMan and Appfolio files.
+  **Nothing reaches it today, MERGED AND VERIFIED ON DEPLOYED CODE
+  2026-09-09** (`27dffee`). Both live dialects were driven through the
+  real `seed_preview` upload route on the container, with the real
+  `Rent Roll (11).xls` (`345d5c84f47b7e54`) and `rent_roll-20260907.xlsx`,
+  before the merge and after the deploy: **note-for-note identical**, 20
+  ResMan notes and 2 Appfolio notes, 0 refusals either side, notes
+  fingerprint `0e60fdef1eadf470` both times. Both controls fired — one
+  character moves the fingerprint, and injecting a bed into a real row of
+  each real file (its own dialect untouched) moves that unit's notes and
+  no other unit's.
+  **The claim is "no parser emits `beds`", NOT "nothing writes that key"**
+  — `underwriting_rentroll.layouts_for_units()` writes a `beds` key that
+  holds an **integer**, and it is a waiting half with no production
+  caller. See [`beds` now means two
+  things](#beds-now-means-two-things-and-one-of-them-is-an-integer);
+  the rename belongs to the parser run.
 - **`GET /` , `/manifest.json`, `/service-worker.js`** are reachable via
   literal paths rather than `url_for`; the route sweep understands this.
   Three routes are allowlisted: `fire_metrics.debug_refresh` and the two
