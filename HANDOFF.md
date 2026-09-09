@@ -4388,28 +4388,47 @@ mix by layout, and the answer belongs in the file rather than here.
 2026-08-31, not re-read.** The prompt for it was `uw-refi-cashout`: a
 branch merged on 18 August and described as blocked for two weeks.
 
-| claim | what this file said | what is true | how |
-|---|---|---|---|
-| master's SHA | `66b2d1e` | `8cdde1a`, and it will be something else tomorrow | `git log -1 master` |
-| deployed suite | "1450 tests, OK, 19 skipped" | 2,485 tests, 2 errors, 22 skipped | ran it |
-| known-issue 2 | "runs 1918 tests" | same, and the count is not the point | ran it |
-| assessments | "four" | **five** — 21 was created by the seed | `COUNT(*)` |
-| cached lookups | "twelve" | **fourteen** | `COUNT(*)` |
-| uploaded files | "51 files, 1.9 MB" | **52 files, 2.15 MB** | `os.walk('/data/uploads')` |
-| snapshots | "3 files, 270 KB" | **7 files** after the Part 82 move | `ls /data/backups` |
-| a11 export hash | `d0b8436a3998f63b` | `f7b1c2b4d3db4e0b`, moved twice on 08-31 | recomputed |
-| a11 data hash | `f6451ecb366f6ab4` | **unchanged** | recomputed |
-| **rendered-state token** | **"do not build until one of three things is true"** | **built in Part 67, guarding all three routes** | grepped the routes |
-| per-account columns | "none in any of the twelve databases" | still none | every table, every DB |
-| properties table | "there is no properties table anywhere" | still none (`property_aliases` is the notetaker's) | every table, every DB |
-| `SOURCE_SITE_DD` | "nothing writes it" | still nothing — the one hit is prose | grep, then read the line |
-| `to_capex_lines` | "nothing calls it" | still nothing — four hits, all comments | grep, then read the lines |
-| Site DD Lite | "nothing consumes `status` as a filter" | **true at 10:55; FALSE at 12:32 the same day** — `e32534b` shipped the filter 97 minutes after this row was written. Corrected Part 113 | grep |
-| deals / scenarios | two / ten | two / ten | `COUNT(*)` |
-| assessment 11 | one unit, one kitchen, 23 findings | unchanged | `COUNT(*)` |
-| databases on the volume | twelve | twelve | `ls /data/*.db` |
-| Entrata sample | "we have never seen one" | still true — six upload dirs, none Entrata | `ls -R /data/uploads` |
-| known-issue 3 | Hobby plan, `maxBackupsCount` 0 | **could not be re-verified — see below** | GraphQL denied |
+**THE `when` COLUMN, ADDED 2026-09-09 (Part 113/114), AND WHAT IT IS
+HONESTLY WORTH.** Every row here is a claim about a moving system, and
+the table shipped with a `how` and no `when` — so a reading read as a
+property, and one row was false 97 minutes after it was written.
+
+**Not one row recorded its own check time.** `≤10:55` is not a
+measurement: it is a **bound derived from the commit that wrote the
+table**, `004654c` at 2026-08-31 10:55:07 -0700. Every check ran at some
+unrecorded moment before that. Where a later run in this file
+demonstrably re-read the same quantity, the re-read date is appended and
+is sourced from that entry rather than inferred.
+
+| claim | what this file said | what is true | how | when read |
+|---|---|---|---|---|
+| master's SHA | `66b2d1e` | `8cdde1a`, and it will be something else tomorrow | `git log -1 master` | 08-31 ≤10:55 |
+| deployed suite | "1450 tests, OK, 19 skipped" | 2,485 tests, 2 errors, 22 skipped | ran it | 08-31 ≤10:55 · re-read **09-04** (2,621, errors=2) |
+| known-issue 2 | "runs 1918 tests" | same, and the count is not the point | ran it | 08-31 ≤10:55 |
+| assessments | "four" | **five** — 21 was created by the seed | `COUNT(*)` | 08-31 ≤10:55 · **superseded 09-08**, when Michelle seeded 22 |
+| cached lookups | "twelve" | **fourteen** | `COUNT(*)` | 08-31 ≤10:55 |
+| uploaded files | "51 files, 1.9 MB" | **52 files, 2.15 MB** | `os.walk('/data/uploads')` | 08-31 ≤10:55 · re-read **09-04** (30 files, 1.41 MB) |
+| snapshots | "3 files, 270 KB" | **7 files** after the Part 82 move | `ls /data/backups` | 08-31 ≤10:55 |
+| a11 export hash | `d0b8436a3998f63b` | `f7b1c2b4d3db4e0b`, moved twice on 08-31 | recomputed | 08-31 ≤10:55 — **and it moved twice more the same day**; the row is a reading of a value that was still moving |
+| a11 data hash | `f6451ecb366f6ab4` | **unchanged** | recomputed | 08-31 ≤10:55 · re-read **09-04** (unchanged) |
+| **rendered-state token** | **"do not build until one of three things is true"** | **built in Part 67, guarding all three routes** | grepped the routes | 08-31 ≤10:55 · exercised **08-31 later that day**, which is what settled it |
+| per-account columns | "none in any of the twelve databases" | still none | every table, every DB | 08-31 ≤10:55 |
+| properties table | "there is no properties table anywhere" | still none (`property_aliases` is the notetaker's) | every table, every DB | 08-31 ≤10:55 · re-checked in the repo **09-09**, still none |
+| `SOURCE_SITE_DD` | "nothing writes it" | still nothing — the one hit is prose | grep, then read the line | 08-31 ≤10:55 |
+| `to_capex_lines` | "nothing calls it" | still nothing — four hits, all comments | grep, then read the lines | 08-31 ≤10:55 |
+| Site DD Lite | "nothing consumes `status` as a filter" | **true at 10:55; FALSE at 12:32 the same day** — `e32534b` shipped the filter 97 minutes after this row was written. Corrected Part 113 | grep | 08-31 ≤10:55 · **falsified 08-31 12:32** · found 09-09 |
+| deals / scenarios | two / ten | two / ten | `COUNT(*)` | 08-31 ≤10:55 |
+| assessment 11 | one unit, one kitchen, 23 findings | unchanged | `COUNT(*)` | 08-31 ≤10:55 · re-read **09-04** (23 findings) |
+| databases on the volume | twelve | twelve | `ls /data/*.db` | 08-31 ≤10:55 · re-read **09-04** (12/12 identical) |
+| Entrata sample | "we have never seen one" | still true — six upload dirs, none Entrata | `ls -R /data/uploads` | 08-31 ≤10:55 · **no longer true 09-08**: Michelle sent one. It has never been uploaded, so the check as written (`ls /data/uploads`) still answers "none" and is now asking the wrong question |
+| known-issue 3 | Hobby plan, `maxBackupsCount` 0 | **could not be re-verified — see below** | GraphQL denied | 08-31 ≤10:55 (denied) · settled by exercise **09-01** · closed by rehearsal **09-04** |
+
+**Two rows changed kind rather than value, and the column is what makes
+that visible.** *Entrata sample* was a standing "we have never seen one"
+that carried the deferral for forty parts; it stopped being true on
+09-08. *assessments* is a count of something a client adds to, so it was
+stale within eight days by ordinary use rather than by anything going
+wrong. Neither is a mistake. Both are what an undated row hides.
 
 ### The one that matters: a summary that outlived its discussion
 
@@ -6794,16 +6813,25 @@ unread flag is cleared by a glance, and looking is not what was missing.*
   literal paths rather than `url_for`; the route sweep understands this.
   Three routes are allowlisted: `fire_metrics.debug_refresh` and the two
   POST-minted token downloads.
-- **Do not scope the Entrata parser seam until a real sample export
-  exists.** *Narrowed in Part 41; this line read "Do not start the Entrata
-  parser seam" — the prohibition without the condition or the reason.*
-  We have never seen an Entrata file, so every estimate would be
-  fabricated. **Oxford Pointe is the evidence: the file format decided the
-  answer, not the design** — an upload we assumed needed a new parser
-  turned out to need a loader branch and `xlrd`, and the existing ResMan
-  parser already returned all 152 units correctly. The exit criterion is a
-  sample file, and nothing else. Full statement in *Revised cost
-  estimates* below; **the two must say the same thing — see
+- ~~**Do not scope the Entrata parser seam until a real sample export
+  exists.**~~ **THE CONDITION FIRED 2026-09-08 — Michelle sent one, and
+  the seam was scoped in Part 112.** *Narrowed in Part 41; this line read
+  "Do not start the Entrata parser seam" — the prohibition without the
+  condition or the reason.* The exit criterion was *"a sample file, and
+  nothing else"*, and it was met: `View Rent Roll.xlsx`, The View, 336
+  rows, one per bed. **Third deferral in this project to fire on its own
+  condition**, after Entrata's own restatement and the deleting routes —
+  and the first where the firing was an arrival rather than an
+  observation.
+  **The prohibition is spent; the parser is still not built, for a
+  DIFFERENT reason**, and the substitution matters because a stale reason
+  is how a decision outlives its argument. It waits on the by-unit/by-bed
+  flag, which waits on the properties table (*Blocked on Michelle* item
+  3). Scoping is done, in Part 112;
+  **the estimate is no longer fabricated because the file is in hand**,
+  which is exactly what the condition was protecting.
+  Full statement in *Revised cost estimates* below; **the two must say
+  the same thing — see
   [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
 - ~~**Do not build the rendered-state token for `save_loans`,
   `save_capex` and `save_gp_partners`.**~~ **BUILT. The criterion fired on
@@ -6874,7 +6902,7 @@ above.
 | **Site DD rent-roll upload** | **Roughly halved.** The original 2–3 session estimate assumed a new parser. The existing ResMan parser already returns all 152 Oxford Pointe units correctly — it needs a **loader branch plus `xlrd`**. Remaining: ~1 session for the parser/Underwriting path, a second for Site DD seeding. The idempotent re-upload reconcile is the expensive part, not the parsing. |
 | **Site DD property header** | **Now small.** The `deals` columns landed in `07e746e`. What remains is a form block and a display block. |
 | **Site DD Lite** | ~~**Small.** … It never shipped because nothing consumed the field.~~ **BUILT 2026-08-31, `c6fa01e` / `e32534b`** — a `?view=lite` filter on the existing detail route, `_lite_area()` at `tools/site_dd.py:195`, 20 tests in `tests/test_sitedd_lite_view.py`. **This row said "never shipped" for nine days after it shipped**, which is the rules-stated-twice failure in the higher-traffic statement again. Corrected Part 113. |
-| **Entrata parser seam** | **Deliberately unscoped.** We have never seen an Entrata file, so every estimate would be fabricated. Do not scope it until a sample exists — the Oxford Pointe experience is the argument: the file format decided the answer, not the design. **Also stated in *Open operational items* above; keep the two in step.** |
+| **Entrata parser seam** | ~~**Deliberately unscoped.** … Do not scope it until a sample exists.~~ **THE SAMPLE ARRIVED 2026-09-08 and the seam was scoped in Part 112.** The Oxford Pointe argument held exactly as stated: the file format decided the answer. It is one row per **bed** — 336 rows, 84 apartments — so the work is not a dialect branch but a decision about what an area is, and three independent refusals stand between that file and the database today. **Still not built, on a different blocker: the by-unit/by-bed flag has no home until the properties table exists.** **Also stated in *Open operational items* above; keep the two in step.** |
 | **`SOURCE_SITE_DD` cleanup** | Trivial: delete a constant and a counter branch, or implement the hand-off. |
 | **Manual freeform UI control** | Small, but unrequested. See the provisional threshold above. |
 
