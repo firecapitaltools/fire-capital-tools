@@ -364,6 +364,134 @@ _NOTICE_STATUS = {
 }
 
 
+# ── Bed-level facts, for a file that states them ─────────────────────────
+#
+# WHAT THIS IS FOR. A by-the-bed rent roll carries one row per BED. The
+# decision in docs/site-dd-per-bed-occupancy.md is that a 4x4 building
+# becomes ONE AREA PER APARTMENT -- 84, not 336 -- because 336 areas would
+# invent 252 kitchens that do not exist, and the file's own "4x4" says the
+# apartment is the unit and the bed is a leasing subdivision of it.
+#
+# The cost of that decision is exact: an apartment's single `status` has
+# to stand for four beds, and at The View 34 of 84 apartments hold beds in
+# more than one state. THIS IS WHERE THOSE FOUR FACTS GO -- the same
+# answer §1.3 of the seeding design gave for NTV and UE, which is that a
+# real fact with nowhere structured to live goes in the notes.
+#
+# ── LIMIT 1: THIS DOES NOT MAKE THE WALK RIGHT ──────────────────────────
+#
+# It must not be read as fixing per-bed occupancy, and it does not fix one
+# bed of it. `site_dd._lite_area()` selects the walk from the AREA's
+# status, so an apartment with one occupant and three empty beds reads
+# `occupied` and Lite does not offer it. Measured on the real file rather
+# than argued: 53 of The View's 85 vacant beds -- 62% of the building's
+# turnable inventory -- sit in apartments Lite would hide, and 42 more
+# apartments are genuinely full. A per-unit Lite offers an inspector 8 of
+# 84 apartments.
+#
+# A NOTE CANNOT BE FILTERED, COUNTED OR SELECTED ON. Only a status on
+# `site_dd_rooms` can change which spaces an inspector is sent to, and
+# that is a column plus a write path that does not exist -- rooms have no
+# update function at all -- and it is downstream of the by-unit/by-bed
+# flag, which has no home until there is a properties table.
+#
+# So this preserves the fact and leaves the walk exactly as wrong as it
+# was. That is worth having and it is not the fix.
+#
+# ── LIMIT 2: EVERY LINE IS A CLAIM ABOUT A DOCUMENT, NOT ABOUT A ROOM ───
+#
+# "Rent roll lists bed A as Vacant Unrented Not Ready" and "bed A is not
+# ready" are different sentences, and only the first is ours to write.
+#
+# The second is the property manager's judgement of READINESS -- which is
+# precisely the question a site DD exists to answer independently. An
+# inspector is sent to that bed to decide whether it is ready; importing
+# the answer would seed the conclusion they are there to reach. This is
+# the same reasoning as the Part 88 inference note, which says the rent
+# roll gave no status rather than that the unit is empty, and the same
+# reason Michelle's Part 58 decline of the ready/not-ready axis survives
+# per-bed rather than being reopened by it: we are not short a status,
+# we are recording somebody else's opinion as an opinion.
+#
+# ── SHAPE: ONE SENTENCE PER REMARKABLE BED ──────────────────────────────
+#
+# Not four-lines-always and not one packed sentence, and the deciding
+# reasons are about the two surfaces this lands on rather than taste:
+#
+#   * `templates/tools/site_dd_area.html:251` renders the stored note into
+#     a single-line `<input type="text">`, and `site_dd.save_area` writes
+#     `notes` UNCONDITIONALLY on every post -- so whatever that field
+#     posts back replaces the stored note entirely. The write half is
+#     demonstrated in tests/test_sitedd_bed_note.py; the browser half --
+#     that a text input's value sanitization strips CR/LF, so the lines
+#     would come back welded together -- is READ FROM THE HTML SPEC AND
+#     NOT OBSERVED HERE, because nothing in this repo drives a browser.
+#     Stated as a spec claim rather than a measurement on purpose. Either
+#     way the conclusion is the same and only needs the tested half: a
+#     multi-line note does not survive somebody opening that unit and
+#     saving it. `_insert_area` joins this tuple with "; " into one line,
+#     and that join is why it survives.
+#   * `templates/tools/site_dd_seed_preview.html:229` iterates the tuple
+#     and renders each element as its own quoted note. So on the approval
+#     screen -- the one place a person reads these before committing --
+#     the facts are already separate. Packing them into one sentence
+#     ("beds A,D vacant; B,C occupied") would put structured data in a
+#     text column, which is the shape §3C of the per-bed design rejected
+#     when the SOURCE FILE did it in `resident_name`.
+#
+# Each element is therefore a complete sentence that stands alone, because
+# it may be read alone.
+#
+# A dialect absent from the map below has NO unremarkable bed state, so
+# every bed gets a sentence. That is the safe direction: a note that says
+# too much is read past, and one that silently omits a vacant bed is the
+# failure this whole mechanism exists to prevent.
+_UNREMARKABLE_BED_STATUS = {
+    "entrata": ("OCCUPIED NO NOTICE",),
+}
+
+
+def _bed_notes(unit: dict[str, Any]) -> tuple[str, ...]:
+    """One sentence per bed whose state is worth a walker's attention.
+
+    Expects `unit["beds"]` as a sequence of mappings carrying `label` and
+    `status` exactly as the FILE stated them -- no mapping, no collapse,
+    no title-casing. The three-way vacant vocabulary (Rented Ready /
+    Unrented Ready / Unrented Not Ready) survives here precisely because
+    nothing normalises it on the way in; the apartment's own status is
+    where the collapse happens, and this is the record of what was
+    collapsed.
+
+    NOTHING PRODUCES `unit["beds"]` TODAY. There is no Entrata parser --
+    dispatch refuses the file by name, `parse_unit_type("4x4 (Regular)")`
+    returns None, and `unit_key("111-A")` returns None -- so this function
+    is reachable only from its own tests. It is written now because the
+    shape was designed against the real file while that file was in hand,
+    and the wording is the part that would be got wrong later.
+
+    A bed the file lists with no status is recorded as exactly that. It is
+    NOT inferred vacant: the ResMan blank rule was earned on four
+    independent signals for a whole unit, and none of them has been shown
+    to hold for a bed. Whether such a row should be refused outright is
+    the PARSER's decision and belongs there -- see the odd-bed-count
+    refusal in the per-bed design, which this function deliberately does
+    not attempt.
+    """
+    beds = unit.get("beds") or ()
+    unremarkable = _UNREMARKABLE_BED_STATUS.get(unit.get("dialect"), ())
+    notes: list[str] = []
+    for bed in beds:
+        label = str(bed.get("label") or "").strip()
+        if not label:
+            continue
+        stated = str(bed.get("status") or "").strip()
+        if not stated:
+            notes.append(f"Rent roll lists bed {label} with no status")
+        elif stated.upper() not in unremarkable:
+            notes.append(f"Rent roll lists bed {label} as {stated}")
+    return tuple(notes)
+
+
 def _notes_for(unit: dict[str, Any], status: StatusReading) -> tuple[str, ...]:
     """Facts the status collapse to occupied/vacant would otherwise lose.
 
@@ -372,6 +500,13 @@ def _notes_for(unit: dict[str, Any], status: StatusReading) -> tuple[str, ...]:
     because that dialect states its vacancies. Writing "the rent roll gave
     no status" onto a row whose status column reads `Vacant-Unrented`
     would be a false statement about where the conclusion came from.
+
+    THE BED SENTENCES ARE ADDITIVE AND CANNOT REACH A LIVE PATH. They
+    append only when the unit dict carries `beds`, which no parser sets,
+    so both shipped dialects return byte-identical notes to what they
+    returned before this branch existed. That is asserted on the real
+    ResMan and Appfolio files through the real upload route, not reasoned
+    about, because those two are live and Michelle uses them.
     """
     dialect = unit.get("dialect")
     code = (status.stated or "").upper()
@@ -383,6 +518,7 @@ def _notes_for(unit: dict[str, Any], status: StatusReading) -> tuple[str, ...]:
     elif status.inferred:
         notes.append("Vacant inferred: the rent roll gave no status, and "
                      "no lease, move-in or rent.")
+    notes.extend(_bed_notes(unit))
     return tuple(notes)
 
 

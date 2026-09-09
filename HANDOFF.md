@@ -6809,6 +6809,25 @@ unread flag is cleared by a glance, and looking is not what was missing.*
   chart, which the warning described accurately. Seeding is what made it
   ordinary — assessment 21 is 152 units and no findings. The chart now
   says "Nothing assessed yet" where the legend was.
+- **Bed states go into the area note, and that is the FREE half of
+  per-bed occupancy — not the fix.** Built Part 115: `_bed_notes()` in
+  `site_dd_seeding`, one sentence per bed whose state is worth a walker's
+  attention, on the area, via the Part 88 mechanism. It preserves the
+  three-way vacant vocabulary that the collapse to `occupied`/`vacant`
+  destroys, and every sentence is a claim about the DOCUMENT — *"Rent
+  roll lists bed A as Vacant Unrented Not Ready"*, never *"bed A is not
+  ready"*, because readiness is the question the inspector is sent to
+  answer and importing the manager's answer would seed it.
+  **It changes the walk by nothing.** A note cannot be filtered, so Lite
+  still offers 8 of The View's 84 apartments and 53 turnable bedrooms
+  stay hidden — 62% of the building's vacancy, corroborated at 68% on a
+  second system thirteen months earlier. Only a status on
+  `site_dd_rooms` fixes that, and it waits on the by-unit/by-bed flag,
+  which waits on the properties table. Evidence, queries and the parser
+  carry-forwards: `docs/site-dd-per-bed-occupancy.md` §R3.
+  **Nothing reaches it today** — there is no Entrata parser, so
+  `unit["beds"]` is set by nothing and both live dialects were shown
+  byte-identical before and after on the real ResMan and Appfolio files.
 - **`GET /` , `/manifest.json`, `/service-worker.js`** are reachable via
   literal paths rather than `url_for`; the route sweep understands this.
   Three routes are allowlisted: `fire_metrics.debug_refresh` and the two
@@ -6827,7 +6846,8 @@ unread flag is cleared by a glance, and looking is not what was missing.*
   DIFFERENT reason**, and the substitution matters because a stale reason
   is how a decision outlives its argument. It waits on the by-unit/by-bed
   flag, which waits on the properties table (*Blocked on Michelle* item
-  3). Scoping is done, in Part 112;
+  3). Scoping is done, in Part 112, and is recorded in
+  `docs/site-dd-per-bed-occupancy.md` §R3;
   **the estimate is no longer fabricated because the file is in hand**,
   which is exactly what the condition was protecting.
   Full statement in *Revised cost estimates* below; **the two must say
@@ -6902,7 +6922,7 @@ above.
 | **Site DD rent-roll upload** | **Roughly halved.** The original 2–3 session estimate assumed a new parser. The existing ResMan parser already returns all 152 Oxford Pointe units correctly — it needs a **loader branch plus `xlrd`**. Remaining: ~1 session for the parser/Underwriting path, a second for Site DD seeding. The idempotent re-upload reconcile is the expensive part, not the parsing. |
 | **Site DD property header** | **Now small.** The `deals` columns landed in `07e746e`. What remains is a form block and a display block. |
 | **Site DD Lite** | ~~**Small.** … It never shipped because nothing consumed the field.~~ **BUILT 2026-08-31, `c6fa01e` / `e32534b`** — a `?view=lite` filter on the existing detail route, `_lite_area()` at `tools/site_dd.py:195`, 20 tests in `tests/test_sitedd_lite_view.py`. **This row said "never shipped" for nine days after it shipped**, which is the rules-stated-twice failure in the higher-traffic statement again. Corrected Part 113. |
-| **Entrata parser seam** | ~~**Deliberately unscoped.** … Do not scope it until a sample exists.~~ **THE SAMPLE ARRIVED 2026-09-08 and the seam was scoped in Part 112.** The Oxford Pointe argument held exactly as stated: the file format decided the answer. It is one row per **bed** — 336 rows, 84 apartments — so the work is not a dialect branch but a decision about what an area is, and three independent refusals stand between that file and the database today. **Still not built, on a different blocker: the by-unit/by-bed flag has no home until the properties table exists.** **Also stated in *Open operational items* above; keep the two in step.** |
+| **Entrata parser seam** | ~~**Deliberately unscoped.** … Do not scope it until a sample exists.~~ **THE SAMPLE ARRIVED 2026-09-08 and the seam was scoped in Part 112** — `docs/site-dd-per-bed-occupancy.md` §R3. The Oxford Pointe argument held exactly as stated: the file format decided the answer. It is one row per **bed** — 336 rows, 84 apartments — so the work is not a dialect branch but a decision about what an area is, and three independent refusals stand between that file and the database today. **Still not built, on a different blocker: the by-unit/by-bed flag has no home until the properties table exists.** **Also stated in *Open operational items* above; keep the two in step.** |
 | **`SOURCE_SITE_DD` cleanup** | Trivial: delete a constant and a counter branch, or implement the hand-off. |
 | **Manual freeform UI control** | Small, but unrequested. See the provisional threshold above. |
 

@@ -315,7 +315,9 @@ That is an argument for B over A on the merits, not just on granularity.
 
 **And the sentence above is now a measurement rather than a prediction.**
 Modelled per-unit at The View, Lite offers an inspector **8 apartments**
-and hides **53 of the building's 85 vacant beds**.
+and hides **53 of the building's 85 vacant beds** — 62% of its vacancy.
+Measured, with the query, in §R3.2, and corroborated against a second
+system in §R3.3.
 
 ---
 
@@ -561,3 +563,237 @@ it is a coherent position rather than a contradiction to be resolved.
 
 Steps 1–3 are three questions and no code, and the answers change the
 shape rather than the size. None of the build should start before them.
+
+---
+
+# Revision 3, 2026-09-09 — the file arrived, and §1 has an answer
+
+**Written against master at `fba307f`. The area note is built (Part 115);
+the parser and the room status column are not.**
+
+Michelle sent an **Entrata** rent roll for **The View** on 2026-09-08.
+`View Rent Roll.xlsx`, 336 rows, one per bed. Every number below is read
+from that file or from Paresh's earlier export of the same building, and
+every one carries the command that reproduces it.
+
+## R3.1 What §1 asked, and what the file answers
+
+§1 said the honest statement of the requirement was *"a mature instrument
+we were given, for somebody else's asset class, records something ours
+cannot"*, and that **nothing established Michelle owned a by-the-bed
+property**.
+
+**That has moved, and it is worth being precise about how far.** She
+asked for The View by name in `feedback #4` (2026-08-31), said she would
+send the file, and has now sent a rent roll for it. So The View is in her
+request queue and her data is in our hands.
+
+**It does not establish ownership**, and this document should not start
+saying it does. What it establishes is that the tool is being asked to
+handle a by-the-bed property, which is the thing §1's table actually
+turns on — the "build nothing" row is off the table on her request, not
+on a deed.
+
+**One thing it is NOT.** `feedback #4` is about the **Weekly Property
+Summary**, which needs a weekly management report. A rent roll is not
+that document, and HANDOFF already says so. **Feedback #4 is still
+unanswered**; a different file arrived.
+
+## R3.2 The measurement: 62% of the vacancy is invisible to Lite
+
+**Site DD Lite is built** (`c6fa01e`) and selects the walk from the
+AREA's status. Under the 84-areas decision an apartment with one occupant
+and three empty beds is `occupied`, so Lite does not offer it.
+
+    apartments                                84
+    all four beds occupied                    42   Lite: not offered, correctly
+    all four beds vacant                       8   Lite: offered
+    MIXED                                     34   Lite: not offered, WRONGLY
+    vacant beds                               85
+    vacant beds inside a mixed apartment      53   = 62% of all vacancy
+
+**So a per-unit Lite sends an inspector to 8 apartments out of 84 and
+hides 53 turnable bedrooms.** Reproduce:
+
+```python
+import openpyxl, collections, re
+rows = list(openpyxl.load_workbook(
+    r"View Rent Roll.xlsx", data_only=True)["View Rent Roll"].values)
+pat = re.compile(r"^(\d+)-([A-D])$")
+OCC = {"Occupied No Notice", "Notice Unrented"}       # someone is in the bed
+apt = collections.defaultdict(list)
+for r in rows[8:344]:                                  # main table only
+    apt[pat.match(str(r[0]).strip()).group(1)].append(str(r[3]).strip())
+vac    = sum(sum(1 for s in v if s not in OCC) for v in apt.values())
+hidden = sum(sum(1 for s in v if s not in OCC)
+             for v in apt.values() if any(s in OCC for s in v))
+print(len(apt), vac, hidden, f"{hidden/vac:.0%}")      # 84 85 53 62%
+```
+
+`rows[8:344]` is the main table by position; see §R3.4 for why that bound
+is not negotiable.
+
+## R3.3 The corroboration §1 asked for, and the convention it exposed
+
+§1's highest-value ask was *"one real rent roll from a by-the-bed
+property"*. There are now **two files for the same 84 apartments, from
+two systems, thirteen months apart** — Paresh's KoboToolbox
+`rent_roll.csv` (Aug 2026) and Entrata's (Sep 2026). The label sets are
+identical.
+
+**Under one consistent rule — a bed is occupied if somebody is in it,
+which means Occupied or on Notice in either vocabulary:**
+
+| | Kobo, Aug 2026 | Entrata, Sep 2026 |
+|---|---|---|
+| bed rows | 331 | 336 |
+| occupied | 230 | 251 |
+| vacant | 101 | 85 |
+| **hidden inside a mixed apartment** | **69 (68%)** | **53 (62%)** |
+| mixed apartments | 35 of 84 | 34 of 84 |
+
+```python
+import csv
+rows = list(csv.DictReader(open(r"rent_roll.csv", encoding="utf-8-sig")))
+beds = lambda r: [b.split(":", 1)[1].strip()
+                  for b in r["resident_name"].split(";") if ":" in b]
+OCC = {"Occupied", "Notice"}
+vac = sum(sum(1 for s in beds(r) if s not in OCC) for r in rows)
+hid = sum(sum(1 for s in beds(r) if s not in OCC)
+          for r in rows if any(s in OCC for s in beds(r)))
+print(vac, hid, f"{hid/vac:.0%}")                      # 101 69 68%
+```
+
+**Two systems, two dates, one structure: roughly two-thirds of this
+building's vacancy is invisible to a per-unit status.** That is the
+evidence §1 wanted, and it is the argument for a room-level status rather
+than for a note.
+
+### The figure in §2 is 75 of 107 — 70% — and it is NOT this figure
+
+**Publishing the query is what surfaced this**, which is the argument for
+publishing queries rather than paragraphs.
+
+§2 counted **107** vacant beds and **75** hidden. Reproducing it exactly
+shows it uses a different convention in two places at once:
+
+* it takes occupancy from the file's own **`occupied` yes/no column**
+  rather than from the bed states;
+* it counts **`Notice` as vacant**, where the Entrata treatment counts a
+  resident on notice as in place — which is the ResMan `NTV` and Appfolio
+  `Notice-Unrented` call, established from the files rather than from
+  plausibility.
+
+The two methods disagree about **exactly one apartment**, 332:
+
+    332  occupied=yes  ['Vacant Ready', 'Vacant Ready', 'Notice', 'Vacant Ready']
+
+The property manager flags it occupied because somebody is still in one
+bed. Counting that bed as vacant is what moves 69 to 75 and 101 to 107.
+
+> **Neither number is wrong; they answer different questions, and they
+> must not be quoted side by side as though they were computed the same
+> way.** That is the same rule this project already applies to occupancy
+> periods — *before pairing two sources, confirm they cover the same
+> keys*. §2's figures stay as written because they were correct for the
+> convention they used; **R3.3's table is the one to quote when comparing
+> the two files**, because it is the only place both are computed the
+> same way.
+
+## R3.4 Carried into the parser design, unbuilt
+
+Two findings from the Part 112/115 reading of the real file. Neither is
+obvious and both would be expensive to rediscover.
+
+### The Future Resident section has a DIFFERENT HEADER
+
+The file ends with a `Future Resident Details` block repeating six beds.
+Excluding it by **position** is right, and there are two reasons — the
+second is stronger and was not known when the first was written.
+
+1. Those six rows are precisely the six `Vacant Rented Ready` beds
+   (verified as sets, identical). So a status-based exclusion would drop
+   the right rows for a reason that is a coincidence of this file, and
+   would keep or drop the wrong one the day a pre-leased bed is not
+   `Ready`.
+2. **The section's header is not the main header.** 13 columns against
+   14 — it has no `Expected Move-Out` — so **every column from index 8
+   rightward is shifted by one**, and a parser that re-detected a header
+   and continued would read Market Rent as Expected Move-Out. This is not
+   double-counting six beds; it is misreading a column.
+
+```
+row   6  Bldg-Unit Unit Type SQFT Unit Status Resident Move-In Lease Start
+         Lease End  Expected Move-Out  Market Rent Actual Scheduled Balance Deposit
+row 360  Bldg-Unit Unit Type SQFT Unit Status Resident Move-In Lease Start
+         Lease End                     Market Rent Actual Scheduled Balance Deposit
+```
+
+`MAX_HEADER_SCAN_ROWS = 40` happens to prevent this today, because row
+360 is out of scan range. **That is an accident of this file's length,
+not a design**, and it stops protecting anything at a smaller property.
+
+**The stop rule: the main table ends at the first row with an empty
+`Bldg-Unit`.** That is the `The View Total:` row, and note it is NOT
+excludable the way Appfolio's footers are — it carries a Unit Type, so
+"no unit type" does not catch it.
+
+### The odd-bed-count branch is NOT hypothetical
+
+A parser grouping 336 rows into 84 apartments by label prefix needs a
+branch for an apartment whose bed count is not what its `Unit Type`
+declares. **This file has exactly four beds in all 84 apartments**, which
+is precisely the condition under which such a branch ships untested.
+
+**It has already happened at this building.** Paresh's export lists five
+apartments declaring four bedrooms and carrying three beds — every one
+missing bed **A**:
+
+    232  declares 4, lists 3   B:Vacant Not Ready; C:Occupied; D:Occupied
+    511  declares 4, lists 3   B:Occupied; C:Occupied; D:Occupied
+    512  534  713              same shape, all missing A
+
+**Build it as a REFUSAL, never an inference.** Group by prefix, count the
+rows, compare against the beds the apartment's own type declares, and on
+a mismatch refuse that apartment by name with both numbers and the labels
+found. §2 already settled that the ingest must record unknown rather than
+fill a gap: whether bed A is occupied-and-unlisted or does not exist
+cannot be determined from the file, and either guess moves the vacancy
+figure and the turn budget.
+
+**It needs a synthetic case, and the reason is the whole point.** The
+Entrata file cannot fire this branch, so a test written only against real
+data would certify a branch that never runs — and the refusal list would
+be empty on the one file we can check, which the seeding design already
+names as the condition under which a summarised-refusal bug ships
+unnoticed.
+
+## R3.5 What is built, and what it deliberately does not do
+
+**Built (Part 115): the bed states go into the AREA's note**, one
+sentence per bed whose state is worth a walker's attention, via the
+Part 88 mechanism. The three-way vacant vocabulary survives there even
+though the apartment's status collapses to `occupied`/`vacant`.
+
+Every sentence is a claim about the document — *"Rent roll lists bed A as
+Vacant Unrented Not Ready"* — never about the room. Readiness is the
+property manager's judgement and it is the question the inspector is
+being sent to answer; importing it would seed the conclusion. That is
+also why Michelle's Part 58 decline of the ready/not-ready axis **is not
+reopened by per-bed work**: we are not short a status, we are recording
+somebody else's opinion as an opinion.
+
+> **IT DOES NOT MAKE THE WALK RIGHT AND MUST NOT BE READ AS DOING SO.** A
+> note cannot be filtered, counted or selected on. Lite still offers 8
+> apartments of 84 and 53 turnable bedrooms stay hidden. The note
+> preserves the fact; only a status on `site_dd_rooms` changes where an
+> inspector is sent.
+
+**Not built, and each waits on something specific:**
+
+| | waits on |
+|---|---|
+| the Entrata parser | nothing technical — the design is in R3.4 and §R2. It waits on the mode having somewhere to live |
+| `site_dd_rooms.status` | the by-unit/by-bed flag, and a write path: **rooms have no `update_room` at all**, so this is a column plus a writer plus a form control plus a route |
+| the by-unit/by-bed flag | **the properties table** — *Blocked on Michelle* item 3, outstanding since Part 47 |
+| the shared-bedroom question | one sentence from Michelle. It still decides option B from option D, and The View is 4x4 so this file cannot answer it |
