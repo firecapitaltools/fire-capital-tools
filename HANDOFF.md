@@ -903,21 +903,65 @@ on.
 
 ---
 
-## Site DD Lite: designed only, still
+## Site DD Lite: BUILT, and this file said otherwise for nine days
 
-**Confirmed twice — Part 47 and Part 50.** `status` exists on the
-assessment, is validated, and is displayed in three templates. **Nothing
-consumes it as a filter**, which is why the feature never shipped: not
-difficulty, just nothing reading the field.
+> **CORRECTED 2026-09-09 (Part 113).** Everything below the line was true
+> when written and stopped being true at **12:32 on 2026-08-31**, when
+> `e32534b "Merge sitedd-lite-view: toggleable enough"` landed. The old
+> text is kept rather than deleted because **the dates are the finding** —
+> see *An audit is a reading, and this file records readings without a
+> timestamp*.
 
-Michelle settled the design herself: *"the normal tool should be fine if
-we make it toggleable enough"* — vacant units and common areas only, a
-lighter output, one tool rather than two.
+**What is live, cited rather than recalled.** `c6fa01e`, authored
+2026-08-31 12:32:22 -0700, merged as `e32534b` one second later:
 
-**Small build, blocked on nothing but a decision.** It is a query filter
-plus a UI control on a field that already exists and already validates.
-The original handoff flagged its status as unconfirmed; it is confirmed
-now, and the answer is that it was designed and never built.
+    tools/site_dd.py:192          LITE = "lite"
+    tools/site_dd.py:195          def _lite_area(area) -> bool
+    tools/site_dd.py:211              return area.get("status") in (db.AREA_VACANT, None)
+    tools/site_dd.py:261          shown = [r for r in area_rollups if _lite_area(r["area"])]
+    tools/site_dd.py:272-275      lite_units / lite_common / lite_unstated
+    templates/tools/site_dd_detail.html:151   the link that turns it on
+    tests/test_sitedd_lite_view.py            20 tests, 246 lines
+
+**So `status` HAS a computational consumer, and it is the only one in
+Site DD.** That is worth more than the correction. A status nothing
+consumed was a display field and a design could treat it as one; **a
+status that selects the walk is not**, and that single fact decides where
+bed-level status has to live — see *62% of a building's vacancy is
+invisible to Lite*.
+
+**Three things the shipped code does that the design text did not
+predict**, read off the merge rather than the plan:
+
+* **It is a view filter, not a mode.** `?view=lite` on the existing
+  detail route. Nothing about what is *recorded* changes — no second
+  vocabulary, no `assessment.mode`, no migration, no way for two screens
+  to disagree about one walk, and an inspector can switch mid-walk.
+* **A NULL status is INCLUDED, deliberately.** *"A NULL status is not
+  'occupied' — it is nobody having said."* Excluding it would hide a unit
+  from the walk on the strength of missing data. Production holds one
+  such area (assessment 6, "Untitled").
+* **Every figure on the page is computed BEFORE the filter is applied**,
+  so a filtered view cannot understate its own scope. `area_total` and
+  `area_shown` are both rendered.
+
+### What this entry said until 2026-09-09 — correct until 12:32 on 08-31
+
+> **Confirmed twice — Part 47 and Part 50.** `status` exists on the
+> assessment, is validated, and is displayed in three templates.
+> **Nothing consumes it as a filter**, which is why the feature never
+> shipped: not difficulty, just nothing reading the field.
+>
+> Michelle settled the design herself: *"the normal tool should be fine
+> if we make it toggleable enough"* — vacant units and common areas only,
+> a lighter output, one tool rather than two.
+>
+> **Small build, blocked on nothing but a decision.** It is a query
+> filter plus a UI control on a field that already exists and already
+> validates.
+
+Her sentence is the one thing in it that did not go stale, and the build
+took it literally.
 
 ---
 
@@ -4344,28 +4388,47 @@ mix by layout, and the answer belongs in the file rather than here.
 2026-08-31, not re-read.** The prompt for it was `uw-refi-cashout`: a
 branch merged on 18 August and described as blocked for two weeks.
 
-| claim | what this file said | what is true | how |
-|---|---|---|---|
-| master's SHA | `66b2d1e` | `8cdde1a`, and it will be something else tomorrow | `git log -1 master` |
-| deployed suite | "1450 tests, OK, 19 skipped" | 2,485 tests, 2 errors, 22 skipped | ran it |
-| known-issue 2 | "runs 1918 tests" | same, and the count is not the point | ran it |
-| assessments | "four" | **five** — 21 was created by the seed | `COUNT(*)` |
-| cached lookups | "twelve" | **fourteen** | `COUNT(*)` |
-| uploaded files | "51 files, 1.9 MB" | **52 files, 2.15 MB** | `os.walk('/data/uploads')` |
-| snapshots | "3 files, 270 KB" | **7 files** after the Part 82 move | `ls /data/backups` |
-| a11 export hash | `d0b8436a3998f63b` | `f7b1c2b4d3db4e0b`, moved twice on 08-31 | recomputed |
-| a11 data hash | `f6451ecb366f6ab4` | **unchanged** | recomputed |
-| **rendered-state token** | **"do not build until one of three things is true"** | **built in Part 67, guarding all three routes** | grepped the routes |
-| per-account columns | "none in any of the twelve databases" | still none | every table, every DB |
-| properties table | "there is no properties table anywhere" | still none (`property_aliases` is the notetaker's) | every table, every DB |
-| `SOURCE_SITE_DD` | "nothing writes it" | still nothing — the one hit is prose | grep, then read the line |
-| `to_capex_lines` | "nothing calls it" | still nothing — four hits, all comments | grep, then read the lines |
-| Site DD Lite | "nothing consumes `status` as a filter" | still nothing | grep |
-| deals / scenarios | two / ten | two / ten | `COUNT(*)` |
-| assessment 11 | one unit, one kitchen, 23 findings | unchanged | `COUNT(*)` |
-| databases on the volume | twelve | twelve | `ls /data/*.db` |
-| Entrata sample | "we have never seen one" | still true — six upload dirs, none Entrata | `ls -R /data/uploads` |
-| known-issue 3 | Hobby plan, `maxBackupsCount` 0 | **could not be re-verified — see below** | GraphQL denied |
+**THE `when` COLUMN, ADDED 2026-09-09 (Part 113/114), AND WHAT IT IS
+HONESTLY WORTH.** Every row here is a claim about a moving system, and
+the table shipped with a `how` and no `when` — so a reading read as a
+property, and one row was false 97 minutes after it was written.
+
+**Not one row recorded its own check time.** `≤10:55` is not a
+measurement: it is a **bound derived from the commit that wrote the
+table**, `004654c` at 2026-08-31 10:55:07 -0700. Every check ran at some
+unrecorded moment before that. Where a later run in this file
+demonstrably re-read the same quantity, the re-read date is appended and
+is sourced from that entry rather than inferred.
+
+| claim | what this file said | what is true | how | when read |
+|---|---|---|---|---|
+| master's SHA | `66b2d1e` | `8cdde1a`, and it will be something else tomorrow | `git log -1 master` | 08-31 ≤10:55 |
+| deployed suite | "1450 tests, OK, 19 skipped" | 2,485 tests, 2 errors, 22 skipped | ran it | 08-31 ≤10:55 · re-read **09-04** (2,621, errors=2) |
+| known-issue 2 | "runs 1918 tests" | same, and the count is not the point | ran it | 08-31 ≤10:55 |
+| assessments | "four" | **five** — 21 was created by the seed | `COUNT(*)` | 08-31 ≤10:55 · **superseded 09-08**, when Michelle seeded 22 |
+| cached lookups | "twelve" | **fourteen** | `COUNT(*)` | 08-31 ≤10:55 |
+| uploaded files | "51 files, 1.9 MB" | **52 files, 2.15 MB** | `os.walk('/data/uploads')` | 08-31 ≤10:55 · re-read **09-04** (30 files, 1.41 MB) |
+| snapshots | "3 files, 270 KB" | **7 files** after the Part 82 move | `ls /data/backups` | 08-31 ≤10:55 |
+| a11 export hash | `d0b8436a3998f63b` | `f7b1c2b4d3db4e0b`, moved twice on 08-31 | recomputed | 08-31 ≤10:55 — **and it moved twice more the same day**; the row is a reading of a value that was still moving |
+| a11 data hash | `f6451ecb366f6ab4` | **unchanged** | recomputed | 08-31 ≤10:55 · re-read **09-04** (unchanged) |
+| **rendered-state token** | **"do not build until one of three things is true"** | **built in Part 67, guarding all three routes** | grepped the routes | 08-31 ≤10:55 · exercised **08-31 later that day**, which is what settled it |
+| per-account columns | "none in any of the twelve databases" | still none | every table, every DB | 08-31 ≤10:55 |
+| properties table | "there is no properties table anywhere" | still none (`property_aliases` is the notetaker's) | every table, every DB | 08-31 ≤10:55 · re-checked in the repo **09-09**, still none |
+| `SOURCE_SITE_DD` | "nothing writes it" | still nothing — the one hit is prose | grep, then read the line | 08-31 ≤10:55 |
+| `to_capex_lines` | "nothing calls it" | still nothing — four hits, all comments | grep, then read the lines | 08-31 ≤10:55 |
+| Site DD Lite | "nothing consumes `status` as a filter" | **true at 10:55; FALSE at 12:32 the same day** — `e32534b` shipped the filter 97 minutes after this row was written. Corrected Part 113 | grep | 08-31 ≤10:55 · **falsified 08-31 12:32** · found 09-09 |
+| deals / scenarios | two / ten | two / ten | `COUNT(*)` | 08-31 ≤10:55 |
+| assessment 11 | one unit, one kitchen, 23 findings | unchanged | `COUNT(*)` | 08-31 ≤10:55 · re-read **09-04** (23 findings) |
+| databases on the volume | twelve | twelve | `ls /data/*.db` | 08-31 ≤10:55 · re-read **09-04** (12/12 identical) |
+| Entrata sample | "we have never seen one" | still true — six upload dirs, none Entrata | `ls -R /data/uploads` | 08-31 ≤10:55 · **no longer true 09-08**: Michelle sent one. It has never been uploaded, so the check as written (`ls /data/uploads`) still answers "none" and is now asking the wrong question |
+| known-issue 3 | Hobby plan, `maxBackupsCount` 0 | **could not be re-verified — see below** | GraphQL denied | 08-31 ≤10:55 (denied) · settled by exercise **09-01** · closed by rehearsal **09-04** |
+
+**Two rows changed kind rather than value, and the column is what makes
+that visible.** *Entrata sample* was a standing "we have never seen one"
+that carried the deferral for forty parts; it stopped being true on
+09-08. *assessments* is a count of something a client adds to, so it was
+stale within eight days by ordinary use rather than by anything going
+wrong. Neither is a mistake. Both are what an undated row hides.
 
 ### The one that matters: a summary that outlived its discussion
 
@@ -4429,6 +4492,95 @@ fixed; **the habit of reading what it returns was not.**
 > rows and one query, it is the only channel where a user writes to us
 > unprompted, and its contents have twice turned out to be the most
 > load-bearing thing available.
+
+---
+
+## An audit is a reading, and this file records readings without a timestamp
+
+**The Part 84 audit row for Site DD Lite was CORRECT. It was falsified 97
+minutes later by the same session, and nobody went back to it.**
+
+    2026-08-17 02:04  Revised cost estimates:  "never shipped because
+                      nothing consumed the field"                     TRUE
+    2026-08-24 10:44  "Site DD Lite: designed only, still"            TRUE
+    2026-08-31 10:55  Part 84 audit: "still nothing | grep"           TRUE
+    2026-08-31 12:32  e32534b "Merge sitedd-lite-view"          ALL THREE FALSE
+    2026-09-09        found, while designing where bed status lives
+
+**The obvious diagnosis is wrong and it is worth killing before it
+propagates.** The Part 113 brief reached for it, reasonably: *a grep for
+a filter missed `area.get("status") in (...)`*. **It did not.** At 10:55
+that line did not exist, nothing consumed the value, and the grep
+returned the truth. There is no method failure on this row, and recording
+one would be inventing a failure signature — which this file already
+knows is worse than recording nothing, because a documented signature
+arrives with unearned authority.
+
+**What the method clause CAN be said to have done here is nothing, and
+that is the honest answer.** The claim was true; a method cannot be
+convicted on a true claim. Whether a grep would have found the consumer
+had it existed is not knowable — the code was not there to be found — and
+asserting either way would be the same reasoning-from-absence the Part 74
+entitlement error is made of.
+
+### What actually failed
+
+**The audit ran too early, in the one session that was going to falsify
+it.** That is not bad luck. An audit is scheduled at the start of a
+session's bookkeeping and the work happens after, so **the claims most
+likely to be falsified within the hour are exactly the ones the audit
+just re-confirmed** — the session's own subject matter.
+
+**This is the second instance of one shape**, and the first is already
+here:
+
+| | the claim | who falsified it |
+|---|---|---|
+| assessment 11 → deal 2 | *"`deal_id` is None on all three assessments and nothing populates it"* | **the author**, who had ordered the link themselves, and the sentence outlived the action |
+| **Site DD Lite** | *"nothing consumes `status` as a filter"* | **the same session**, 97 minutes later |
+
+The general form: **the work that falsifies a document's claim is most
+often done by the person who just wrote the claim.** No audit catches
+that, because the audit precedes the work by construction. The existing
+rule — [*when you have changed the world, go back and correct what the
+document says about
+it*](#code-written-for-the-case-in-hand-not-for-the-shape-of-the-problem--three-times-this-week)
+— is the right one and it did not fire, twice.
+
+### The narrow, mechanical thing that would have helped
+
+**Date the rows.** The Part 84 table has a `how` column and no `when`
+column, and every row in it is a claim about a moving system. A row
+reading *"still nothing · grep · 10:55"* is a **reading**; the same row
+without the time reads as a **property**. That is one column, it costs
+nothing, and it is the same move as the fingerprints — an entry that says
+how to recompute it can be checked rather than believed.
+
+**What is NOT proposed, and why.** A test asserting HANDOFF's claims
+against the code. The general version does not work — Part 41 built three
+designs for exactly that shape and measured **100% false positives** —
+and the one-claim version is an instrument that pins a single sentence
+somebody will delete when the sentence changes. This file already refuses
+that trade for the dead-reader glob and for the scraping rule, and the
+refusal is the same here.
+
+### Three claims from the Part 113 brief, and they share one shape
+
+Recorded because the brief's author asked for them to be, and because the
+common factor is worth more than the three:
+
+| the claim | what was true |
+|---|---|
+| Entrata unit types are *"4x4 (Regular) ×318 or 4x4 (Full Upgrade) ×24"* | **312 and 24.** 318 + 24 = 342 against a 336-row table. Caught by addition, not by opening the file |
+| bed status could be *"a note on the bedroom room… no schema change"* | `site_dd_rooms` has **no `notes` column and no `update_room`**. The option costs the same ALTER as a status column and buys less |
+| *"nothing consumes `status` as a filter"* | true when written, false for nine days before it was repeated |
+
+**All three were carried from a summary rather than from the artifact**,
+and all three were cheap to settle at the artifact: one addition, one
+`PRAGMA table_info`, one `grep -n _lite_area`. That is the
+[report-to-prompt loop](#premises-that-turned-out-to-be-false) arriving in
+a run whose whole subject was correcting it, which is the argument for
+the habit rather than for another instrument.
 
 ---
 
@@ -6661,16 +6813,25 @@ unread flag is cleared by a glance, and looking is not what was missing.*
   literal paths rather than `url_for`; the route sweep understands this.
   Three routes are allowlisted: `fire_metrics.debug_refresh` and the two
   POST-minted token downloads.
-- **Do not scope the Entrata parser seam until a real sample export
-  exists.** *Narrowed in Part 41; this line read "Do not start the Entrata
-  parser seam" — the prohibition without the condition or the reason.*
-  We have never seen an Entrata file, so every estimate would be
-  fabricated. **Oxford Pointe is the evidence: the file format decided the
-  answer, not the design** — an upload we assumed needed a new parser
-  turned out to need a loader branch and `xlrd`, and the existing ResMan
-  parser already returned all 152 units correctly. The exit criterion is a
-  sample file, and nothing else. Full statement in *Revised cost
-  estimates* below; **the two must say the same thing — see
+- ~~**Do not scope the Entrata parser seam until a real sample export
+  exists.**~~ **THE CONDITION FIRED 2026-09-08 — Michelle sent one, and
+  the seam was scoped in Part 112.** *Narrowed in Part 41; this line read
+  "Do not start the Entrata parser seam" — the prohibition without the
+  condition or the reason.* The exit criterion was *"a sample file, and
+  nothing else"*, and it was met: `View Rent Roll.xlsx`, The View, 336
+  rows, one per bed. **Third deferral in this project to fire on its own
+  condition**, after Entrata's own restatement and the deleting routes —
+  and the first where the firing was an arrival rather than an
+  observation.
+  **The prohibition is spent; the parser is still not built, for a
+  DIFFERENT reason**, and the substitution matters because a stale reason
+  is how a decision outlives its argument. It waits on the by-unit/by-bed
+  flag, which waits on the properties table (*Blocked on Michelle* item
+  3). Scoping is done, in Part 112;
+  **the estimate is no longer fabricated because the file is in hand**,
+  which is exactly what the condition was protecting.
+  Full statement in *Revised cost estimates* below; **the two must say
+  the same thing — see
   [Rules stated twice](#a-rule-stated-twice-loses-its-condition-in-the-shorter-statement).**
 - ~~**Do not build the rendered-state token for `save_loans`,
   `save_capex` and `save_gp_partners`.**~~ **BUILT. The criterion fired on
@@ -6740,8 +6901,8 @@ above.
 |---|---|
 | **Site DD rent-roll upload** | **Roughly halved.** The original 2–3 session estimate assumed a new parser. The existing ResMan parser already returns all 152 Oxford Pointe units correctly — it needs a **loader branch plus `xlrd`**. Remaining: ~1 session for the parser/Underwriting path, a second for Site DD seeding. The idempotent re-upload reconcile is the expensive part, not the parsing. |
 | **Site DD property header** | **Now small.** The `deals` columns landed in `07e746e`. What remains is a form block and a display block. |
-| **Site DD Lite** | **Small.** `status` exists, is validated, and is displayed in three templates. It is a query filter plus a UI control. It never shipped because nothing consumed the field, not because it was hard. |
-| **Entrata parser seam** | **Deliberately unscoped.** We have never seen an Entrata file, so every estimate would be fabricated. Do not scope it until a sample exists — the Oxford Pointe experience is the argument: the file format decided the answer, not the design. **Also stated in *Open operational items* above; keep the two in step.** |
+| **Site DD Lite** | ~~**Small.** … It never shipped because nothing consumed the field.~~ **BUILT 2026-08-31, `c6fa01e` / `e32534b`** — a `?view=lite` filter on the existing detail route, `_lite_area()` at `tools/site_dd.py:195`, 20 tests in `tests/test_sitedd_lite_view.py`. **This row said "never shipped" for nine days after it shipped**, which is the rules-stated-twice failure in the higher-traffic statement again. Corrected Part 113. |
+| **Entrata parser seam** | ~~**Deliberately unscoped.** … Do not scope it until a sample exists.~~ **THE SAMPLE ARRIVED 2026-09-08 and the seam was scoped in Part 112.** The Oxford Pointe argument held exactly as stated: the file format decided the answer. It is one row per **bed** — 336 rows, 84 apartments — so the work is not a dialect branch but a decision about what an area is, and three independent refusals stand between that file and the database today. **Still not built, on a different blocker: the by-unit/by-bed flag has no home until the properties table exists.** **Also stated in *Open operational items* above; keep the two in step.** |
 | **`SOURCE_SITE_DD` cleanup** | Trivial: delete a constant and a counter branch, or implement the hand-off. |
 | **Manual freeform UI control** | Small, but unrequested. See the provisional threshold above. |
 
