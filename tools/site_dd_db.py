@@ -1006,9 +1006,22 @@ AREA_UNIT = "unit"
 AREA_COMMON = "common"
 AREA_KINDS = (AREA_UNIT, AREA_COMMON)
 
-# Occupancy status. Drives Site DD Lite in a later branch, which inspects
-# vacant units and common areas only, so the vocabulary is fixed here
-# rather than being invented then.
+# Occupancy status. DRIVES SITE DD LITE, which is built and wired --
+# `site_dd._lite_area()` reads this value to decide whether an area is in
+# the walk, and it is the only computational consumer of a status in Site
+# DD. Everything else displays it.
+#
+# This comment said "in a later branch" until 2026-09-09; the branch
+# landed 2026-08-31 in c6fa01e. A waiting-half notice that outlives its
+# wiring is worse than none, because it tells the next reader a feature is
+# unreachable when it is reachable -- the same correction apply_seed's
+# comment needed after Part 77.
+#
+# WHAT THAT COSTS A WIDENING. Because Lite selects on this tuple, adding a
+# value is no longer a display change: `_lite_area` returns
+# `status in (AREA_VACANT, None)`, so any new state is silently treated as
+# "not in the walk". A `vacant_not_ready` added here without touching that
+# function would drop exactly the units most in need of walking.
 AREA_OCCUPIED = "occupied"
 AREA_VACANT = "vacant"
 AREA_DOWN = "down"

@@ -903,21 +903,65 @@ on.
 
 ---
 
-## Site DD Lite: designed only, still
+## Site DD Lite: BUILT, and this file said otherwise for nine days
 
-**Confirmed twice — Part 47 and Part 50.** `status` exists on the
-assessment, is validated, and is displayed in three templates. **Nothing
-consumes it as a filter**, which is why the feature never shipped: not
-difficulty, just nothing reading the field.
+> **CORRECTED 2026-09-09 (Part 113).** Everything below the line was true
+> when written and stopped being true at **12:32 on 2026-08-31**, when
+> `e32534b "Merge sitedd-lite-view: toggleable enough"` landed. The old
+> text is kept rather than deleted because **the dates are the finding** —
+> see *An audit is a reading, and this file records readings without a
+> timestamp*.
 
-Michelle settled the design herself: *"the normal tool should be fine if
-we make it toggleable enough"* — vacant units and common areas only, a
-lighter output, one tool rather than two.
+**What is live, cited rather than recalled.** `c6fa01e`, authored
+2026-08-31 12:32:22 -0700, merged as `e32534b` one second later:
 
-**Small build, blocked on nothing but a decision.** It is a query filter
-plus a UI control on a field that already exists and already validates.
-The original handoff flagged its status as unconfirmed; it is confirmed
-now, and the answer is that it was designed and never built.
+    tools/site_dd.py:192          LITE = "lite"
+    tools/site_dd.py:195          def _lite_area(area) -> bool
+    tools/site_dd.py:211              return area.get("status") in (db.AREA_VACANT, None)
+    tools/site_dd.py:261          shown = [r for r in area_rollups if _lite_area(r["area"])]
+    tools/site_dd.py:272-275      lite_units / lite_common / lite_unstated
+    templates/tools/site_dd_detail.html:151   the link that turns it on
+    tests/test_sitedd_lite_view.py            20 tests, 246 lines
+
+**So `status` HAS a computational consumer, and it is the only one in
+Site DD.** That is worth more than the correction. A status nothing
+consumed was a display field and a design could treat it as one; **a
+status that selects the walk is not**, and that single fact decides where
+bed-level status has to live — see *62% of a building's vacancy is
+invisible to Lite*.
+
+**Three things the shipped code does that the design text did not
+predict**, read off the merge rather than the plan:
+
+* **It is a view filter, not a mode.** `?view=lite` on the existing
+  detail route. Nothing about what is *recorded* changes — no second
+  vocabulary, no `assessment.mode`, no migration, no way for two screens
+  to disagree about one walk, and an inspector can switch mid-walk.
+* **A NULL status is INCLUDED, deliberately.** *"A NULL status is not
+  'occupied' — it is nobody having said."* Excluding it would hide a unit
+  from the walk on the strength of missing data. Production holds one
+  such area (assessment 6, "Untitled").
+* **Every figure on the page is computed BEFORE the filter is applied**,
+  so a filtered view cannot understate its own scope. `area_total` and
+  `area_shown` are both rendered.
+
+### What this entry said until 2026-09-09 — correct until 12:32 on 08-31
+
+> **Confirmed twice — Part 47 and Part 50.** `status` exists on the
+> assessment, is validated, and is displayed in three templates.
+> **Nothing consumes it as a filter**, which is why the feature never
+> shipped: not difficulty, just nothing reading the field.
+>
+> Michelle settled the design herself: *"the normal tool should be fine
+> if we make it toggleable enough"* — vacant units and common areas only,
+> a lighter output, one tool rather than two.
+>
+> **Small build, blocked on nothing but a decision.** It is a query
+> filter plus a UI control on a field that already exists and already
+> validates.
+
+Her sentence is the one thing in it that did not go stale, and the build
+took it literally.
 
 ---
 
@@ -4360,7 +4404,7 @@ branch merged on 18 August and described as blocked for two weeks.
 | properties table | "there is no properties table anywhere" | still none (`property_aliases` is the notetaker's) | every table, every DB |
 | `SOURCE_SITE_DD` | "nothing writes it" | still nothing — the one hit is prose | grep, then read the line |
 | `to_capex_lines` | "nothing calls it" | still nothing — four hits, all comments | grep, then read the lines |
-| Site DD Lite | "nothing consumes `status` as a filter" | still nothing | grep |
+| Site DD Lite | "nothing consumes `status` as a filter" | **true at 10:55; FALSE at 12:32 the same day** — `e32534b` shipped the filter 97 minutes after this row was written. Corrected Part 113 | grep |
 | deals / scenarios | two / ten | two / ten | `COUNT(*)` |
 | assessment 11 | one unit, one kitchen, 23 findings | unchanged | `COUNT(*)` |
 | databases on the volume | twelve | twelve | `ls /data/*.db` |
@@ -4429,6 +4473,95 @@ fixed; **the habit of reading what it returns was not.**
 > rows and one query, it is the only channel where a user writes to us
 > unprompted, and its contents have twice turned out to be the most
 > load-bearing thing available.
+
+---
+
+## An audit is a reading, and this file records readings without a timestamp
+
+**The Part 84 audit row for Site DD Lite was CORRECT. It was falsified 97
+minutes later by the same session, and nobody went back to it.**
+
+    2026-08-17 02:04  Revised cost estimates:  "never shipped because
+                      nothing consumed the field"                     TRUE
+    2026-08-24 10:44  "Site DD Lite: designed only, still"            TRUE
+    2026-08-31 10:55  Part 84 audit: "still nothing | grep"           TRUE
+    2026-08-31 12:32  e32534b "Merge sitedd-lite-view"          ALL THREE FALSE
+    2026-09-09        found, while designing where bed status lives
+
+**The obvious diagnosis is wrong and it is worth killing before it
+propagates.** The Part 113 brief reached for it, reasonably: *a grep for
+a filter missed `area.get("status") in (...)`*. **It did not.** At 10:55
+that line did not exist, nothing consumed the value, and the grep
+returned the truth. There is no method failure on this row, and recording
+one would be inventing a failure signature — which this file already
+knows is worse than recording nothing, because a documented signature
+arrives with unearned authority.
+
+**What the method clause CAN be said to have done here is nothing, and
+that is the honest answer.** The claim was true; a method cannot be
+convicted on a true claim. Whether a grep would have found the consumer
+had it existed is not knowable — the code was not there to be found — and
+asserting either way would be the same reasoning-from-absence the Part 74
+entitlement error is made of.
+
+### What actually failed
+
+**The audit ran too early, in the one session that was going to falsify
+it.** That is not bad luck. An audit is scheduled at the start of a
+session's bookkeeping and the work happens after, so **the claims most
+likely to be falsified within the hour are exactly the ones the audit
+just re-confirmed** — the session's own subject matter.
+
+**This is the second instance of one shape**, and the first is already
+here:
+
+| | the claim | who falsified it |
+|---|---|---|
+| assessment 11 → deal 2 | *"`deal_id` is None on all three assessments and nothing populates it"* | **the author**, who had ordered the link themselves, and the sentence outlived the action |
+| **Site DD Lite** | *"nothing consumes `status` as a filter"* | **the same session**, 97 minutes later |
+
+The general form: **the work that falsifies a document's claim is most
+often done by the person who just wrote the claim.** No audit catches
+that, because the audit precedes the work by construction. The existing
+rule — [*when you have changed the world, go back and correct what the
+document says about
+it*](#code-written-for-the-case-in-hand-not-for-the-shape-of-the-problem--three-times-this-week)
+— is the right one and it did not fire, twice.
+
+### The narrow, mechanical thing that would have helped
+
+**Date the rows.** The Part 84 table has a `how` column and no `when`
+column, and every row in it is a claim about a moving system. A row
+reading *"still nothing · grep · 10:55"* is a **reading**; the same row
+without the time reads as a **property**. That is one column, it costs
+nothing, and it is the same move as the fingerprints — an entry that says
+how to recompute it can be checked rather than believed.
+
+**What is NOT proposed, and why.** A test asserting HANDOFF's claims
+against the code. The general version does not work — Part 41 built three
+designs for exactly that shape and measured **100% false positives** —
+and the one-claim version is an instrument that pins a single sentence
+somebody will delete when the sentence changes. This file already refuses
+that trade for the dead-reader glob and for the scraping rule, and the
+refusal is the same here.
+
+### Three claims from the Part 113 brief, and they share one shape
+
+Recorded because the brief's author asked for them to be, and because the
+common factor is worth more than the three:
+
+| the claim | what was true |
+|---|---|
+| Entrata unit types are *"4x4 (Regular) ×318 or 4x4 (Full Upgrade) ×24"* | **312 and 24.** 318 + 24 = 342 against a 336-row table. Caught by addition, not by opening the file |
+| bed status could be *"a note on the bedroom room… no schema change"* | `site_dd_rooms` has **no `notes` column and no `update_room`**. The option costs the same ALTER as a status column and buys less |
+| *"nothing consumes `status` as a filter"* | true when written, false for nine days before it was repeated |
+
+**All three were carried from a summary rather than from the artifact**,
+and all three were cheap to settle at the artifact: one addition, one
+`PRAGMA table_info`, one `grep -n _lite_area`. That is the
+[report-to-prompt loop](#premises-that-turned-out-to-be-false) arriving in
+a run whose whole subject was correcting it, which is the argument for
+the habit rather than for another instrument.
 
 ---
 
@@ -6740,7 +6873,7 @@ above.
 |---|---|
 | **Site DD rent-roll upload** | **Roughly halved.** The original 2–3 session estimate assumed a new parser. The existing ResMan parser already returns all 152 Oxford Pointe units correctly — it needs a **loader branch plus `xlrd`**. Remaining: ~1 session for the parser/Underwriting path, a second for Site DD seeding. The idempotent re-upload reconcile is the expensive part, not the parsing. |
 | **Site DD property header** | **Now small.** The `deals` columns landed in `07e746e`. What remains is a form block and a display block. |
-| **Site DD Lite** | **Small.** `status` exists, is validated, and is displayed in three templates. It is a query filter plus a UI control. It never shipped because nothing consumed the field, not because it was hard. |
+| **Site DD Lite** | ~~**Small.** … It never shipped because nothing consumed the field.~~ **BUILT 2026-08-31, `c6fa01e` / `e32534b`** — a `?view=lite` filter on the existing detail route, `_lite_area()` at `tools/site_dd.py:195`, 20 tests in `tests/test_sitedd_lite_view.py`. **This row said "never shipped" for nine days after it shipped**, which is the rules-stated-twice failure in the higher-traffic statement again. Corrected Part 113. |
 | **Entrata parser seam** | **Deliberately unscoped.** We have never seen an Entrata file, so every estimate would be fabricated. Do not scope it until a sample exists — the Oxford Pointe experience is the argument: the file format decided the answer, not the design. **Also stated in *Open operational items* above; keep the two in step.** |
 | **`SOURCE_SITE_DD` cleanup** | Trivial: delete a constant and a counter branch, or implement the hand-off. |
 | **Manual freeform UI control** | Small, but unrequested. See the provisional threshold above. |

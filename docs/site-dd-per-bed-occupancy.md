@@ -119,6 +119,15 @@ It also breaks a consumer by design: `AREA_STATUSES`' own comment says it
 common areas only"*. A partially-occupied unit is neither in nor out of
 that filter, and the branch does not exist yet to make the call.
 
+> **The branch exists now — `c6fa01e`, 2026-08-31; noted 2026-09-09.**
+> That strengthens this objection rather than retiring it. `_lite_area()`
+> returns `status in (AREA_VACANT, None)`, so a new value such as
+> `partially_occupied` is **silently excluded from the walk** — the
+> filter does not ask about it, it simply does not match. Option A is
+> declined anyway (§R2.6); this is recorded so the "no consumer to break"
+> half of the argument is not reused for some future widening. There is a
+> consumer now, and it fails closed.
+
 **Worth doing anyway, and separately**, for the `Vacant Not Ready` /
 `Notice` gap in section 2 — that is a real shortfall in the per-unit
 vocabulary regardless of beds. It is not a substitute for B.
@@ -292,12 +301,21 @@ room comes back with no status.
 **Completion percentage is unaffected.** `summarize_unit` counts
 conditions on findings. A room status is neither.
 
-**Site DD Lite does not exist yet** and is the one real consumer to
-think about. Its stated purpose — inspect vacant units and common areas
+~~**Site DD Lite does not exist yet**~~ **SITE DD LITE IS BUILT —
+`c6fa01e` / `e32534b`, 2026-08-31, corrected here 2026-09-09 (Part 113).**
+`_lite_area()` at `tools/site_dd.py:195` reads
+`area.get("status") in (AREA_VACANT, None)` and selects the walk.
+
+It is the one real consumer to think about, and it is no longer
+hypothetical. Its stated purpose — inspect vacant units and common areas
 only — becomes *better* under option B, not worse: it can select the
 vacant **beds** in an occupied unit, which is precisely the walk a
 student-housing turn actually is. Under option A it becomes ambiguous.
 That is an argument for B over A on the merits, not just on granularity.
+
+**And the sentence above is now a measurement rather than a prediction.**
+Modelled per-unit at The View, Lite offers an inspector **8 apartments**
+and hides **53 of the building's 85 vacant beds**.
 
 ---
 
