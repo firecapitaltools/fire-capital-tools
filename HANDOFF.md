@@ -3998,6 +3998,82 @@ the change, and it reads as zero on an assessment that has only been
 opened. It is one `WHERE` clause and it needs a decision about what
 counts as content.
 
+### It has now happened to a client, and the entry was synthetic until it did
+
+**2026-09-08. Assessment 22 is Michelle's, and it carries 32 empty
+findings that nobody recorded.** Read read-only from production
+2026-09-09:
+
+```
+seed batch  seed-20260908-004748-c7c6e6   152 areas, 894 rooms
+findings    32, created_at 2026-09-08T00:48:28.442011  -- all 32, one instant
+            scope='property', area_id NULL, room_id NULL, instance_no 1
+            0 of 32 carry a condition, note, detail, measure or quantity
+overall_notes  'this is a test'
+```
+
+**Forty seconds.** She seeded at 00:47:48 and saved the overall-notes box
+at 00:48:28, and that one save — carrying a four-word note and nothing
+else — materialised a row for every property-scope checklist item. It is
+the 32 this entry predicted, on a client's assessment, at the exact size
+measured synthetically.
+
+**Nothing is wrong and nothing was lost**, which is the whole point of the
+entry: every row is honest, unanswered rather than false, and no number on
+any screen is incorrect. The only symptom is that her assessment now
+reports 32 findings to any count that asks the table how many rows there
+are.
+
+**The measurement was right and it aged perfectly.** The synthetic figure
+was `32` from a notes-only property save; the real one is `32`. That is
+worth saying because it is the rarer outcome — this file more often
+records a number that turned out to be a reading of something still
+moving.
+
+### And the preview held, but NOT for the reason it would be given credit for
+
+**Checked from the rendered page rather than from the function**, because
+the defect that produced `area_findings_with_content()` in the first place
+was a counter being correct while a screen said something else. A seed
+preview of assessment 22, driven through the real upload route on the
+container with the real ResMan roll:
+
+```
+Units 152 | Rooms created 0 | Findings preserved 0 | Rows refused 0
+"0 findings already recorded are left exactly as they are"
+```
+
+**Zero. No live defect.** But the obvious explanation is wrong, and it
+would have been repeated:
+
+> **It is not the content filter that produces this zero.** All 32 rows
+> carry `area_id IS NULL`, so they are outside **every** per-area counter.
+> Summed over all 152 areas of assessment 22, `area_finding_count`,
+> `area_finding_rows` and `area_findings_with_content` are **0, 0 and 0**.
+> The old preview would have said 0 here too.
+
+The three are genuinely discriminating instruments — on assessment 11 the
+same sum gives **2 / 23 / 3** — so their agreement at zero is a real
+negative and not a broken comparison. That control is what makes the
+statement above worth anything.
+
+**So the defence has still never been exercised by real data, and that is
+the finding.** Michelle happened to save the **property** page. Had she
+saved a unit or a room page, the materialised rows would carry an
+`area_id`, and `area_findings_with_content()` would have been the only
+thing standing between her and *"42 findings preserved"* on an assessment
+nobody has walked. Same mechanism, one scope over, and a different
+screen.
+
+> **A screen that reads correctly has not thereby tested the thing that
+> makes it read correctly.** This is [when a positive control passes,
+> doubt the instrument
+> first](#when-a-positive-control-passes-doubt-the-instrument-first)
+> arriving through an incident rather than a test: the right number
+> appeared, and the mechanism about to be credited for it was not in the
+> path at all. Establishing which of two sufficient causes actually fired
+> cost one query.
+
 ### Why this belongs beside the blanking rule and not inside it
 
 The blanking direction destroys information and is caught by looking for
@@ -6959,6 +7035,70 @@ was right about `_bed_notes`' own expectation, and it could not have been
 right about a key in another module. Same shape as [a change scoped by
 enumeration](#code-written-for-the-case-in-hand-not-for-the-shape-of-the-problem--three-times-this-week):
 derive the list, do not recall it.
+
+---
+
+## Both Oxford Pointe assessments are tests, and 22 says so in its own notes
+
+**Assessment 22's `overall_notes` read `this is a test`.** Michelle typed
+it, on 2026-09-08, forty seconds after seeding it. Read read-only from
+production 2026-09-09.
+
+**Every prompt for a fortnight has treated 22 as live client work.** It is
+the assessment the Part 107 correction was about — *"she imported an
+Oxford Pointe roll into an Oxford Pointe assessment, there was no mistake
+to find"* — and that correction is still right. What nobody read was the
+notes box, which says plainly what the assessment is for.
+
+| | 21 | 22 |
+|---|---|---|
+| created | 2026-08-30 | 2026-09-08 |
+| by | us, for the first real seed | **Michelle** |
+| inspector | `seed import` | `MJ` |
+| label | `Oxford Pointe` | `OXPT` |
+| batch | `seed-20260831-034600-0c16c9` | `seed-20260908-004748-c7c6e6` |
+| findings | **0** | 32, all empty, all property-scope |
+| overall_notes | **NULL — still unmarked** | **`this is a test`** |
+
+**So both Oxford Pointe assessments are tests**, one ours and one hers,
+and neither is a walk. Nothing in this file said otherwise, and nothing in
+it said this either.
+
+### What this does and does not change
+
+**It does not retire the determinism result.** [The seeder is
+deterministic](#the-seeder-is-deterministic-and-the-evidence-is-two-rows-in-the-database)
+compares the two seeds' output — 152 labels identical as a set, 0
+differences in room shapes, labels or kind — and that comparison does not
+care why either assessment exists. A control group made of two tests is
+still a control group. If anything the entry gets stronger: the artifact
+left in place turns out to have been left beside another one.
+
+**It does not decide anything about deletion.** Assessment 21's removal
+was already recorded as Michelle's call. 22 is hers outright, and what
+she does with a thing she labelled a test is not ours to infer. **The
+recommendation to keep 21 stands on its own reasoning** — the undo is
+proven on that exact batch, and both undos are still available
+(`undo_seed`'s own blocking query returns empty for both batches, and the
+same join over unseeded rooms returns room 16 with 15 findings, so the
+empty result is real).
+
+**What it does change is what a reader assumes about the Site DD numbers.**
+Six assessments, 63 findings, 304 areas across the two Oxford Pointe
+imports — and **none of the 63 is on either of them**: 23 are assessment
+11's real walk, 32 are assessment 22's empty materialisation, 8 are
+assessment 6's. *(Counts as of 2026-09-09 and they move with ordinary
+use; they are here as shape, not as facts to maintain — see [an audit is
+a reading](#an-audit-is-a-reading-and-this-file-records-readings-without-a-timestamp).)*
+
+> **The narrow lesson: the field that says what a record is FOR was
+> populated, displayed, and never read.** `overall_notes` is on the
+> assessment page and editable there — this file even chose it, in the
+> Part 82 entry on assessment 21, as the right home for provenance
+> precisely because it is *"displayed and editable on the assessment page
+> and is read by nothing else"*. Read by nothing else turned out to
+> include us. When a document keeps asking what a record is, check
+> whether the record already answers.
 
 ---
 
