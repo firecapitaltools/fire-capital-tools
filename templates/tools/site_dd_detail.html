@@ -18,6 +18,26 @@
   </p>
 </div>
 
+{#
+  THE FIRST THING ON THE PAGE IS WHERE TO EDIT, NOT WHAT TO DOWNLOAD
+
+  Reported from an iPhone: opened a draft, could not find how to change
+  anything. Nothing was actually hidden -- the checklist form further
+  down the page is the whole editor, and always was -- but the first
+  thing a phone screen showed was a row of document buttons (one of them
+  styled as THE primary action), with no visual cue that scrolling past
+  them reaches the form. This is a signpost to what already exists, not
+  a new workflow: it jumps to #checklist, the same form, the same save
+  button, the same assessment id.
+#}
+<div class="card" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+  <div>
+    <span class="stat-box-sub" style="text-transform:uppercase; letter-spacing:0.5px; font-weight:700;">{{ assessment_status_label(assessment.status) }}</span>
+    <p class="page-subtitle" style="margin:2px 0 0;">Record findings room by room, then save.</p>
+  </div>
+  <a href="#checklist" class="btn btn-primary sdd-touch">Continue Assessment</a>
+</div>
+
 <!-- ── Scores ─────────────────────────────────────────────────────────── -->
 <div class="card" id="summary">
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
@@ -40,13 +60,23 @@
       format is a suffix on both. A link nobody can interpret is the same
       failure as no link, one step later.
     #}
+    {#
+      target="_blank" rather than a same-window navigation, because a PDF
+      opened in place inside an installed iOS PWA has no browser chrome
+      to get back out of -- no tab bar, no back gesture, nothing. In that
+      standalone context a new-tab link is what hands the document to
+      Safari (or the system PDF viewer) instead of swallowing the app.
+      Reported as "stuck in a PDF": this is the fix, not a viewer modal --
+      it is the smallest thing that gets the person back to the
+      assessment they were just on, unchanged, by construction.
+    #}
     <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
       <a href="{{ url_for('site_dd.download_report', assessment_id=assessment.id) }}"
-         class="btn btn-primary">Condition Report (PDF)</a>
+         class="btn btn-ghost" target="_blank" rel="noopener">Condition Report (PDF)</a>
       <a href="{{ url_for('site_dd.capex_budget', assessment_id=assessment.id, fmt='xlsx') }}"
-         class="btn btn-ghost">Capital Budget (Excel)</a>
+         class="btn btn-ghost" target="_blank" rel="noopener">Capital Budget (Excel)</a>
       <a href="{{ url_for('site_dd.capex_budget', assessment_id=assessment.id, fmt='pdf') }}"
-         class="btn btn-ghost">Capital Budget (PDF)</a>
+         class="btn btn-ghost" target="_blank" rel="noopener">Capital Budget (PDF)</a>
       <form method="POST" action="{{ url_for('site_dd.delete', assessment_id=assessment.id) }}"
             onsubmit="return confirm('Delete this assessment permanently? This removes its checklist responses and all uploaded photos.');">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -76,6 +106,20 @@
       can be totalled, and what has no researched cost at all. Items in
       the last two are listed with the reason, and are not in the total.
     </p>
+    {#
+      Not a broken document -- an accurate one. Both exports are
+      generated fresh on every download rather than stored, so there is
+      no "not generated yet" state to gate on; a freshly-created
+      assessment genuinely has nothing to report yet, and the PDF says so
+      in its own words. Named here too, because "the PDF is empty" reads
+      as broken until you know why.
+    #}
+    {% if summary.assessed_count == 0 %}
+      <p class="page-subtitle" style="flex-basis:100%; margin:6px 0 0; color:#b45309;">
+        Nothing has been recorded yet, so the report and budget above will
+        both be empty until you assess items in the checklist below.
+      </p>
+    {% endif %}
   </div>
 
   {#
@@ -191,8 +235,14 @@
 <!-- ── Checklist ──────────────────────────────────────────────────────── -->
 <form method="POST" action="{{ url_for('site_dd.save', assessment_id=assessment.id) }}">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {#
+    The page's copy of updated_at at render time -- see the concurrency
+    comment in site_dd.save(). Not a new field, just this form's first
+    use of one that already existed on every assessment.
+  #}
+  <input type="hidden" name="expected_updated_at" value="{{ assessment.updated_at }}">
 
-  <div class="card">
+  <div class="card" id="checklist">
     <div class="scorecard-section-title">Assessment Details</div>
     <div class="sdd-form-grid" style="margin-top:14px;">
       <div class="form-group">
@@ -352,7 +402,7 @@
         <tbody>
           {% for p in photos %}
             <tr>
-              <td><a href="{{ url_for('site_dd.download_photo', assessment_id=assessment.id, photo_id=p.id) }}">{{ p.original_name }}</a></td>
+              <td><a href="{{ url_for('site_dd.download_photo', assessment_id=assessment.id, photo_id=p.id) }}" target="_blank" rel="noopener">{{ p.original_name }}</a></td>
               <td>{{ item_labels.get(p.item_key, p.item_key) if p.item_key else 'General' }}</td>
               <td>{{ p.caption or '—' }}</td>
               <td>{{ p.uploaded_at[:10] }}</td>

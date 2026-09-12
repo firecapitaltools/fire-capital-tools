@@ -92,8 +92,18 @@
           {% for a in assessments %}
             {% set s = a.summary %}
             <tr>
+              {#
+                The property cell is a link, not just text, because it is the
+                one column guaranteed to be on-screen at any width -- the
+                Open button at the far right of an 8-column table scrolls off
+                a phone's viewport with no visible cue that a scroll exists.
+                A draft (or any) assessment must be reachable without
+                discovering that. The Open button stays for desktop's
+                pointer-driven habit; this is the same href, not a second
+                workflow or a second way to reach a different page.
+              #}
               <td>
-                {{ a.property_label }}
+                <a href="{{ url_for('site_dd.detail', assessment_id=a.id) }}">{{ a.property_label }}</a>
                 {%- if a.deal_id %} <span class="stat-box-sub">· linked to deal #{{ a.deal_id }}</span>{% endif %}
               </td>
               <td>{{ a.assessed_on or '—' }}</td>

@@ -292,6 +292,24 @@ def save(assessment_id):
     # here exactly as it does for a finding.
     prior_assessment = _load(assessment_id) or {}
 
+    # THE CONCURRENCY CHECK.
+    #
+    # Two people can open the same assessment -- that is the point of it
+    # being a shared, server-stored record rather than per-device state.
+    # But this form posts the FULL rendered checklist, not a diff, so
+    # whoever saves second would otherwise silently overwrite whatever the
+    # first person saved in between with the stale values their own page
+    # loaded with. expected_updated_at is the page's copy of updated_at at
+    # render time; a mismatch means somebody else saved after this page
+    # was loaded, and B's stale copy must not overwrite A's newer one.
+    # Nothing new to store: updated_at already exists and already changes
+    # on every save.
+    expected_updated_at = request.form.get("expected_updated_at")
+    if expected_updated_at and expected_updated_at != prior_assessment.get("updated_at"):
+        flash("Someone else saved changes to this assessment after you opened it. "
+              "Reload to see their changes before saving yours.", "danger")
+        return redirect(url_for("site_dd.detail", assessment_id=assessment_id))
+
     def header(field, column, default=None):
         if field not in request.form:
             return prior_assessment.get(column, default)
